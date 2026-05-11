@@ -16,27 +16,43 @@ Platform prediksi hasil panen nasional berbasis citra satelit Sentinel-2 + data 
 - **UI:** Streamlit + streamlit-option-menu + streamlit-folium
 - **ML:** XGBoost / LightGBM (tabular features)
 - **Pipeline data:** Google Earth Engine (Sentinel-2), ERA5/BMKG (cuaca), BPS (yield historis)
-- **Geospatial:** geopandas, folium, rasterio
+- **Geospatial:** geopandas, folium (raster I/O via GEE, server-side)
 - **Charts:** Plotly
 
 ## Quick Start
 
-```bash
-# 1. Buat virtual env
-python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # Mac/Linux
+> **PENTING:** Wajib pakai **Python 3.12** (bukan 3.13/3.14). ML & geospatial packages belum punya Windows wheels untuk 3.13+. Download: https://www.python.org/downloads/release/python-3128/
+>
+> Saat install Python 3.12, **tick "Add Python to PATH"** dan **"py launcher"**.
 
-# 2. Install deps
+### Cara mudah (Windows PowerShell)
+
+```powershell
+.\setup.ps1
+```
+
+Script ini otomatis: cek Python 3.12, hapus venv lama, buat venv baru, install deps.
+
+### Cara manual
+
+```powershell
+# 1. Buat venv dengan Python 3.12 (BUKAN default python)
+py -3.12 -m venv .venv
+.venv\Scripts\Activate.ps1
+
+# 2. Upgrade pip dulu (penting!)
+python -m pip install --upgrade pip wheel setuptools
+
+# 3. Install deps
 pip install -r requirements.txt
 
-# 3. Setup Earth Engine (sekali saja)
+# 4. Setup Earth Engine (sekali saja)
 earthengine authenticate
 
-# 4. Copy env file dan isi credentials
-cp .env.example .env
+# 5. Copy env file
+copy .env.example .env
 
-# 5. Run app
+# 6. Run app
 streamlit run app.py
 ```
 
