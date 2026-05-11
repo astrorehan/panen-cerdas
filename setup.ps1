@@ -1,4 +1,4 @@
-# PanenCerdas — one-shot setup script (Windows PowerShell)
+# PanenCerdas - one-shot setup script (Windows PowerShell)
 # Run: .\setup.ps1
 #
 # Prereq: Python 3.12 installed. Check with: py -3.12 --version
@@ -7,18 +7,22 @@
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "PanenCerdas setup — Day 1" -ForegroundColor Green
+Write-Host "PanenCerdas setup - Day 1" -ForegroundColor Green
 
 # 1. Verify Python 3.12 is available
+$pyOk = $false
 try {
-    $pyVersion = & py -3.12 --version 2>&1
-    Write-Host "OK $pyVersion" -ForegroundColor Green
-} catch {
+    $pyVersion = (& py -3.12 --version) 2>$null
+    if ($LASTEXITCODE -eq 0) { $pyOk = $true }
+} catch {}
+
+if (-not $pyOk) {
     Write-Host "ERROR: Python 3.12 not found." -ForegroundColor Red
     Write-Host "   Install from: https://www.python.org/downloads/release/python-3128/"
     Write-Host "   Tick 'Add Python to PATH' and 'py launcher' during install."
     exit 1
 }
+Write-Host "OK $pyVersion" -ForegroundColor Green
 
 # 2. Remove old venv if it exists (and was made with wrong Python)
 if (Test-Path .venv) {
