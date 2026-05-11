@@ -4,24 +4,31 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142 70% 30%;
-    --radius: 0.75rem;
+    --background: #f4efe6;
+    --foreground: #1a1d1b;
+    --border: #c8c0a8;
+    --ring: #2a3d2f;
+    --radius: 4px;
   }
 
   * {
-    @apply border-border;
+    @apply border-rule;
   }
 
   html,
   body {
-    @apply bg-background text-foreground antialiased;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    background: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "calt", "kern";
+  }
+
+  body {
+    background-image:
+      /* fine grain via radial dots */ radial-gradient(rgba(26, 29, 27, 0.045) 1px, transparent 1px),
+      /* second grain offset */ radial-gradient(rgba(26, 29, 27, 0.025) 1px, transparent 1px);
+    background-size: 3px 3px, 5px 5px;
+    background-position: 0 0, 1px 2px;
   }
 
   /* Leaflet container fills its parent */
@@ -29,6 +36,54 @@
     width: 100%;
     height: 100%;
     z-index: 0;
+    background: #ebe5d6 !important;
+    font-family: var(--font-sans);
+  }
+  /* Sepia/warm tone for the basemap */
+  .leaflet-tile-pane {
+    filter: sepia(0.35) hue-rotate(-8deg) saturate(0.82) brightness(0.96);
+  }
+}
+
+@layer components {
+  /* Decorative hairline rule with optional section marker */
+  .rule-h {
+    @apply relative h-px w-full bg-rule;
+  }
+  .rule-h::after {
+    content: "";
+    @apply absolute -top-px left-0 h-[3px] w-12 bg-ink;
+  }
+
+  /* Scientific bulletin metadata block */
+  .meta-row {
+    @apply flex items-center gap-3 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint;
+  }
+
+  /* Big italic Fraunces KPI numeral */
+  .display-numeral {
+    @apply font-display italic text-ink;
+    font-feature-settings: "ss01", "ss02";
+    font-variation-settings: "opsz" 144, "SOFT" 30, "WONK" 0;
+  }
+
+  /* Small caps label */
+  .smallcaps {
+    @apply font-mono uppercase tracking-smallcaps text-ink-faint;
+  }
+
+  /* Section header pair */
+  .section-eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint;
+  }
+  .section-title {
+    @apply font-display text-3xl text-ink md:text-4xl;
+    font-variation-settings: "opsz" 72, "SOFT" 50, "WONK" 0;
+  }
+
+  /* Coordinate tag (e.g. "8°S · 107°E") */
+  .coord {
+    @apply font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint;
   }
 }
 
@@ -36,4 +91,20 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /* Topographic line pattern overlay (SVG-encoded) */
+  .topo-bg {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400' fill='none' stroke='%23c8c0a8' stroke-width='0.7' opacity='0.55'><path d='M-50 320 C 100 280 220 360 360 300 S 620 260 880 320'/><path d='M-50 280 C 100 240 220 320 360 260 S 620 220 880 280'/><path d='M-50 240 C 100 200 220 280 360 220 S 620 180 880 240'/><path d='M-50 200 C 100 160 220 240 360 180 S 620 140 880 200'/><path d='M-50 160 C 100 120 220 200 360 140 S 620 100 880 160'/><path d='M-50 120 C 100 80 220 160 360 100 S 620 60 880 120'/></svg>");
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+  }
+
+  /* Stagger delay helpers — used with .animate-ink-rise */
+  .stagger-1 { animation-delay: 60ms; }
+  .stagger-2 { animation-delay: 140ms; }
+  .stagger-3 { animation-delay: 220ms; }
+  .stagger-4 { animation-delay: 300ms; }
+  .stagger-5 { animation-delay: 380ms; }
+  .stagger-6 { animation-delay: 460ms; }
+  .stagger-7 { animation-delay: 540ms; }
 }

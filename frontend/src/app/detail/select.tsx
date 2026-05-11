@@ -11,19 +11,22 @@ type Props = {
 export function KecamatanSelect({ options, currentId }: Props) {
   const router = useRouter();
   return (
-    <select
-      className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
-      value={currentId ?? ""}
-      onChange={(e) => router.push(`/detail?id=${e.target.value}`)}
-    >
-      <option value="" disabled>
-        Pilih kecamatan...
-      </option>
-      {options.map((o) => (
-        <option key={o.id} value={o.id}>
-          {o.kecamatan} (Kab. {o.kabupaten})
+    <label className="flex items-center gap-2 border border-ink bg-paper px-3 py-2 font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint">
+      <span>Pilih</span>
+      <select
+        className="bg-transparent text-ink focus:outline-none"
+        value={currentId ?? ""}
+        onChange={(e) => router.push(`/detail?id=${e.target.value}`)}
+      >
+        <option value="" disabled>
+          —
         </option>
-      ))}
-    </select>
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.kecamatan} · Kab. {o.kabupaten}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

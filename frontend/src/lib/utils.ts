@@ -6,11 +6,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Status palette — earth-tone, used by map + KPIs + status banners
 export const STATUS_COLOR: Record<StatusPangan, string> = {
-  surplus: "#2E7D32",
-  cukup: "#A5D6A7",
-  waspada: "#FFB74D",
-  defisit: "#C62828",
+  surplus: "#2A3D2F",
+  cukup: "#87A07D",
+  waspada: "#D4933A",
+  defisit: "#A8442C",
 };
 
 export const STATUS_LABEL: Record<StatusPangan, string> = {
