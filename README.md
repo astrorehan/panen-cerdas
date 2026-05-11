@@ -2,103 +2,122 @@
 
 Platform prediksi hasil panen nasional berbasis citra satelit Sentinel-2 + data cuaca BMKG + data historis BPS, untuk prediksi surplus/defisit pangan per kecamatan 3 bulan sebelum panen.
 
-**Status:** Day 1 scaffold. MVP target: 4 hari.
+**UNITY Competition #14 UNY 2026 - Software Development**
+
+**Status:** Day 1 scaffold (pivoted to Next.js + FastAPI). MVP target: 4 hari.
 
 ## Scope MVP (4 hari)
 
-- **Wilayah:** 1 provinsi (default: Jawa Barat) — 5-10 kecamatan studi kasus
+- **Wilayah:** 1 provinsi (default: Jawa Barat) - 5-10 kecamatan studi kasus
 - **Komoditas:** Padi
 - **Periode:** Musim tanam 2023-2024 (ada ground truth BPS untuk validasi)
-- **Output:** Web app Streamlit dengan peta choropleth, prediksi per kecamatan, laporan surplus/defisit
+- **Output:** Web app dengan peta choropleth, drill-down per kecamatan, surplus/defisit logic
 
 ## Stack
 
-- **UI:** Streamlit + streamlit-option-menu + streamlit-folium
-- **ML:** XGBoost / LightGBM (tabular features)
-- **Pipeline data:** Google Earth Engine (Sentinel-2), ERA5/BMKG (cuaca), BPS (yield historis)
-- **Geospatial:** geopandas, folium (raster I/O via GEE, server-side)
-- **Charts:** Plotly
+| Layer | Tech |
+|-------|------|
+| Frontend | Next.js 14 + TypeScript + Tailwind + shadcn/ui + react-leaflet + recharts |
+| Backend | FastAPI (Python 3.12) + Pydantic |
+| ML | XGBoost / scikit-learn (tabular) |
+| Pipeline data | Google Earth Engine (Sentinel-2) + ERA5/BMKG + BPS Excel |
+| Geospatial | geopandas + shapely (raster I/O via GEE server-side) |
+| Hosting (target) | Vercel (frontend) + Railway (backend) |
 
 ## Quick Start
 
-> **PENTING:** Wajib pakai **Python 3.12** (bukan 3.13/3.14). ML & geospatial packages belum punya Windows wheels untuk 3.13+. Download: https://www.python.org/downloads/release/python-3128/
+> **PENTING:** Wajib Python 3.12 (bukan 3.13/3.14) dan Node.js 20+ LTS.
 >
-> Saat install Python 3.12, **tick "Add Python to PATH"** dan **"py launcher"**.
+> - Python: https://www.python.org/downloads/release/python-3128/ (tick "Add to PATH")
+> - Node: https://nodejs.org/ (LTS)
 
 ### Cara mudah (Windows PowerShell)
 
 ```powershell
-.\setup.ps1
+# Terminal 1 - backend
+.\setup-backend.ps1
+.\.venv\Scripts\Activate.ps1
+uvicorn backend.main:app --reload --port 8000
+
+# Terminal 2 - frontend
+.\setup-frontend.ps1
+cd frontend
+npm run dev
 ```
 
-Script ini otomatis: cek Python 3.12, hapus venv lama, buat venv baru, install deps.
+- Backend: http://localhost:8000/docs (Swagger UI)
+- Frontend: http://localhost:3000
 
 ### Cara manual
 
+Backend:
 ```powershell
-# 1. Buat venv dengan Python 3.12 (BUKAN default python)
 py -3.12 -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. Upgrade pip dulu (penting!)
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip wheel setuptools
-
-# 3. Install deps
 pip install -r requirements.txt
-
-# 4. Setup Earth Engine (sekali saja)
-earthengine authenticate
-
-# 5. Copy env file
-copy .env.example .env
-
-# 6. Run app
-streamlit run app.py
+uvicorn backend.main:app --reload --port 8000
 ```
 
-App akan terbuka di http://localhost:8501
+Frontend:
+```powershell
+cd frontend
+copy .env.local.example .env.local
+npm install
+npm run dev
+```
 
 ## Struktur Project
 
 ```
 panen-cerdas/
-├── app.py                    # Streamlit entry point
-├── pages/                    # Multi-page sections
-│   ├── 1_Dashboard.py        # Overview + KPI
-│   ├── 2_Peta_Prediksi.py    # Choropleth map
-│   ├── 3_Detail_Kecamatan.py # Drill-down per kecamatan
-│   └── 4_Tentang.py          # Tentang project
-├── pipeline/                 # Data extraction & processing
+├── backend/                  # FastAPI server
+│   ├── main.py
+│   ├── api/
+│   │   ├── dashboard.py      # GET /api/dashboard/*
+│   │   ├── predictions.py    # GET /api/predictions, /api/predictions/{id}
+│   │   └── regions.py        # GET /api/regions/geojson
+│   ├── schemas.py            # Pydantic models
+│   └── core/config.py
+├── frontend/                 # Next.js app
+│   └── src/
+│       ├── app/              # Routes: /, /peta, /detail, /tentang
+│       ├── components/       # Navbar, KPI card, charts, map
+│       ├── lib/api.ts        # Backend client
+│       └── types/            # Shared types
+├── pipeline/                 # Data ingestion (NotImplementedError, Day 2)
 │   ├── sentinel.py           # GEE Sentinel-2 NDVI
-│   ├── weather.py            # BMKG / ERA5 cuaca
-│   ├── bps.py                # BPS yield historis
-│   └── features.py           # Feature engineering
-├── model/                    # ML training & prediction
-│   ├── train.py
-│   ├── predict.py
-│   └── evaluate.py
-├── utils/                    # Shared helpers
-│   ├── geo.py                # Geospatial utils
-│   └── viz.py                # Visualization helpers
-├── data/
-│   ├── raw/                  # Raw downloads (git-ignored)
-│   ├── processed/            # Cleaned CSV/parquet
-│   ├── models/               # Trained model artifacts
-│   └── shapefiles/           # Batas kecamatan
-├── notebooks/                # Eksplorasi data
-└── tests/
+│   ├── weather.py            # ERA5 / BMKG
+│   ├── bps.py                # BPS Excel parser
+│   └── features.py           # Join + lag features
+├── model/                    # ML
+│   ├── train.py              # XGBoost
+│   ├── predict.py            # Yield + surplus/defisit
+│   └── evaluate.py           # MAPE / RMSE
+├── utils/                    # geo helpers, status classifier
+├── data/                     # raw, processed, models, shapefiles (gitignored)
+├── tests/
+├── requirements.txt
+├── setup-backend.ps1
+├── setup-frontend.ps1
+├── ROADMAP.md                # 4-day plan with risks
+└── CONTRIBUTING.md           # Branch strategy + role split
 ```
 
 ## Pembagian Tugas (saran 3 orang)
 
-Lihat [ROADMAP.md](./ROADMAP.md) untuk detail per hari.
+| Orang | Fokus | Folder utama |
+|-------|-------|--------------|
+| A     | Data pipeline + ML | `pipeline/`, `model/` |
+| B     | Backend API + integration | `backend/`, glue ML <-> API |
+| C     | Frontend + demo | `frontend/`, pitch deck |
 
-- **Person A — Data Engineer:** `pipeline/` (sentinel, weather, bps), shapefile kecamatan
-- **Person B — ML Engineer:** `model/`, feature engineering, evaluation
-- **Person C — Frontend/Demo:** `app.py`, `pages/`, theming, peta, pitch deck
+Lihat [CONTRIBUTING.md](./CONTRIBUTING.md) untuk workflow.
 
-Bekerja paralel di branch berbeda, merge ke `dev` tiap akhir hari.
-
-## Cara Kontribusi
+## Kontribusi
 
 Lihat [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Roadmap
+
+Lihat [ROADMAP.md](./ROADMAP.md).

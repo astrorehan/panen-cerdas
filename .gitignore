@@ -13,12 +13,19 @@ ENV/
 .mypy_cache/
 .ipynb_checkpoints/
 
-# Streamlit
-.streamlit/secrets.toml
+# Node / Next.js (frontend has its own .gitignore too)
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Env / credentials
 .env
 .env.local
+.env*.local
 *.pem
 service-account*.json
 ee-credentials.json
@@ -39,6 +46,9 @@ data/shapefiles/*
 *.swp
 .DS_Store
 Thumbs.db
+
+# Vercel
+.vercel
 
 # Claude Code local state (not shared across team)
 .claude/
