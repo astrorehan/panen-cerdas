@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Env / credentials
+.env
+.env.local
+*.pem
+service-account*.json
+ee-credentials.json
+
+# Data (raw downloads are heavy — share via Drive)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/models/*
+!data/models/.gitkeep
+data/shapefiles/*
+!data/shapefiles/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# OS
+desktop.ini
+
+# Build
+dist/
+build/
+*.log
