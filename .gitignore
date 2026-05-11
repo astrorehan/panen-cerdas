@@ -40,6 +40,10 @@ data/shapefiles/*
 .DS_Store
 Thumbs.db
 
+# Claude Code local state (not shared across team)
+.claude/
+SESSION_HANDOFF.md
+
 # OS
 desktop.ini
 
