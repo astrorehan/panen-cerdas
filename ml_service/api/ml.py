@@ -1,7 +1,14 @@
 """ML endpoints — POST /predict + POST /feedback.
 
 Phase 1: mock heuristic (rule-based), shape-correct response.
-Phase 7: replace _heuristic_predict() with XGBoost + NASA POWER + GEE NDVI.
+Phase 7: XGBoost + NASA POWER wired in.
+  - Climate: NASA POWER 30-day average when (lat, lon) supplied; falls
+    back to hardcoded tropical defaults on network failure.
+  - Yield + harvest_days: trained XGBoost models (`data/models/xgb_*.pkl`)
+    if loaded; otherwise the rule-based formula remains as fallback.
+  - NDVI: still mock — real GEE Sentinel-2 integration deferred (auth +
+    quota overhead too high for the hackathon).
+Recommendations + risk_level + confidence stay rule-based.
 """
 from __future__ import annotations
 
@@ -10,6 +17,7 @@ from pathlib import Path
 
 from fastapi import APIRouter
 
+from ml_service import climate, predictor
 from ml_service.core.config import DATA_DIR
 from ml_service.schemas import (
     FeedbackRequest,
@@ -45,66 +53,98 @@ def _append_jsonl(path: Path, record: dict) -> None:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def _heuristic_yield_formula(
+    crop_type: str, variety: str, pest_pressure: float,
+    ndvi: float, rainfall: float, temperature: float, solar: float,
+) -> float:
+    base_yield = BASE_YIELD[crop_type]
+    ndvi_factor = max(0.5, min(1.3, ndvi / 0.7))
+    pest_factor = 1.0 - pest_pressure * 0.5
+    rainfall_factor = max(0.6, 1.0 - abs(rainfall - 150.0) / 300.0)
+    temp_factor = max(0.7, 1.0 - abs(temperature - 27.0) / 30.0)
+    solar_factor = max(0.8, min(1.1, solar / 200.0))
+    variety_factor = 1.05 if variety in IMPROVED_VARIETIES else 1.0
+    return base_yield * ndvi_factor * pest_factor * rainfall_factor * temp_factor * solar_factor * variety_factor
+
+
 def _heuristic_predict(req: PredictRequest) -> tuple[dict, str, str]:
-    """Rule-based mock. Returns (numeric_dict, climate_source, ndvi_source)."""
-    # Climate provenance
+    """Resolve features, score, and explain. Returns (numeric_dict, climate_source, ndvi_source)."""
+    # ----- Climate resolution -----
     if req.rainfall_mm is not None and req.temperature_c is not None:
         climate_source = "manual"
         rainfall = req.rainfall_mm
         temperature = req.temperature_c
         solar = req.solar_radiation if req.solar_radiation is not None else 200.0
     elif req.lat is not None and req.lon is not None:
-        climate_source = "estimated"
-        # Mock NASA POWER fetch: tropics defaults
-        rainfall = 180.0
-        temperature = 27.5
-        solar = 210.0
+        fetched = climate.fetch_climate(req.lat, req.lon)
+        if fetched is not None:
+            climate_source = "estimated"
+            rainfall = fetched["rainfall_mm"]
+            temperature = fetched["temperature_c"]
+            solar = fetched["solar_radiation"]
+        else:
+            # NASA POWER failed (offline, parse error) - mark default
+            climate_source = "default"
+            rainfall = 180.0
+            temperature = 27.5
+            solar = 210.0
     else:
         climate_source = "default"
         rainfall = 150.0
         temperature = 27.0
         solar = 200.0
 
-    # NDVI provenance
+    # ----- NDVI resolution -----
     if req.ndvi is not None:
         ndvi_source = "manual"
         ndvi = req.ndvi
     elif req.lat is not None and req.lon is not None:
+        # Phase 7: GEE Sentinel-2 deferred; still mock 0.65 from "estimated".
         ndvi_source = "estimated"
         ndvi = 0.65
     else:
         ndvi_source = "default"
         ndvi = 0.6
 
+    # ----- Score: XGBoost if available, else heuristic formula -----
     base_yield = BASE_YIELD[req.crop_type]
     base_days = BASE_HARVEST_DAYS[req.crop_type]
 
-    ndvi_factor = max(0.5, min(1.3, ndvi / 0.7))
-    pest_factor = 1.0 - req.pest_pressure * 0.5
-    # rainfall bell: optimal 150mm
-    rainfall_factor = max(0.6, 1.0 - abs(rainfall - 150.0) / 300.0)
-    temp_factor = max(0.7, 1.0 - abs(temperature - 27.0) / 30.0)
-    solar_factor = max(0.8, min(1.1, solar / 200.0))
-    variety_factor = 1.05 if req.variety in IMPROVED_VARIETIES else 1.0
+    if predictor.is_available():
+        feats = predictor.build_features(
+            crop_type=req.crop_type,
+            variety=req.variety,
+            pest_pressure=req.pest_pressure,
+            ndvi=ndvi,
+            rainfall_mm=rainfall,
+            temperature_c=temperature,
+            solar_radiation=solar,
+        )
+        yield_per_ha, harvest_days = predictor.predict(feats)
+        yield_per_ha = round(yield_per_ha, 2)
+    else:
+        yield_per_ha = round(
+            _heuristic_yield_formula(
+                req.crop_type, req.variety, req.pest_pressure,
+                ndvi, rainfall, temperature, solar,
+            ),
+            2,
+        )
+        harvest_days = int(base_days + req.pest_pressure * 10 - (ndvi - 0.6) * 15)
 
-    yield_per_ha = round(
-        base_yield * ndvi_factor * pest_factor * rainfall_factor * temp_factor * solar_factor * variety_factor,
-        2,
-    )
     total_yield = round(yield_per_ha * req.land_area_ha, 2)
 
-    # Harvest days: slight stretch with pest, slight shorten with high NDVI
-    harvest_days = int(base_days + req.pest_pressure * 10 - (ndvi - 0.6) * 15)
-
-    # Confidence: more inputs explicitly provided = higher confidence
+    # ----- Confidence (rule-based) -----
     explicit_count = sum(
         1
         for v in (req.ndvi, req.rainfall_mm, req.temperature_c, req.solar_radiation, req.lat, req.lon)
         if v is not None
     )
     confidence = round(min(0.92, 0.55 + 0.06 * explicit_count), 2)
+    if predictor.is_available():
+        confidence = round(min(0.95, confidence + 0.03), 2)  # small bump for trained model
 
-    # Risk level: combine pest + yield delta from base
+    # ----- Risk level (rule-based, derived from yield ratio + pest) -----
     yield_ratio = yield_per_ha / base_yield
     if req.pest_pressure >= 0.7 or yield_ratio < 0.7:
         risk_level: str = "high"

@@ -44,6 +44,9 @@ data/shapefiles/*
 data/predictions.jsonl
 data/feedback.jsonl
 
+# NASA POWER on-disk cache (regenerated on demand)
+data/cache/
+
 # IDE
 .vscode/
 .idea/
