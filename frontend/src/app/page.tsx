@@ -19,7 +19,7 @@ export default async function DashboardPage() {
           Backend tidak terhubung.
         </p>
         <p className="mt-3 font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint">
-          Jalankan uvicorn backend.main:app --reload --port 8000
+          Jalankan uvicorn ml_service.main:app --reload --port 8000
         </p>
       </div>
     );

@@ -15,7 +15,7 @@ export default async function PetaPage() {
   if (!predictions || !geojson) {
     return (
       <div className="border border-ink/20 bg-paper-deep p-10 text-center font-display italic text-ink">
-        Backend tidak terhubung. Jalankan uvicorn backend.main:app --reload --port 8000
+        Backend tidak terhubung. Jalankan uvicorn ml_service.main:app --reload --port 8000
       </div>
     );
   }

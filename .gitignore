@@ -40,6 +40,10 @@ data/models/*
 data/shapefiles/*
 !data/shapefiles/.gitkeep
 
+# Runtime ML logs (predictions + feedback per developer)
+data/predictions.jsonl
+data/feedback.jsonl
+
 # IDE
 .vscode/
 .idea/

@@ -68,3 +68,46 @@ class KecamatanDetail(BaseModel):
 class RegionsResponse(BaseModel):
     province: str
     items: list[dict] = Field(..., description="GeoJSON FeatureCollection-ish summary")
+
+
+CropType = Literal["padi", "jagung", "kedelai", "singkong"]
+RiskLevel = Literal["low", "medium", "high"]
+
+
+class PredictRequest(BaseModel):
+    crop_type: CropType
+    land_area_ha: float = Field(..., gt=0)
+    pest_pressure: float = Field(0.0, ge=0.0, le=1.0)
+    variety: str = "Lokal"
+
+    lat: float | None = None
+    lon: float | None = None
+
+    ndvi: float | None = Field(None, ge=0.0, le=1.0)
+    rainfall_mm: float | None = Field(None, ge=0.0)
+    temperature_c: float | None = None
+    solar_radiation: float | None = Field(None, ge=0.0)
+
+
+class PredictResponse(BaseModel):
+    prediction_log_id: int
+    harvest_days: int
+    yield_ton_per_ha: float
+    total_yield_ton: float
+    risk_level: RiskLevel
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    recommendations: list[str]
+    climate_source: Literal["manual", "estimated", "default"]
+    ndvi_source: Literal["manual", "estimated", "default"]
+
+
+class FeedbackRequest(BaseModel):
+    prediction_log_id: int
+    actual_harvest_days: int = Field(..., gt=0)
+    actual_yield_ton_per_ha: float = Field(..., gt=0)
+    notes: str | None = None
+
+
+class FeedbackResponse(BaseModel):
+    status: Literal["received"]
+    feedback_id: int

@@ -1,4 +1,4 @@
-"""Backend configuration — env vars + constants."""
+"""ML service configuration - env vars + constants."""
 from __future__ import annotations
 
 import os

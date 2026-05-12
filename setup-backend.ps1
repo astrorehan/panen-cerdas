@@ -39,7 +39,7 @@ Write-Host "Installing Python deps (3-5 min) ..." -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Backend ready. Start it with:" -ForegroundColor Green
 Write-Host "   .\.venv\Scripts\Activate.ps1" -ForegroundColor White
-Write-Host "   uvicorn backend.main:app --reload --port 8000" -ForegroundColor White
+Write-Host "   uvicorn ml_service.main:app --reload --port 8000" -ForegroundColor White
 Write-Host ""
 Write-Host "Then visit:" -ForegroundColor Yellow
 Write-Host "   http://localhost:8000/docs  (Swagger UI)" -ForegroundColor White

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from backend.schemas import (
+from ml_service.schemas import (
     KecamatanDetail,
     KecamatanPrediction,
     NdviPoint,
