@@ -64,3 +64,44 @@ export type GeoJsonFC = {
     geometry: { type: "Polygon"; coordinates: number[][][] };
   }>;
 };
+
+export type CropType = "padi" | "jagung" | "kedelai" | "singkong";
+export type RiskLevel = "low" | "medium" | "high";
+export type Provenance = "manual" | "estimated" | "default" | "fallback";
+
+export type PredictRequest = {
+  crop_type: CropType;
+  land_area_ha: number;
+  pest_pressure: number;
+  variety: string;
+  lat?: number | null;
+  lon?: number | null;
+  ndvi?: number | null;
+  rainfall_mm?: number | null;
+  temperature_c?: number | null;
+  solar_radiation?: number | null;
+};
+
+export type PredictResponse = {
+  prediction_log_id: number;
+  harvest_days: number;
+  yield_ton_per_ha: number;
+  total_yield_ton: number;
+  risk_level: RiskLevel;
+  confidence: number;
+  recommendations: string[];
+  climate_source: Provenance;
+  ndvi_source: Provenance;
+};
+
+export type FeedbackRequest = {
+  prediction_log_id: number;
+  actual_harvest_days: number;
+  actual_yield_ton_per_ha: number;
+  notes?: string;
+};
+
+export type FeedbackResponse = {
+  status: "received";
+  feedback_id: number;
+};
