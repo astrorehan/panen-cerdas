@@ -1,92 +1,95 @@
-# Roadmap 4 Hari - PanenCerdas
+# Roadmap PanenCerdas
 
-> **Pivot 2026-05-11:** Streamlit -> Next.js + FastAPI. UI dijadikan kriteria penilaian UNITY.
-> Backend Python (pipeline + model) tidak berubah; hanya layer presentation yang baru.
+> **Status (2026-05-12, Day 3 of 4):** Phase 0-7 SELESAI. MVP feature-complete, NASA POWER live, XGBoost dilatih dari data sintetik. Sisa: dokumentasi + demo deck + deploy.
 
-## Day 1 (HARI INI) - Foundation pivot
+## Selesai
 
-**Tujuan:** Semua orang clone repo, jalankan backend + frontend, lihat dashboard dummy.
+### Phase 0 - Repo restructure
+- `backend/` -> `ml_service/` agar nama "backend" bebas dipakai layer gateway baru.
+- Semua import + uvicorn command + setup script disesuaikan.
 
-- [x] Pivot scaffold: hapus Streamlit, tambah `backend/` (FastAPI) + `frontend/` (Next.js 14)
-- [x] Dummy endpoints di `/api/dashboard/*`, `/api/predictions`, `/api/regions/geojson`
-- [x] 4 halaman frontend: Dashboard, Peta, Detail, Tentang - semua konsumsi backend
-- [x] Setup scripts: `setup-backend.ps1`, `setup-frontend.ps1`
-- [ ] Setiap orang setup lokal sukses (backend di :8000, frontend di :3000)
-- [ ] Setiap orang setup Google Earth Engine account: https://earthengine.google.com/
-- [ ] Download shapefile batas kecamatan Jawa Barat dari GADM ke `data/shapefiles/`
-- [ ] Download data BPS produksi padi Jabar 2018-2024 ke `data/raw/bps/`
+### Phase 1 - ML endpoints
+- `POST /predict` dan `POST /feedback` di `ml_service/api/ml.py`.
+- Kontrak Pydantic lengkap: crop_type, land_area_ha, pest_pressure, variety, lat/lon, rainfall_mm, temperature_c, solar_radiation, ndvi.
+- Logging ke `data/predictions.jsonl` + `data/feedback.jsonl`.
 
-**End-of-day demo:** Buka http://localhost:3000, navigasi 4 halaman, peta dummy muncul, klik kecamatan -> drill-down dummy.
+### Phase 2 - Express gateway
+- Node + Express pada `127.0.0.1:4400`.
+- Routes typed: `/api/predict` (dengan fallback), `/api/feedback`, `/api/health`.
+- Passthrough: `/api/dashboard/*`, `/api/predictions/*`, `/api/regions/*` ke FastAPI.
 
----
+### Phase 3 - Role auth + login
+- `lib/auth.ts` localStorage-based (`panen.role`).
+- `/login` dua tombol kartu (Petani / Pemerintah).
+- `AuthGuard` per layout role, `SkeletonLoader` saat pengecekan.
+- Navbar role-aware, tombol Keluar.
 
-## Day 2 - Pipeline + Model
+### Phase 4 - /petani/prediksi (CORE)
+- Form lengkap: crop picker, luas, varietas cascading, pest pressure 0/0.3/0.6/0.9, climate mode toggle (Default/GPS/Manual), NDVI override.
+- `ResultCard` dengan badge risiko, recommendations, provenance chip, confidence %.
+- `FeedbackForm` di bawah hasil untuk realisasi panen.
 
-**Tujuan:** Punya CSV bersih `[kecamatan, tahun, bulan, ndvi, rainfall, temp, yield]` + model XGBoost baseline.
+### Phase 5 - Reorganisasi pemerintah
+- `/` -> role router murni.
+- Editorial dashboard pindah ke `/pemerintah/dashboard`, peta ke `/pemerintah/produksi`, detail ke `/pemerintah/analisis`.
+- Semua di bawah `AuthGuard requiredRole="pemerintah"`.
 
-- [ ] `pipeline/sentinel.py`: NDVI mean/max per kecamatan per bulan via GEE
-- [ ] `pipeline/weather.py`: ERA5 monthly aggregation
-- [ ] `pipeline/bps.py`: parse Excel BPS jadi long-format CSV
-- [ ] `pipeline/features.py`: join semua sumber, buat lag features
-- [ ] `model/train.py`: XGBoost dengan time-based split (train: 2018-2022, test: 2023-2024)
-- [ ] Target metrik: **MAPE < 20%** per kecamatan
-- [ ] Save model ke `data/models/xgb_padi_jabar.pkl`
-- [ ] `model/predict.py`: returns prediksi yield + surplus/defisit per kecamatan
+### Phase 6 - Petani secondary + Alert
+- `/petani/dashboard` real (quick links).
+- `/petani/lahan`, `/petani/harga`, `/petani/cuaca` dengan mock data.
+- `/pemerintah/alert` baca `/api/predictions`, filter status waspada/defisit, urutkan ascending surplus_pct.
 
-**End-of-day demo:** Notebook menunjukkan prediksi vs aktual untuk 2023-2024.
+### Phase 7 - NASA POWER + XGBoost
+- `ml_service/climate.py` - NASA POWER live fetch (30-day rolling), 24h disk cache.
+- `ml_service/predictor.py` - load `.pkl` saat import, fallback ke heuristik kalau tidak ada.
+- `model/train_synthetic.py` - 5000 sample sintetik + noise, train dua XGBRegressor, save `.pkl`.
+- `ml_service/api/ml.py` - pakai predictor + climate kalau tersedia, formula sebagai fallback.
 
----
+## Tersisa (post-hackathon)
 
-## Day 3 - Bind backend ke ML + UI polish
+### A. Demo + submission (P0, hari deadline)
+- [ ] Slide deck: problem -> solusi -> arsitektur -> demo -> impact -> roadmap.
+- [ ] Demo video 2 menit (Loom / OBS).
+- [ ] Public URL: deploy frontend ke Vercel + ML ke Railway + Express ke Railway/Fly.
+- [ ] Buffer 6 jam: cold start, CORS production, dll.
 
-**Tujuan:** Endpoint backend kembalikan output ML asli (bukan dummy). Frontend tampil polished.
+### B. Polishing (P1)
+- [ ] Seed `data/predictions.jsonl` dengan ~10 entry biar `prediction_log_id` start tidak dari 1.
+- [ ] Halaman `/tentang` di-update untuk arsitektur baru.
+- [ ] Pytest dasar untuk `/predict` happy path.
+- [ ] Empty/error state untuk halaman petani sekunder (saat ini mock selalu ada).
 
-- [ ] Bind `backend/api/dashboard.py` ke aggregate dari `model.predict`
-- [ ] Bind `backend/api/predictions.py` ke `model.predict.predict_yield` + `to_surplus_deficit`
-- [ ] Bind `backend/api/regions.py` ke shapefile asli (geopandas + simplify)
-- [ ] Frontend: state loading, error toasts, skeleton placeholders
-- [ ] Frontend: filter dropdown (provinsi, komoditas, musim tanam) - currently hardcoded
-- [ ] Frontend: export laporan PDF (opsional - kalau sempat, gunakan `@react-pdf/renderer` atau print stylesheet)
-- [ ] Custom favicon + Open Graph image untuk share link
+### C. ML real (Phase 8+, beyond hackathon)
+- [ ] Pipeline `pipeline/sentinel.py` - NDVI bulanan Sentinel-2 via GEE.
+- [ ] Pipeline `pipeline/weather.py` - ERA5 / BMKG aggregation.
+- [ ] Pipeline `pipeline/bps.py` - parser Excel BPS yield padi 2018-2024.
+- [ ] Re-train XGBoost dengan label BPS asli (bukan sintetik).
+- [ ] GEE Sentinel-2 NDVI live di `ml_service/predictor.py` (saat ini di-skip karena auth + kuota berat).
+- [ ] Retraining loop yang baca `data/feedback.jsonl` periodik.
 
-**End-of-day demo:** Full app navigable dengan data real, peta menunjukkan status pangan asli, drill-down per kecamatan menampilkan NDVI time series real.
+### D. Produksi (jauh post-hackathon)
+- [ ] JWT auth + database (Postgres) menggantikan localStorage fake-role.
+- [ ] Halaman registrasi lahan asli (tulis ke DB, bukan mock).
+- [ ] WhatsApp Bot integration untuk notifikasi peringatan defisit.
+- [ ] Live PIHPS price feed di `/petani/harga`.
+- [ ] BMKG forecast di `/petani/cuaca`.
 
----
+## Anti-scope-creep
 
-## Day 4 - Deploy + Pitch
+Yang sengaja TIDAK dikerjakan dalam hackathon:
 
-**Tujuan:** Public URL, demo video, slide deck. **STOP CODING 6 JAM SEBELUM DEADLINE.**
+- Multi-provinsi (Jabar saja).
+- Deep learning (XGBoost cukup).
+- Real-time satellite ingestion (pakai snapshot historis kalau jadi).
+- Mobile responsive perfect (Tailwind default sudah cukup).
+- PostgreSQL + PostGIS (parquet + JSONL cukup untuk demo).
+- Sempurnakan UI (akan didesain ulang post-hackathon).
 
-- [ ] Fix bug dari user testing teman / keluarga
-- [ ] Deploy backend ke Railway atau Render (free tier)
-- [ ] Deploy frontend ke Vercel (set `NEXT_PUBLIC_API_URL` ke Railway URL)
-- [ ] Slide deck: problem -> solusi -> demo -> impact -> roadmap (lihat PDF Ringkasan Fitur)
-- [ ] Demo video 2 menit (Loom / OBS)
-- [ ] Pitch script - tekankan: "model kami prediksi panen Jabar 2024 dengan error X%, BPS resmi baru rilis Y bulan setelah panen"
-- [ ] Buffer 6 jam: hal random pasti rusak (CORS issue di Vercel, cold start Railway, dll)
+## Catatan Risiko
 
-**End-of-day demo:** Public URL, video, slides - siap submit ke UNITY.
-
----
-
-## Yang HARUS Anda Skip (Anti-scope-creep)
-
-- ❌ Modul 2-6 dari PDF (Climate Risk, Petani Dashboard, Market Intel, Crowdsourcing) - sebagai mockup di slide saja
-- ❌ Multi-komoditas (jagung, kedelai) - habis waktu
-- ❌ Deep learning (CNN/LSTM) - XGBoost cukup untuk MVP
-- ❌ Real-time satellite ingestion - pakai snapshot historis
-- ❌ User auth, login, role-based access
-- ❌ WhatsApp bot integration (PDF promise) - mockup screenshot di slide
-- ❌ PostgreSQL + PostGIS - parquet + GeoJSON cukup untuk demo. Setup PostgreSQL = 4 jam hilang
-- ❌ Mobile responsive sempurna - Tailwind default sudah cukup
-- ❌ Semua provinsi Indonesia - Jabar saja
-
-## Risiko Tertinggi
-
-1. **Earth Engine learning curve** - alokasikan 4 jam khusus Day 2 pagi kalau belum pernah pakai.
-2. **Cloud cover Sentinel-2** - gunakan SCL mask atau filter `CLOUDY_PIXEL_PERCENTAGE < 20`.
-3. **Data leakage** - split by **tahun**, BUKAN random split. Verifikasi sebelum klaim MAPE.
-4. **Shapefile mismatch** - nama kecamatan di GADM vs BPS sering beda spelling. Siapkan mapping manual.
-5. **BPS Excel chaos** - multi-header, merged cells, footnotes. Alokasikan 2 jam khusus cleaning.
-6. **CORS production** - inget update `cors_origins` di `backend/core/config.py` setelah dapat URL Vercel.
-7. **Vercel + react-leaflet SSR** - sudah di-handle pakai `dynamic({ ssr: false })`, tapi cek setelah deploy.
+1. **NASA POWER offline saat demo** - sudah ditangani: fallback ke nilai default tropis kalau request gagal. Cache 24h.
+2. **Express port conflict di Windows** - port 4400 dipilih karena Windows kadang exclude 3945-4044. Kalau masih bermasalah, cek `netsh interface ipv4 show excludedportrange protocol=tcp`.
+3. **uvicorn EACCES** - pakai `--host 127.0.0.1`, jangan `0.0.0.0`, di environment yang ketat.
+4. **`.next/types/` stale** setelah file rename - hapus folder `frontend/.next/` lalu `npm run dev` ulang.
+5. **Model `.pkl` hilang** - jalankan `python -m model.train_synthetic` (3 detik). ml_service akan otomatis fall back ke heuristik kalau file tidak ada.
+6. **Cold start production** - Railway free tier sleep setelah 15 menit idle; siapkan keep-alive ping kalau perlu.
