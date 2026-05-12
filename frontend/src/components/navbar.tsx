@@ -20,7 +20,8 @@ const PEMERINTAH_ITEMS: NavItem[] = [
   { href: "/pemerintah/dashboard", label: "Dashboard", numeral: "I" },
   { href: "/pemerintah/produksi", label: "Produksi", numeral: "II" },
   { href: "/pemerintah/analisis", label: "Analisis", numeral: "III" },
-  { href: "/tentang", label: "Tentang", numeral: "IV" },
+  { href: "/pemerintah/alert", label: "Alert", numeral: "IV" },
+  { href: "/tentang", label: "Tentang", numeral: "V" },
 ];
 
 export function Navbar() {
