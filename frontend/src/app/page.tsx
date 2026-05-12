@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { KpiCard } from "@/components/kpi-card";
 import { SectionRule } from "@/components/section-rule";
 import { TrendChart } from "@/components/trend-chart";
+import { RootGate } from "@/components/root-gate";
 import { api } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -14,19 +15,23 @@ export default async function DashboardPage() {
 
   if (!summary || !trend) {
     return (
-      <div className="border border-ink/20 bg-paper-deep p-10 text-center">
-        <p className="font-display text-2xl italic text-ink">
-          Backend tidak terhubung.
-        </p>
-        <p className="mt-3 font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint">
-          Jalankan uvicorn ml_service.main:app --reload --port 8000
-        </p>
-      </div>
+      <>
+        <RootGate />
+        <div className="border border-ink/20 bg-paper-deep p-10 text-center">
+          <p className="font-display text-2xl italic text-ink">
+            Backend tidak terhubung.
+          </p>
+          <p className="mt-3 font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint">
+            Jalankan uvicorn ml_service.main:app --reload --port 8000
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
     <div className="space-y-14">
+      <RootGate />
       {/* ─────── HERO ─────── */}
       <section className="relative">
         {/* Coordinate frame top-right */}
