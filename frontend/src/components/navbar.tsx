@@ -17,9 +17,9 @@ const PETANI_ITEMS: NavItem[] = [
 ];
 
 const PEMERINTAH_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard", numeral: "I" },
-  { href: "/peta", label: "Peta Prediksi", numeral: "II" },
-  { href: "/detail", label: "Detail Kecamatan", numeral: "III" },
+  { href: "/pemerintah/dashboard", label: "Dashboard", numeral: "I" },
+  { href: "/pemerintah/produksi", label: "Produksi", numeral: "II" },
+  { href: "/pemerintah/analisis", label: "Analisis", numeral: "III" },
   { href: "/tentang", label: "Tentang", numeral: "IV" },
 ];
 

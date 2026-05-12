@@ -25,7 +25,7 @@ export function MapPanel({ geojson, predictions }: Props) {
       <ChoroplethMap
         geojson={geojson}
         predictions={predictions}
-        onSelect={(id) => router.push(`/detail?id=${id}`)}
+        onSelect={(id) => router.push(`/pemerintah/analisis?id=${id}`)}
       />
       {/* Cartographic frame overlays */}
       <div className="pointer-events-none absolute left-3 top-3 z-[400] font-mono text-[10px] uppercase tracking-smallcaps text-ink-soft">

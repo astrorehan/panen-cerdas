@@ -16,7 +16,7 @@ export function KecamatanSelect({ options, currentId }: Props) {
       <select
         className="bg-transparent text-ink focus:outline-none"
         value={currentId ?? ""}
-        onChange={(e) => router.push(`/detail?id=${e.target.value}`)}
+        onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}`)}
       >
         <option value="" disabled>
           —
