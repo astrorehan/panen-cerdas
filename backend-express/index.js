@@ -5,6 +5,7 @@ const cors = require("cors");
 const predictRoute = require("./routes/predict");
 const feedbackRoute = require("./routes/feedback");
 const healthRoute = require("./routes/health");
+const passthroughRoute = require("./routes/passthrough");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -17,6 +18,12 @@ app.use(express.json());
 app.use("/api/predict", predictRoute);
 app.use("/api/feedback", feedbackRoute);
 app.use("/api/health", healthRoute);
+
+// Pemerintah dashboard endpoints — forward to FastAPI unchanged so frontend
+// keeps a single base URL on :4400.
+app.use("/api/dashboard", passthroughRoute);
+app.use("/api/predictions", passthroughRoute);
+app.use("/api/regions", passthroughRoute);
 
 app.get("/", (_req, res) => {
   res.json({
