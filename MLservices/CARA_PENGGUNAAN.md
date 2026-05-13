@@ -34,7 +34,7 @@ Petani input kondisi lahan
 ### STEP 1 — Setup & Jalankan Server
 
 ```bash
-cd panencerdas/ml-service
+cd panencerdas/MLServices
 
 # Install dependencies
 pip install -r requirements.txt

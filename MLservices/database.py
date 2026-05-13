@@ -3,6 +3,14 @@
 Database layer untuk PanenCerdas ML Service.
 Menggunakan SQLite untuk development (zero-config).
 Ganti DATABASE_URL ke PostgreSQL saat production.
+
+Perbaikan v2.3:
+  - TrainingFeedback: tambah kolom pest_pressure dan variety
+    agar sinkron dengan model.py yang membacanya via getattr(fb, "pest_pressure")
+    dan getattr(fb, "variety"). Tanpa kolom ini getattr() selalu fallback ke
+    DEFAULT_PEST_PRESSURE / "Lokal" — data feedback petani yang mungkin menyertakan
+    info hama/varietas tidak pernah tersimpan ke DB.
+  - PredictionLog: tambah kolom pest_pressure dan variety untuk kelengkapan audit
 """
 
 import os
@@ -11,53 +19,38 @@ from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, Float, String, DateTime,
-    Boolean, Text, create_engine, text
+    Boolean, Text, create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── CONFIG ─────────────────────────────────────────────
-# Development  : SQLite (langsung jalan, tanpa install apapun)
-# Production   : ganti ke PostgreSQL
-#   DATABASE_URL=postgresql://user:pass@localhost:5432/panencerdas
-
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./panencerdas_ml.db"   # default: SQLite lokal
-)
-
-# SQLite perlu flag tambahan untuk async safety
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./panencerdas_ml.db")
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args=connect_args,
-    echo=False,          # set True untuk debug SQL
-)
-
+engine = create_engine(DATABASE_URL, connect_args=connect_args, echo=False)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
-# ── BASE MODEL ─────────────────────────────────────────
 class Base(DeclarativeBase):
     pass
 
 
 # ── TABEL 1: prediction_log ────────────────────────────
-# Menyimpan setiap request /predict beserta hasilnya
 class PredictionLog(Base):
     __tablename__ = "prediction_log"
 
     id               = Column(Integer, primary_key=True, index=True)
-    # Input dari petani
     ndvi             = Column(Float, nullable=False)
     rainfall_mm      = Column(Float, nullable=False)
     temperature_c    = Column(Float, nullable=False)
     solar_radiation  = Column(Float, nullable=False)
     land_area_ha     = Column(Float, nullable=False)
     crop_type        = Column(String(20), nullable=False)
+    # Fitur opsional hama & varietas — NULL jika tidak dikirim
+    pest_pressure    = Column(Float, nullable=True, default=0.0)
+    variety          = Column(String(50), nullable=True, default="Lokal")
     # Output prediksi model
     pred_harvest_days     = Column(Integer, nullable=False)
     pred_yield_ton_per_ha = Column(Float,   nullable=False)
@@ -65,58 +58,53 @@ class PredictionLog(Base):
     pred_confidence       = Column(Float, nullable=False)
     model_source          = Column(String(20), nullable=False)
     # Metadata
-    petani_id        = Column(String(50), nullable=True)   # ID petani jika login
-    lahan_id         = Column(String(50), nullable=True)   # ID lahan
+    petani_id        = Column(String(50), nullable=True)
+    lahan_id         = Column(String(50), nullable=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
-    # Feedback (diisi nanti setelah panen)
     feedback_given   = Column(Boolean, default=False)
 
 
 # ── TABEL 2: training_feedback ─────────────────────────
-# Ground truth dari petani — hasil panen NYATA
-# Inilah yang dipakai untuk retrain model
 class TrainingFeedback(Base):
     __tablename__ = "training_feedback"
 
-    id                    = Column(Integer, primary_key=True, index=True)
-    # Referensi ke prediction_log
-    prediction_log_id     = Column(Integer, nullable=True)
-    # Input kondisi lahan (sama seperti saat predict)
-    ndvi                  = Column(Float, nullable=False)
-    rainfall_mm           = Column(Float, nullable=False)
-    temperature_c         = Column(Float, nullable=False)
-    solar_radiation       = Column(Float, nullable=False)
-    land_area_ha          = Column(Float, nullable=False)
-    crop_type             = Column(String(20), nullable=False)
+    id                      = Column(Integer, primary_key=True, index=True)
+    prediction_log_id       = Column(Integer, nullable=True)
+    # Input kondisi lahan
+    ndvi                    = Column(Float, nullable=False)
+    rainfall_mm             = Column(Float, nullable=False)
+    temperature_c           = Column(Float, nullable=False)
+    solar_radiation         = Column(Float, nullable=False)
+    land_area_ha            = Column(Float, nullable=False)
+    crop_type               = Column(String(20), nullable=False)
+    # Fitur opsional hama & varietas — NULL jika tidak dikirim petani
+    pest_pressure           = Column(Float, nullable=True, default=0.0)
+    variety                 = Column(String(50), nullable=True, default="Lokal")
     # Hasil NYATA dari petani (ground truth)
-    actual_harvest_days   = Column(Integer,  nullable=False)
-    actual_yield_ton_per_ha = Column(Float,  nullable=False)
-    actual_risk_level     = Column(String(10), nullable=False)
+    actual_harvest_days     = Column(Integer, nullable=False)
+    actual_yield_ton_per_ha = Column(Float,   nullable=False)
+    actual_risk_level       = Column(String(10), nullable=False)
     # Metadata
-    petani_id             = Column(String(50), nullable=True)
-    lahan_id              = Column(String(50), nullable=True)
-    catatan               = Column(Text, nullable=True)   # Catatan bebas petani
-    created_at            = Column(DateTime, default=datetime.utcnow)
-    used_in_training      = Column(Boolean, default=False)  # Sudah dipakai retrain?
-    training_version      = Column(Integer, nullable=True)  # Versi model yang pakai data ini
+    petani_id               = Column(String(50), nullable=True)
+    lahan_id                = Column(String(50), nullable=True)
+    catatan                 = Column(Text, nullable=True)
+    created_at              = Column(DateTime, default=datetime.utcnow)
+    used_in_training        = Column(Boolean, default=False)
+    training_version        = Column(Integer, nullable=True)
 
 
 # ── TABEL 3: model_version ─────────────────────────────
-# Riwayat versi model — untuk rollback jika perlu
 class ModelVersion(Base):
     __tablename__ = "model_version"
 
     id               = Column(Integer, primary_key=True, index=True)
     version          = Column(Integer, nullable=False, unique=True)
     trained_at       = Column(DateTime, default=datetime.utcnow)
-    # Metrik performa
     mae_harvest_days = Column(Float, nullable=True)
     mae_yield        = Column(Float, nullable=True)
     risk_accuracy    = Column(Float, nullable=True)
-    # Info data
-    n_synthetic      = Column(Integer, nullable=True)  # Jumlah data synthetic
-    n_real           = Column(Integer, nullable=True)  # Jumlah data nyata dari petani
-    # Status
+    n_synthetic      = Column(Integer, nullable=True)
+    n_real           = Column(Integer, nullable=True)
     is_active        = Column(Boolean, default=False)
     notes            = Column(Text, nullable=True)
 
@@ -129,8 +117,7 @@ def init_db():
 
 
 # ── SESSION HELPER ─────────────────────────────────────
-def get_db() -> Session:
-    """Dependency injection untuk FastAPI."""
+def get_db():
     db = SessionLocal()
     try:
         yield db
@@ -147,6 +134,8 @@ def save_prediction_log(db: Session, input_data: dict, output_data: dict) -> Pre
         solar_radiation=input_data["solar_radiation"],
         land_area_ha=input_data["land_area_ha"],
         crop_type=input_data["crop_type"],
+        pest_pressure=input_data.get("pest_pressure", 0.0),
+        variety=input_data.get("variety", "Lokal"),
         pred_harvest_days=output_data["harvest_days"],
         pred_yield_ton_per_ha=output_data["yield_ton_per_ha"],
         pred_risk_level=output_data["risk_level"],
@@ -170,14 +159,12 @@ def save_feedback(db: Session, feedback_data: dict) -> TrainingFeedback:
 
 
 def get_unused_feedback(db: Session) -> list[TrainingFeedback]:
-    """Ambil semua feedback yang belum dipakai untuk training."""
     return db.query(TrainingFeedback)\
              .filter(TrainingFeedback.used_in_training == False)\
              .all()
 
 
 def mark_feedback_used(db: Session, ids: list[int], version: int):
-    """Tandai feedback sebagai sudah dipakai setelah retrain."""
     db.query(TrainingFeedback)\
       .filter(TrainingFeedback.id.in_(ids))\
       .update({"used_in_training": True, "training_version": version},
@@ -193,11 +180,9 @@ def get_latest_model_version(db: Session) -> Optional[ModelVersion]:
 
 
 def save_model_version(db: Session, version_data: dict) -> ModelVersion:
-    # Non-aktifkan versi sebelumnya
     db.query(ModelVersion)\
       .filter(ModelVersion.is_active == True)\
       .update({"is_active": False}, synchronize_session="fetch")
-
     mv = ModelVersion(**version_data, is_active=True)
     db.add(mv)
     db.commit()
@@ -206,7 +191,7 @@ def save_model_version(db: Session, version_data: dict) -> ModelVersion:
 
 
 def get_feedback_count(db: Session) -> dict:
-    total = db.query(TrainingFeedback).count()
+    total  = db.query(TrainingFeedback).count()
     unused = db.query(TrainingFeedback)\
                .filter(TrainingFeedback.used_in_training == False)\
                .count()
@@ -214,12 +199,12 @@ def get_feedback_count(db: Session) -> dict:
 
 
 def get_prediction_stats(db: Session) -> dict:
-    total = db.query(PredictionLog).count()
+    total        = db.query(PredictionLog).count()
     with_feedback = db.query(PredictionLog)\
                       .filter(PredictionLog.feedback_given == True)\
                       .count()
     return {
         "total_predictions": total,
-        "with_feedback": with_feedback,
-        "feedback_rate": round(with_feedback / total * 100, 1) if total > 0 else 0
+        "with_feedback":     with_feedback,
+        "feedback_rate":     round(with_feedback / total * 100, 1) if total > 0 else 0,
     }

@@ -40,39 +40,69 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 # ── LOKASI SAMPLE ──────────────────────────────────────
+# Mencakup semua 9 komoditas dengan lokasi sentra produksi nyata
 SAMPLE_LOCATIONS = [
-    # Jawa
-    {"lat": -7.25,  "lon": 112.75, "provinsi": "Jawa Timur",         "crop_type": "padi",     "land_area_ha": 1.5},
-    {"lat": -7.80,  "lon": 110.36, "provinsi": "Jawa Tengah",        "crop_type": "padi",     "land_area_ha": 1.2},
-    {"lat": -6.90,  "lon": 107.60, "provinsi": "Jawa Barat",         "crop_type": "padi",     "land_area_ha": 1.8},
-    {"lat": -7.25,  "lon": 112.75, "provinsi": "Jawa Timur",         "crop_type": "jagung",   "land_area_ha": 2.0},
-    {"lat": -7.80,  "lon": 110.36, "provinsi": "Jawa Tengah",        "crop_type": "kedelai",  "land_area_ha": 0.8},
-    {"lat": -6.20,  "lon": 106.82, "provinsi": "DKI Jakarta",        "crop_type": "padi",     "land_area_ha": 0.5},
-    {"lat": -8.65,  "lon": 115.22, "provinsi": "Bali",               "crop_type": "padi",     "land_area_ha": 0.9},
-    # Sumatera
-    {"lat":  3.60,  "lon":  98.67, "provinsi": "Sumatera Utara",     "crop_type": "padi",     "land_area_ha": 2.0},
-    {"lat": -0.95,  "lon": 100.36, "provinsi": "Sumatera Barat",     "crop_type": "padi",     "land_area_ha": 1.5},
-    {"lat":  3.58,  "lon":  98.68, "provinsi": "Sumatera Utara",     "crop_type": "jagung",   "land_area_ha": 1.8},
-    {"lat": -4.90,  "lon": 105.27, "provinsi": "Lampung",            "crop_type": "jagung",   "land_area_ha": 3.0},
-    {"lat": -4.90,  "lon": 105.27, "provinsi": "Lampung",            "crop_type": "singkong", "land_area_ha": 2.5},
-    # Sulawesi
-    {"lat": -5.14,  "lon": 119.43, "provinsi": "Sulawesi Selatan",   "crop_type": "padi",     "land_area_ha": 2.5},
-    {"lat": -5.14,  "lon": 119.43, "provinsi": "Sulawesi Selatan",   "crop_type": "jagung",   "land_area_ha": 2.0},
-    {"lat": -0.89,  "lon": 119.87, "provinsi": "Sulawesi Tengah",    "crop_type": "padi",     "land_area_ha": 1.5},
-    # Kalimantan
-    {"lat": -3.32,  "lon": 114.59, "provinsi": "Kalimantan Selatan", "crop_type": "padi",     "land_area_ha": 1.8},
-    {"lat":  0.02,  "lon": 109.34, "provinsi": "Kalimantan Barat",   "crop_type": "singkong", "land_area_ha": 2.0},
-    # NTB & NTT
-    {"lat": -8.58,  "lon": 116.10, "provinsi": "NTB",                "crop_type": "padi",     "land_area_ha": 1.0},
-    {"lat": -8.58,  "lon": 116.10, "provinsi": "NTB",                "crop_type": "jagung",   "land_area_ha": 1.5},
-    {"lat": -10.17, "lon": 123.61, "provinsi": "NTT",                "crop_type": "jagung",   "land_area_ha": 1.2},
+    # ── PADI ──────────────────────────────────────────
+    {"lat": -7.25,  "lon": 112.75, "provinsi": "Jawa Timur",         "crop_type": "padi",          "land_area_ha": 1.5},
+    {"lat": -7.80,  "lon": 110.36, "provinsi": "Jawa Tengah",        "crop_type": "padi",          "land_area_ha": 1.2},
+    {"lat": -6.90,  "lon": 107.60, "provinsi": "Jawa Barat",         "crop_type": "padi",          "land_area_ha": 1.8},
+    {"lat": -5.14,  "lon": 119.43, "provinsi": "Sulawesi Selatan",   "crop_type": "padi",          "land_area_ha": 2.5},
+    {"lat":  3.60,  "lon":  98.67, "provinsi": "Sumatera Utara",     "crop_type": "padi",          "land_area_ha": 2.0},
+    {"lat": -3.32,  "lon": 114.59, "provinsi": "Kalimantan Selatan", "crop_type": "padi",          "land_area_ha": 1.8},
+    # ── JAGUNG ────────────────────────────────────────
+    {"lat": -7.25,  "lon": 112.75, "provinsi": "Jawa Timur",         "crop_type": "jagung",        "land_area_ha": 2.0},
+    {"lat": -4.90,  "lon": 105.27, "provinsi": "Lampung",            "crop_type": "jagung",        "land_area_ha": 3.0},
+    {"lat": -5.14,  "lon": 119.43, "provinsi": "Sulawesi Selatan",   "crop_type": "jagung",        "land_area_ha": 2.0},
+    {"lat": -8.66,  "lon": 121.08, "provinsi": "NTT",                "crop_type": "jagung",        "land_area_ha": 1.2},
+    # ── KEDELAI ───────────────────────────────────────
+    {"lat": -7.80,  "lon": 110.36, "provinsi": "Jawa Tengah",        "crop_type": "kedelai",       "land_area_ha": 0.8},
+    {"lat": -7.54,  "lon": 112.24, "provinsi": "Jawa Timur",         "crop_type": "kedelai",       "land_area_ha": 1.0},
+    {"lat": -8.65,  "lon": 117.36, "provinsi": "NTB",                "crop_type": "kedelai",       "land_area_ha": 0.7},
+    # ── UBI JALAR ─────────────────────────────────────
+    # Sentra: Papua, Jawa Barat, Jawa Tengah
+    {"lat": -6.90,  "lon": 107.60, "provinsi": "Jawa Barat",         "crop_type": "ubi_jalar",     "land_area_ha": 0.5},
+    {"lat": -7.80,  "lon": 110.36, "provinsi": "Jawa Tengah",        "crop_type": "ubi_jalar",     "land_area_ha": 0.6},
+    {"lat": -4.00,  "lon": 138.50, "provinsi": "Papua Pegunungan",   "crop_type": "ubi_jalar",     "land_area_ha": 0.4},
+    # ── UBI KAYU ──────────────────────────────────────
+    # Sentra: Lampung, Jawa Tengah, Jawa Timur, Kalimantan
+    {"lat": -4.90,  "lon": 105.27, "provinsi": "Lampung",            "crop_type": "ubi_kayu",      "land_area_ha": 2.5},
+    {"lat":  0.02,  "lon": 109.34, "provinsi": "Kalimantan Barat",   "crop_type": "ubi_kayu",      "land_area_ha": 2.0},
+    {"lat": -7.54,  "lon": 112.24, "provinsi": "Jawa Timur",         "crop_type": "ubi_kayu",      "land_area_ha": 1.5},
+    # ── CABE BESAR ────────────────────────────────────
+    # Sentra: Jawa Barat (Garut), Jawa Tengah, Sumatera Utara
+    {"lat": -7.22,  "lon": 107.90, "provinsi": "Jawa Barat (Garut)", "crop_type": "cabe_besar",    "land_area_ha": 0.4},
+    {"lat": -7.15,  "lon": 110.14, "provinsi": "Jawa Tengah",        "crop_type": "cabe_besar",    "land_area_ha": 0.5},
+    {"lat":  2.10,  "lon":  99.54, "provinsi": "Sumatera Utara",     "crop_type": "cabe_besar",    "land_area_ha": 0.3},
+    # ── CABE RAWIT ────────────────────────────────────
+    # Sentra: Jawa Timur, NTB, Sulawesi
+    {"lat": -7.54,  "lon": 112.24, "provinsi": "Jawa Timur",         "crop_type": "cabe_rawit",    "land_area_ha": 0.3},
+    {"lat": -8.65,  "lon": 117.36, "provinsi": "NTB",                "crop_type": "cabe_rawit",    "land_area_ha": 0.4},
+    {"lat": -5.14,  "lon": 119.43, "provinsi": "Sulawesi Selatan",   "crop_type": "cabe_rawit",    "land_area_ha": 0.3},
+    # ── BAWANG MERAH ──────────────────────────────────
+    # Sentra: Brebes (Jateng), NTB, Jawa Timur
+    {"lat": -6.87,  "lon": 108.86, "provinsi": "Jawa Tengah (Brebes)","crop_type": "bawang_merah", "land_area_ha": 0.4},
+    {"lat": -8.65,  "lon": 117.36, "provinsi": "NTB",                 "crop_type": "bawang_merah", "land_area_ha": 0.5},
+    {"lat": -7.54,  "lon": 112.24, "provinsi": "Jawa Timur",          "crop_type": "bawang_merah", "land_area_ha": 0.3},
+    # ── BAWANG PUTIH ──────────────────────────────────
+    # Sentra dataran tinggi: Temanggung (Jateng), NTB, Jawa Timur
+    # lat/lon dataran tinggi — suhu lebih dingin, sesuai profil bawang putih
+    {"lat": -7.32,  "lon": 110.17, "provinsi": "Jawa Tengah (Temanggung)", "crop_type": "bawang_putih", "land_area_ha": 0.3},
+    {"lat": -8.65,  "lon": 117.36, "provinsi": "NTB",                      "crop_type": "bawang_putih", "land_area_ha": 0.4},
+    {"lat": -7.90,  "lon": 113.72, "provinsi": "Jawa Timur (Malang)",      "crop_type": "bawang_putih", "land_area_ha": 0.2},
 ]
 
+# Statistik historis per komoditas — sumber BPS/Kementan
+# Dipakai untuk generate yield & harvest_days yang realistis
 HISTORICAL_STATS = {
-    "padi":     {"harvest_days": 110, "yield_ton_per_ha": 5.2, "std_days": 15, "std_yield": 0.8},
-    "jagung":   {"harvest_days": 100, "yield_ton_per_ha": 5.5, "std_days": 12, "std_yield": 0.9},
-    "kedelai":  {"harvest_days":  88, "yield_ton_per_ha": 1.5, "std_days": 10, "std_yield": 0.3},
-    "singkong": {"harvest_days": 280, "yield_ton_per_ha": 19.5, "std_days": 30, "std_yield": 2.5},
+    "padi":         {"harvest_days": 110, "yield_ton_per_ha":  5.2, "std_days": 12, "std_yield": 0.8},
+    "jagung":       {"harvest_days": 100, "yield_ton_per_ha":  5.8, "std_days": 10, "std_yield": 0.9},
+    "kedelai":      {"harvest_days":  85, "yield_ton_per_ha":  1.5, "std_days":  8, "std_yield": 0.3},
+    "ubi_jalar":    {"harvest_days": 120, "yield_ton_per_ha": 15.0, "std_days": 15, "std_yield": 2.0},
+    "ubi_kayu":     {"harvest_days": 270, "yield_ton_per_ha": 20.0, "std_days": 25, "std_yield": 3.0},
+    "cabe_besar":   {"harvest_days":  90, "yield_ton_per_ha":  8.0, "std_days": 10, "std_yield": 1.5},
+    "cabe_rawit":   {"harvest_days":  75, "yield_ton_per_ha":  6.0, "std_days":  8, "std_yield": 1.2},
+    "bawang_merah": {"harvest_days":  65, "yield_ton_per_ha":  9.5, "std_days":  7, "std_yield": 1.5},
+    "bawang_putih": {"harvest_days": 100, "yield_ton_per_ha":  7.0, "std_days": 10, "std_yield": 1.2},
 }
 
 

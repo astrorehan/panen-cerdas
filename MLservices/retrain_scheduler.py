@@ -8,96 +8,101 @@ Cara kerja:
   3. Setelah retrain → evaluasi: lebih baik atau tidak?
   4. Jika lebih baik → ganti model aktif
   5. Jika lebih buruk → pertahankan model lama (rollback)
+
+Perbaikan v2.3:
+  - Hapus FEATURES hardcode — baca dari feature_meta.joblib yang disimpan model.py
+  - Hapus _load_synthetic_data, _load_real_data, _encode lokal yang duplikat logic
+    dan tidak sinkron dengan model.py. Ganti dengan delegasi langsung ke model.py
+  - _load_real_data lokal tidak membaca pest_pressure/variety dari DB
+    (kolom belum ada di TrainingFeedback). Sekarang model.py yang handle ini
+    secara terpusat via _load_training_data()
 """
 
-import os
 import joblib
-import numpy as np
-import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, accuracy_score
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sqlalchemy.orm import Session
 
 from database import (
     SessionLocal, get_unused_feedback, mark_feedback_used,
     get_feedback_count, save_model_version, get_latest_model_version,
-    TrainingFeedback
 )
 
 MODEL_DIR = Path(__file__).parent / "saved_models"
-FEATURES  = ["ndvi", "rainfall_mm", "temperature_c",
-             "solar_radiation", "land_area_ha", "crop_encoded"]
-CROP_TYPES = ["padi", "jagung", "kedelai", "singkong"]
+FEATURE_META_PATH = MODEL_DIR / "feature_meta.joblib"
 
-# Minimum data nyata sebelum retrain
 RETRAIN_THRESHOLD = 10
 
-# Scheduler instance
 _scheduler = BackgroundScheduler()
 _current_version = 1
 
 
-# ── LOAD DATA SYNTHETIC ────────────────────────────────
-def _load_synthetic_data(n: int = 500) -> pd.DataFrame:
+# ── BACA FITUR AKTIF DARI feature_meta.joblib ──────────
+def _get_active_features() -> list[str]:
     """
-    Load versi ringkas data synthetic sebagai base.
-    Dikurangi ke 500 agar data nyata punya bobot lebih besar.
+    Baca daftar fitur dari feature_meta.joblib yang ditulis model.py saat training.
+    Fallback ke FEATURES_BASE jika file belum ada (model lama / belum pernah train).
     """
-    from model import _generate_training_data
-    return _generate_training_data(n)
+    from model import FEATURES_BASE  # import konstanta, bukan nilai hardcode lokal
+    if FEATURE_META_PATH.exists():
+        try:
+            meta = joblib.load(FEATURE_META_PATH)
+            return meta["features"]
+        except Exception:
+            pass
+    return list(FEATURES_BASE)
 
 
-# ── LOAD DATA NYATA DARI DB ────────────────────────────
-def _load_real_data(db: Session) -> pd.DataFrame:
-    """Ambil semua feedback dari petani sebagai data training nyata."""
-    rows = db.query(TrainingFeedback).all()
-    if not rows:
-        return pd.DataFrame()
+# ── LOAD DATA GABUNGAN (delegasi ke model.py) ──────────
+def _load_and_encode_data(db: Session, n_synthetic: int = 500):
+    """
+    Muat data training (real + synthetic) dan encode fitur.
+    Sepenuhnya didelegasikan ke model.py agar logika encoding
+    pest_pressure, variety, crop_type selalu konsisten.
 
-    records = []
-    for r in rows:
-        risk = r.actual_risk_level
-        # Hitung risk dari yield jika tidak valid
-        if risk not in ["low", "medium", "high"]:
-            risk = "medium"
-        records.append({
-            "ndvi":             r.ndvi,
-            "rainfall_mm":      r.rainfall_mm,
-            "temperature_c":    r.temperature_c,
-            "solar_radiation":  r.solar_radiation,
-            "land_area_ha":     r.land_area_ha,
-            "crop_type":        r.crop_type,
-            "harvest_days":     r.actual_harvest_days,
-            "yield_ton_per_ha": r.actual_yield_ton_per_ha,
-            "risk_level":       risk,
-        })
-    return pd.DataFrame(records)
-
-
-# ── ENCODE ─────────────────────────────────────────────
-def _encode(df: pd.DataFrame, encoder) -> pd.DataFrame:
-    df = df.copy()
-    # Handle crop_type yang tidak dikenal
-    df["crop_type"] = df["crop_type"].apply(
-        lambda x: x if x in CROP_TYPES else "padi"
+    Returns:
+        df_combined : DataFrame siap pakai
+        n_real      : jumlah baris data nyata
+        n_synthetic : jumlah baris data synthetic
+    """
+    import pandas as pd
+    from model import (
+        _load_real_data,
+        _generate_synthetic_data,
+        _encode_features,
     )
-    df["crop_encoded"] = encoder.transform(df["crop_type"])
-    return df
+
+    real_df  = _load_real_data(db)
+    n_real   = len(real_df)
+    synth_df = _generate_synthetic_data(n_synthetic)
+
+    if n_real > 0:
+        # Duplikasi data nyata 3× agar bobotnya lebih besar dari synthetic
+        df_real_weighted = pd.concat([real_df] * 3, ignore_index=True)
+        df_combined = pd.concat([synth_df, df_real_weighted], ignore_index=True)
+    else:
+        df_combined = synth_df
+
+    # Encode menggunakan fungsi model.py — encoder crop di-load dari disk
+    encoder_path = MODEL_DIR / "crop_encoder.joblib"
+    if not encoder_path.exists():
+        raise FileNotFoundError("crop_encoder.joblib tidak ditemukan — jalankan train.py dulu")
+    encoder = joblib.load(encoder_path)
+
+    df_combined, _ = _encode_features(df_combined, crop_enc=encoder, fit=False)
+    return df_combined, n_real, len(synth_df)
 
 
-# ── CORE RETRAIN ────────────────────────────────────────
+# ── CORE RETRAIN ───────────────────────────────────────
 def retrain(force: bool = False, db: Session = None) -> dict:
     """
-    Latih ulang model dengan menggabungkan:
-      - Data synthetic (base knowledge)
-      - Data nyata dari petani (ground truth)
-
-    Return dict dengan hasil evaluasi.
+    Latih ulang model dengan data synthetic + feedback petani.
+    Fitur yang dipakai disesuaikan otomatis dengan feature_meta.joblib.
     """
     close_db = False
     if db is None:
@@ -105,7 +110,7 @@ def retrain(force: bool = False, db: Session = None) -> dict:
         close_db = True
 
     try:
-        # 1. Cek apakah ada cukup data baru
+        # 1. Cek threshold
         counts = get_feedback_count(db)
         unused = counts["unused"]
 
@@ -117,45 +122,40 @@ def retrain(force: bool = False, db: Session = None) -> dict:
         print(f"\n🔄 Memulai retraining...")
         print(f"   Data nyata baru: {unused} feedback")
 
-        # 2. Load encoder lama
-        encoder_path = MODEL_DIR / "crop_encoder.joblib"
-        if not encoder_path.exists():
-            raise FileNotFoundError("Encoder tidak ditemukan — jalankan train.py dulu")
-        encoder = joblib.load(encoder_path)
+        # 2. Baca fitur aktif dari feature_meta — sinkron dengan model terlatih
+        active_features = _get_active_features()
+        print(f"   Fitur aktif    : {active_features}")
 
-        # 3. Gabungkan data synthetic + nyata
-        df_synthetic = _load_synthetic_data(n=500)
-        df_real      = _load_real_data(db)
-
-        n_synthetic = len(df_synthetic)
-        n_real      = len(df_real)
+        # 3. Load & encode data (delegasi ke model.py)
+        df_combined, n_real, n_synthetic = _load_and_encode_data(db, n_synthetic=500)
 
         print(f"   Data synthetic : {n_synthetic} baris")
         print(f"   Data nyata     : {n_real} baris")
 
-        if n_real > 0:
-            # Duplikasi data nyata 3x agar bobotnya lebih besar
-            df_real_weighted = pd.concat([df_real] * 3, ignore_index=True)
-            df_combined = pd.concat([df_synthetic, df_real_weighted], ignore_index=True)
-        else:
-            df_combined = df_synthetic
+        # 4. Validasi semua fitur tersedia di dataframe
+        missing_cols = [f for f in active_features if f not in df_combined.columns]
+        if missing_cols:
+            raise ValueError(
+                f"Kolom fitur tidak ditemukan di data: {missing_cols}. "
+                f"Kolom tersedia: {list(df_combined.columns)}"
+            )
 
-        df_combined = _encode(df_combined, encoder)
-        df_combined = df_combined.dropna(subset=FEATURES + ["harvest_days", "yield_ton_per_ha", "risk_level"])
+        required_targets = ["harvest_days", "yield_ton_per_ha", "risk_level"]
+        df_combined = df_combined.dropna(subset=active_features + required_targets)
 
-        X  = df_combined[FEATURES]
+        X  = df_combined[active_features]
         yh = df_combined["harvest_days"]
         yy = df_combined["yield_ton_per_ha"]
         yr = df_combined["risk_level"]
 
         print(f"   Total training rows: {len(df_combined)}")
 
-        # 4. Split train/test
+        # 5. Split
         X_tr, X_te, yh_tr, yh_te, yy_tr, yy_te, yr_tr, yr_te = train_test_split(
             X, yh, yy, yr, test_size=0.2, random_state=42
         )
 
-        # 5. Train model baru
+        # 6. Train model baru
         new_harvest = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
         new_harvest.fit(X_tr, yh_tr)
 
@@ -165,28 +165,27 @@ def retrain(force: bool = False, db: Session = None) -> dict:
         new_risk = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1)
         new_risk.fit(X_tr, yr_tr)
 
-        # 6. Evaluasi model baru
+        # 7. Evaluasi
         mae_h = mean_absolute_error(yh_te, new_harvest.predict(X_te))
         mae_y = mean_absolute_error(yy_te, new_yield.predict(X_te))
         acc_r = accuracy_score(yr_te, new_risk.predict(X_te))
 
         print(f"   [Baru] MAE harvest: {mae_h:.2f} hari | MAE yield: {mae_y:.3f} ton | Acc risk: {acc_r:.1%}")
 
-        # 7. Bandingkan dengan model lama
-        old_version = get_latest_model_version(db)
+        # 8. Bandingkan dengan model lama
+        old_version    = get_latest_model_version(db)
         should_replace = True
 
         if old_version:
             old_mae_h = old_version.mae_harvest_days or 999
             old_acc_r = old_version.risk_accuracy or 0
-            # Ganti hanya jika harvest MAE lebih baik ATAU risk acc lebih baik
             should_replace = (mae_h < old_mae_h * 1.05) or (acc_r > old_acc_r * 0.95)
             if should_replace:
-                print(f"   ✅ Model baru lebih baik — mengganti model aktif")
+                print("   ✅ Model baru lebih baik — mengganti model aktif")
             else:
-                print(f"   ⚠️  Model lama lebih baik — rollback, tetap pakai model lama")
+                print("   ⚠️  Model lama lebih baik — rollback, tetap pakai model lama")
 
-        # 8. Simpan model baru jika lebih baik
+        # 9. Simpan jika lebih baik
         global _current_version
         result = {}
 
@@ -195,10 +194,11 @@ def retrain(force: bool = False, db: Session = None) -> dict:
             joblib.dump(new_harvest, MODEL_DIR / "harvest_days_model.joblib")
             joblib.dump(new_yield,   MODEL_DIR / "yield_model.joblib")
             joblib.dump(new_risk,    MODEL_DIR / "risk_model.joblib")
+            # feature_meta TIDAK ditimpa — fitur harus tetap sama dengan yang
+            # dipakai saat train.py dijalankan. Ubah fitur hanya via train.py.
 
             _current_version += 1
 
-            # Simpan versi ke DB
             save_model_version(db, {
                 "version":          _current_version,
                 "mae_harvest_days": round(mae_h, 3),
@@ -206,38 +206,36 @@ def retrain(force: bool = False, db: Session = None) -> dict:
                 "risk_accuracy":    round(acc_r, 4),
                 "n_synthetic":      n_synthetic,
                 "n_real":           n_real,
-                "notes":            f"Retrain dengan {n_real} data nyata dari petani",
+                "notes":            f"Retrain dengan {n_real} data nyata | fitur: {active_features}",
             })
 
-            # Reload model di memory
             from model import load_models
             load_models()
 
-            # Tandai feedback sebagai sudah dipakai
             unused_rows = get_unused_feedback(db)
             unused_ids  = [r.id for r in unused_rows]
             mark_feedback_used(db, unused_ids, _current_version)
 
             result = {
-                "skipped":       False,
-                "replaced":      True,
-                "version":       _current_version,
-                "mae_harvest":   round(mae_h, 3),
-                "mae_yield":     round(mae_y, 3),
-                "risk_accuracy": round(acc_r, 4),
-                "n_real_data":   n_real,
-                "message":       f"Model v{_current_version} berhasil dilatih dengan {n_real} data nyata"
+                "skipped":        False,
+                "replaced":       True,
+                "version":        _current_version,
+                "mae_harvest":    round(mae_h, 3),
+                "mae_yield":      round(mae_y, 3),
+                "risk_accuracy":  round(acc_r, 4),
+                "n_real_data":    n_real,
+                "features_used":  active_features,
+                "message":        f"Model v{_current_version} berhasil dilatih ({n_real} data nyata)",
             }
         else:
-            # Tetap tandai feedback dipakai agar tidak diproses ulang
             unused_rows = get_unused_feedback(db)
             unused_ids  = [r.id for r in unused_rows]
             mark_feedback_used(db, unused_ids, old_version.version if old_version else 1)
 
             result = {
-                "skipped":   False,
-                "replaced":  False,
-                "message":   "Model lama dipertahankan karena lebih akurat",
+                "skipped":  False,
+                "replaced": False,
+                "message":  "Model lama dipertahankan karena lebih akurat",
             }
 
         print(f"✅ Retraining selesai: {result['message']}")
@@ -253,10 +251,6 @@ def retrain(force: bool = False, db: Session = None) -> dict:
 
 # ── CHECK THRESHOLD ────────────────────────────────────
 def check_and_retrain_if_needed():
-    """
-    Dipanggil setiap kali ada feedback baru masuk.
-    Cek apakah sudah cukup data untuk retrain.
-    """
     db = SessionLocal()
     try:
         counts = get_feedback_count(db)
@@ -268,33 +262,27 @@ def check_and_retrain_if_needed():
         db.close()
 
 
-# ── SCHEDULED RETRAIN (TIAP MINGGU) ───────────────────
+# ── SCHEDULED RETRAIN ──────────────────────────────────
 def scheduled_weekly_retrain():
-    """Retrain terjadwal tiap Minggu jam 02.00 — dipaksa meski belum threshold."""
     print(f"\n⏰ Scheduled weekly retrain — {datetime.now()}")
     retrain(force=True)
 
 
 # ── SCHEDULER SETUP ────────────────────────────────────
 def start_scheduler():
-    """Mulai scheduler background. Dipanggil saat FastAPI startup."""
     if _scheduler.running:
         return
-
-    # Job terjadwal: tiap Minggu jam 02.00
     _scheduler.add_job(
         scheduled_weekly_retrain,
         trigger=CronTrigger(day_of_week="sun", hour=2, minute=0),
         id="weekly_retrain",
         replace_existing=True,
     )
-
     _scheduler.start()
     print("⏰ Retrain scheduler aktif (tiap Minggu 02.00 WIB)")
 
 
 def stop_scheduler():
-    """Hentikan scheduler saat FastAPI shutdown."""
     if _scheduler.running:
         _scheduler.shutdown(wait=False)
         print("⏰ Scheduler dihentikan")

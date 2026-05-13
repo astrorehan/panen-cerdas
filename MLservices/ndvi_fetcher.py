@@ -48,9 +48,14 @@ APPEEARS_PASS     = os.getenv("APPEEARS_PASS", "")
 MODIS_PRODUCT     = "MOD13Q1.061"
 MODIS_LAYER       = "_250m_16_days_NDVI"
 
+# APPEEARS kadang mengirim nama file/kolom dalam beberapa variasi format.
+# Kita cek semua kemungkinan ini secara berurutan.
+NDVI_FILE_PATTERNS  = ["NDVI", "ndvi", "_250m_16_days_NDVI", "MOD13Q1"]
+NDVI_COLUMN_PATTERNS = ["NDVI", "ndvi", "_250m_16_days_NDVI", "MOD13Q1"]
+
 # Polling: cek status tiap N detik, maksimal M kali
 POLL_INTERVAL_SEC = 15
-POLL_MAX_ATTEMPTS = 40   # 40 × 15 detik = 10 menit maksimal
+POLL_MAX_ATTEMPTS = 80      # 80 × 15 detik = 120 menit maksimal
 
 # Token di-cache di memory selama sesi berjalan
 _token_cache: dict = {"token": None, "expires_at": 0.0}
@@ -176,69 +181,162 @@ async def _download_ndvi(
     Download file CSV hasil task dan ambil rata-rata NDVI.
     MODIS NDVI disimpan sebagai integer (×10000), dibagi 10000 jadi 0.0–1.0.
     Nilai fill/invalid: -3000 (dibuang).
+
+    Fix: APPEEARS API kadang mengembalikan struktur bundle yang berbeda-beda
+    tergantung versi API dan tipe produk. Fungsi ini mencoba beberapa
+    variasi nama file dan kolom secara fleksibel.
     """
+    import io
+    import csv as csv_module
+
     headers = {"Authorization": f"Bearer {token}"}
 
-    # List file output
+    # ── 1. List semua file di bundle ──────────────────────────────────────────
     resp = await client.get(
         f"{APPEEARS_BASE}/bundle/{task_id}",
         headers=headers,
-        timeout=15,
+        timeout=30,
     )
     resp.raise_for_status()
-    files = resp.json().get("files", [])
+    bundle = resp.json()
 
-    # Cari file CSV yang berisi NDVI
-    ndvi_file = next(
-        (f for f in files if MODIS_LAYER in f.get("file_name", "") and f["file_name"].endswith(".csv")),
-        None,
-    )
-    if not ndvi_file:
-        logger.warning("File NDVI CSV tidak ditemukan di bundle APPEEARS")
+    # APPEEARS bisa kirim "files" sebagai list of dict atau nested dict
+    # Normalkan ke list of {"file_id": ..., "file_name": ...}
+    raw_files = bundle.get("files", [])
+    if isinstance(raw_files, dict):
+        # Format lama: {"file_id": {"file_name": ...}, ...}
+        file_list = [{"file_id": fid, **fdata} for fid, fdata in raw_files.items()]
+    else:
+        file_list = raw_files
+
+    # Debug: log semua nama file yang tersedia
+    all_names = [f.get("file_name", f.get("name", str(f))) for f in file_list]
+    logger.info(f"Bundle {task_id} berisi {len(file_list)} file: {all_names}")
+
+    # ── 2. Cari file CSV yang mengandung NDVI ─────────────────────────────────
+    # Coba pola nama file secara berurutan
+    ndvi_file = None
+    for pattern in NDVI_FILE_PATTERNS:
+        ndvi_file = next(
+            (
+                f for f in file_list
+                if pattern in f.get("file_name", f.get("name", ""))
+                and (
+                    f.get("file_name", f.get("name", "")).endswith(".csv")
+                    or "csv" in f.get("file_type", "").lower()
+                )
+            ),
+            None,
+        )
+        if ndvi_file:
+            logger.info(f"File NDVI ditemukan dengan pola '{pattern}': {ndvi_file.get('file_name', ndvi_file.get('name'))}")
+            break
+
+    # Fallback: ambil file CSV apapun yang ada (mungkin satu-satunya)
+    if ndvi_file is None:
+        csv_files = [
+            f for f in file_list
+            if f.get("file_name", f.get("name", "")).endswith(".csv")
+        ]
+        if csv_files:
+            ndvi_file = csv_files[0]
+            logger.warning(
+                f"Tidak ada file yang cocok pola NDVI — pakai file CSV pertama: "
+                f"{ndvi_file.get('file_name', ndvi_file.get('name'))}"
+            )
+
+    if ndvi_file is None:
+        logger.warning(
+            f"Tidak ada file CSV di bundle APPEEARS.\n"
+            f"Semua file: {all_names}\n"
+            f"Kemungkinan task belum selesai sempurna atau produk tidak tersedia di lokasi ini."
+        )
         return None
 
-    # Download CSV
-    file_id = ndvi_file["file_id"]
+    # ── 3. Download file CSV ──────────────────────────────────────────────────
+    file_id = ndvi_file.get("file_id") or ndvi_file.get("id")
+    if not file_id:
+        logger.warning(f"file_id tidak ditemukan di entry: {ndvi_file}")
+        return None
+
     dl_resp = await client.get(
         f"{APPEEARS_BASE}/bundle/{task_id}/{file_id}",
         headers=headers,
-        timeout=60,
+        timeout=120,
         follow_redirects=True,
     )
     dl_resp.raise_for_status()
 
-    # Parse CSV langsung dari teks
-    import io
-    import csv
+    # ── 4. Parse CSV dan cari kolom NDVI ─────────────────────────────────────
+    text = dl_resp.text
+    if not text.strip():
+        logger.warning("File CSV dari APPEEARS kosong")
+        return None
 
-    lines = dl_resp.text.splitlines()
-    reader = csv.DictReader(io.StringIO("\n".join(lines)))
+    reader   = csv_module.DictReader(io.StringIO(text))
+    fieldnames = reader.fieldnames or []
+    logger.info(f"Kolom CSV APPEEARS: {fieldnames}")
 
+    # Cari kolom NDVI secara fleksibel
     ndvi_col = None
-    values   = []
+    for pattern in NDVI_COLUMN_PATTERNS:
+        ndvi_col = next((k for k in fieldnames if pattern in k), None)
+        if ndvi_col:
+            logger.info(f"Kolom NDVI ditemukan: '{ndvi_col}'")
+            break
 
-    for row in reader:
-        # Temukan kolom NDVI (nama kolom mengandung layer name)
+    if ndvi_col is None:
+        # Coba cari kolom numerik yang nilainya di range MODIS NDVI (0–10000 atau 0.0–1.0)
+        logger.warning(
+            f"Kolom NDVI tidak ditemukan dengan pola {NDVI_COLUMN_PATTERNS}.\n"
+            f"Kolom tersedia: {fieldnames}\n"
+            f"Mencoba deteksi kolom numerik otomatis..."
+        )
+        # Baca baris pertama untuk cek nilai
+        first_row = next(iter(reader), None)
+        if first_row:
+            for k, v in first_row.items():
+                try:
+                    fv = float(v)
+                    # MODIS NDVI raw: -3000 s/d 10000; normalized: 0.0–1.0
+                    if -3000 <= fv <= 10000 and k not in ("Latitude", "Longitude", "latitude", "longitude"):
+                        ndvi_col = k
+                        logger.info(f"Kolom NDVI terdeteksi otomatis: '{ndvi_col}' (nilai pertama: {fv})")
+                        break
+                except (ValueError, TypeError):
+                    continue
         if ndvi_col is None:
-            ndvi_col = next((k for k in row if MODIS_LAYER in k), None)
-            if ndvi_col is None:
-                logger.warning(f"Kolom NDVI tidak ditemukan. Kolom tersedia: {list(row.keys())}")
-                return None
+            logger.warning(f"Tidak bisa mendeteksi kolom NDVI. Kolom: {fieldnames}")
+            return None
+        # Reset reader karena sudah kita konsumsi satu baris
+        reader = csv_module.DictReader(io.StringIO(text))
 
+    # ── 5. Kumpulkan nilai NDVI yang valid ────────────────────────────────────
+    values = []
+    for row in reader:
         raw = row.get(ndvi_col, "")
         try:
-            val = int(raw)
-            if val > -3000:  # filter nilai fill/invalid
-                values.append(val / 10000.0)
+            val = float(raw)
+            if val == -28672 or val < -3000:
+                continue   # nilai fill MODIS
+            # Jika nilai sudah di range 0–1, pakai langsung
+            if 0.0 <= val <= 1.0:
+                values.append(round(val, 4))
+            # Jika masih raw MODIS (0–10000), bagi 10000
+            elif 0 < val <= 10000:
+                values.append(round(val / 10000.0, 4))
         except (ValueError, TypeError):
             continue
 
     if not values:
-        logger.warning("Tidak ada nilai NDVI valid dalam hasil APPEEARS")
+        logger.warning(
+            f"Tidak ada nilai NDVI valid di kolom '{ndvi_col}'. "
+            f"Kemungkinan lokasi tertutup awan atau data tidak tersedia untuk periode ini."
+        )
         return None
 
     ndvi_mean = round(sum(values) / len(values), 4)
-    logger.info(f"NDVI dari APPEEARS: {ndvi_mean} (dari {len(values)} titik data)")
+    logger.info(f"NDVI dari APPEEARS: {ndvi_mean} (dari {len(values)} nilai valid)")
     return ndvi_mean
 
 
@@ -475,8 +573,42 @@ async def fetch_bulk_for_training_with_ndvi(
 # ── CLI TEST ───────────────────────────────────────────
 if __name__ == "__main__":
     import json
+    import argparse
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--debug-bundle", metavar="TASK_ID",
+        help="Print isi bundle mentah dari task_id tertentu (untuk debugging)"
+    )
+    args = parser.parse_args()
+
+    async def debug_bundle(task_id: str):
+        """Print isi bundle mentah — pakai ini jika masih error untuk lihat struktur aslinya."""
+        print(f"\n🔍 Debug bundle untuk task_id: {task_id}\n")
+        async with httpx.AsyncClient(timeout=30) as client:
+            token = await _get_token(client)
+            resp  = await client.get(
+                f"{APPEEARS_BASE}/bundle/{task_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            bundle = resp.json()
+            print("=== FULL BUNDLE RESPONSE ===")
+            print(json.dumps(bundle, indent=2))
+
+            files = bundle.get("files", [])
+            if isinstance(files, dict):
+                files = [{"file_id": fid, **fdata} for fid, fdata in files.items()]
+            print(f"\n=== {len(files)} FILE(S) DITEMUKAN ===")
+            for f in files:
+                print(f"  file_id   : {f.get('file_id', f.get('id', '?'))}")
+                print(f"  file_name : {f.get('file_name', f.get('name', '?'))}")
+                print(f"  file_type : {f.get('file_type', '?')}")
+                print(f"  file_size : {f.get('file_size', '?')}")
+                print()
 
     async def main():
         print("🌿 Test fetch NDVI dari NASA APPEEARS\n")
@@ -490,10 +622,13 @@ if __name__ == "__main__":
 
         for loc in test_locations:
             print(f"📍 {loc['label']} ({loc['lat']}, {loc['lon']})")
-            result = await fetch_ndvi(loc["lat"], loc["lon"], crop_type=loc["crop_type"])
+            result = await fetch_ndvi(loc["lat"], loc["lon"], days_back=64, crop_type=loc["crop_type"])
             print(f"   NDVI         : {result['ndvi']}")
             print(f"   Sumber       : {result['ndvi_source']}")
             print(f"   Jumlah sample: {result['n_samples']}")
             print()
 
-    asyncio.run(main())
+    if args.debug_bundle:
+        asyncio.run(debug_bundle(args.debug_bundle))
+    else:
+        asyncio.run(main())
