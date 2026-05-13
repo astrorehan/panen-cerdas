@@ -1,3 +1,14 @@
+import {
+  Cloud,
+  CloudDrizzle,
+  CloudRain,
+  Droplets,
+  Sun,
+  Thermometer,
+  type LucideIcon,
+} from "lucide-react";
+import { Card } from "@/components/ui/card";
+
 type Cuaca = "cerah" | "berawan" | "hujan-ringan" | "hujan-lebat";
 
 const FORECAST: Array<{
@@ -82,18 +93,15 @@ const FORECAST: Array<{
   },
 ];
 
-const CUACA_LABEL: Record<Cuaca, string> = {
-  cerah: "Cerah",
-  berawan: "Berawan",
-  "hujan-ringan": "Hujan Ringan",
-  "hujan-lebat": "Hujan Lebat",
-};
-
-const CUACA_SYMBOL: Record<Cuaca, string> = {
-  cerah: "○",
-  berawan: "◐",
-  "hujan-ringan": "▒",
-  "hujan-lebat": "█",
+const CUACA_META: Record<Cuaca, { label: string; icon: LucideIcon; tint: string }> = {
+  cerah: { label: "Cerah", icon: Sun, tint: "bg-amber/15 text-amber" },
+  berawan: { label: "Berawan", icon: Cloud, tint: "bg-muted text-muted-foreground" },
+  "hujan-ringan": {
+    label: "Hujan ringan",
+    icon: CloudDrizzle,
+    tint: "bg-primary-soft text-primary",
+  },
+  "hujan-lebat": { label: "Hujan lebat", icon: CloudRain, tint: "bg-clay/15 text-clay" },
 };
 
 export default function CuacaPage() {
@@ -101,95 +109,98 @@ export default function CuacaPage() {
   const avgMax = (
     FORECAST.reduce((acc, f) => acc + f.suhu_max, 0) / FORECAST.length
   ).toFixed(1);
+  const sunny = FORECAST.filter((f) => f.cuaca === "cerah").length;
 
   return (
-    <div className="space-y-10">
-      <section>
-        <div className="meta-row">
-          <span className="h-px w-12 bg-ink" />
-          <span>§ Pasal V — Prakiraan Cuaca</span>
+    <div className="container space-y-8 py-8 md:py-12">
+      <header>
+        <div className="eyebrow">
+          <CloudRain className="h-3 w-3" />
+          Prakiraan Cuaca
         </div>
-        <h1
-          className="mt-5 font-display leading-[0.9] text-ink"
-          style={{
-            fontSize: "clamp(2.2rem, 5vw + 0.4rem, 4.5rem)",
-            fontVariationSettings: '"opsz" 144, "SOFT" 30',
-          }}
-        >
-          Tujuh hari ke depan,
-          <br />
-          <span className="italic text-moss">Cikajang, Bandung.</span>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Tujuh hari ke depan, Cikajang
         </h1>
-        <p className="mt-5 max-w-prose font-display text-[16px] leading-relaxed text-ink-soft">
-          Prakiraan harian untuk merencanakan irigasi, pemupukan,
-          penyemprotan hama, dan penjadwalan panen. Sumber final akan
-          memakai NASA POWER + BMKG pada Phase 7.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          Prakiraan harian untuk merencanakan irigasi, pemupukan, penyemprotan
+          hama, dan penjadwalan panen.
         </p>
-      </section>
+      </header>
 
-      <section className="grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Stat label="Total Hujan 7-hari" value={`${totalRain}`} unit="mm" />
-        <Stat label="Suhu Maks. Rata-rata" value={avgMax} unit="°C" />
+      <section className="grid gap-3 sm:grid-cols-3">
         <Stat
+          icon={Droplets}
+          label="Total Hujan"
+          value={`${totalRain}`}
+          unit="mm / 7 hari"
+        />
+        <Stat
+          icon={Thermometer}
+          label="Suhu Maks. Rata-rata"
+          value={avgMax}
+          unit="C"
+        />
+        <Stat
+          icon={Sun}
           label="Hari Cerah"
-          value={`${FORECAST.filter((f) => f.cuaca === "cerah").length}`}
+          value={`${sunny}`}
           unit="dari 7 hari"
           accent
         />
       </section>
 
-      <section className="space-y-3">
-        <div className="meta-row">
-          <span>§ V.1 — Detail Harian</span>
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Detail harian</h2>
         </div>
-        <div className="grid gap-3">
-          {FORECAST.map((f, i) => (
-            <article
-              key={f.tanggal}
-              className="grid grid-cols-[auto_1fr_auto] items-center gap-6 border border-ink/15 bg-paper-deep/40 px-5 py-4"
-            >
-              <div className="text-center">
-                <div
-                  className="font-display text-[2.4rem] leading-none text-ink"
-                  aria-hidden
-                >
-                  {CUACA_SYMBOL[f.cuaca]}
+        <div className="grid gap-2.5">
+          {FORECAST.map((f, i) => {
+            const meta = CUACA_META[f.cuaca];
+            const Icon = meta.icon;
+            return (
+              <article
+                key={f.tanggal}
+                className="grid grid-cols-[auto_1fr_auto] items-center gap-5 rounded-2xl border border-border bg-surface p-4 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated md:p-5"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center rounded-2xl ${meta.tint}`}
+                  >
+                    <Icon className="h-6 w-6" />
+                  </div>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {meta.label}
+                  </span>
                 </div>
-                <div className="mt-1 font-mono text-[9px] uppercase tracking-smallcaps text-ink-faint">
-                  {CUACA_LABEL[f.cuaca]}
+                <div>
+                  <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Hari ke-{i + 1} - {f.hari}, {f.tanggal}
+                  </div>
+                  <div className="mt-1 text-xl font-semibold tracking-tight">
+                    {f.suhu_min} - {f.suhu_max} C
+                  </div>
+                  <p className="mt-1 max-w-prose text-sm leading-relaxed text-muted-foreground">
+                    {f.catatan}
+                  </p>
                 </div>
-              </div>
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-                  Hari ke-{i + 1} · {f.hari}, {f.tanggal}
+                <div className="text-right text-xs">
+                  <Mini label="Hujan" value={`${f.hujan_mm} mm`} />
+                  <Mini label="Radiasi" value={`${f.radiasi_w_m2} W/m`} />
                 </div>
-                <div
-                  className="mt-1 font-display text-xl italic text-ink"
-                  style={{ fontVariationSettings: '"opsz" 36, "SOFT" 50' }}
-                >
-                  {f.suhu_min}° – {f.suhu_max}°C
-                </div>
-                <p className="mt-1 max-w-prose font-display text-[13px] leading-relaxed text-ink-soft">
-                  {f.catatan}
-                </p>
-              </div>
-              <div className="text-right">
-                <Mini label="Hujan" value={`${f.hujan_mm} mm`} />
-                <Mini label="Radiasi" value={`${f.radiasi_w_m2} W/m²`} />
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </div>
       </section>
 
-      <section className="border border-ink/15 bg-paper-deep/40 px-6 py-5">
-        <div className="meta-row">
-          <span>§ Catatan Sumber</span>
+      <section className="rounded-2xl border border-border bg-muted/40 p-5">
+        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Catatan sumber
         </div>
-        <p className="mt-3 max-w-prose font-display text-[14px] leading-relaxed text-ink-soft">
-          Prakiraan ini adalah data contoh statis. Phase 7 akan memakai
-          NASA POWER (radiasi + suhu historis) dan BMKG (hujan + prakiraan
-          7-hari) ber-geolokasi GPS petani.
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Prakiraan ini adalah data contoh statis. Versi berikutnya akan
+          memakai NASA POWER (radiasi + suhu historis) dan BMKG (hujan +
+          prakiraan 7-hari) ber-geolokasi GPS petani.
         </p>
       </section>
     </div>
@@ -197,50 +208,61 @@ export default function CuacaPage() {
 }
 
 function Stat({
+  icon: Icon,
   label,
   value,
   unit,
   accent,
 }: {
+  icon: LucideIcon;
   label: string;
   value: string;
   unit: string;
   accent?: boolean;
 }) {
   return (
-    <div className={`px-5 py-5 ${accent ? "bg-ink text-paper" : ""}`}>
+    <Card
+      className={`flex items-center gap-4 p-5 ${
+        accent
+          ? "border-primary/25 bg-gradient-to-br from-primary to-primary-deep text-primary-foreground"
+          : ""
+      }`}
+    >
       <div
-        className={`font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
+        className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+          accent ? "bg-primary-foreground/10" : "bg-primary-soft text-primary"
         }`}
       >
-        {label}
+        <Icon className="h-5 w-5" />
       </div>
-      <div
-        className={`mt-1 font-display leading-none ${accent ? "text-paper" : "text-ink"}`}
-        style={{
-          fontSize: "clamp(1.8rem, 2.5vw + 0.6rem, 2.6rem)",
-          fontVariationSettings: '"opsz" 96, "SOFT" 30',
-        }}
-      >
-        {value}
+      <div>
+        <div
+          className={`text-xs font-medium uppercase tracking-wider ${
+            accent ? "text-primary-foreground/80" : "text-muted-foreground"
+          }`}
+        >
+          {label}
+        </div>
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tracking-tight">{value}</span>
+          <span
+            className={`text-xs ${
+              accent ? "text-primary-foreground/80" : "text-muted-foreground"
+            }`}
+          >
+            {unit}
+          </span>
+        </div>
       </div>
-      <div
-        className={`mt-1 font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
-        }`}
-      >
-        {unit}
-      </div>
-    </div>
+    </Card>
   );
 }
 
 function Mini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
+    <div className="text-xs text-muted-foreground">
       <span>{label}: </span>
-      <span className="text-ink">{value}</span>
+      <span className="font-semibold text-foreground">{value}</span>
     </div>
   );
 }

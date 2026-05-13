@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { MessageSquare, CheckCircle2, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface FeedbackFormProps {
   predictionLogId: number;
@@ -41,14 +44,17 @@ export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
 
   if (status.kind === "ok") {
     return (
-      <div className="border border-ink/20 bg-paper-deep/40 px-6 py-5">
-        <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-          Umpan balik tercatat
+      <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <CheckCircle2 className="h-4 w-4" />
         </div>
-        <p className="mt-2 font-display text-lg italic leading-snug text-ink">
-          Terima kasih — data realisasi № {status.feedbackId} masuk ke
-          data/feedback.jsonl dan akan dipakai untuk retrain model di Phase 7.
-        </p>
+        <div>
+          <div className="text-sm font-semibold text-primary">Terima kasih!</div>
+          <p className="mt-0.5 text-sm leading-relaxed text-foreground">
+            Data realisasi #{status.feedbackId} tercatat ke
+            data/feedback.jsonl dan akan digunakan untuk retrain model.
+          </p>
+        </div>
       </div>
     );
   }
@@ -58,91 +64,80 @@ export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
   return (
     <form
       onSubmit={submit}
-      className="space-y-4 border border-ink/20 bg-paper-deep/40 px-6 py-5"
+      className="rounded-3xl border border-border bg-surface p-6 shadow-card md:p-8"
     >
-      <div className="meta-row">
-        <span>§ Umpan Balik — Realisasi Panen</span>
-      </div>
-      <p className="max-w-prose font-display text-[14px] leading-relaxed text-ink-soft">
-        Setelah panen aktual, isi data sebenarnya untuk membantu kami
-        mengkalibrasi model. Mengacu pada prediksi № {predictionLogId}.
-      </p>
+      <header className="mb-5 flex items-start gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <MessageSquare className="h-4 w-4" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold tracking-tight">
+            Umpan balik realisasi panen
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Setelah panen aktual, isi data sebenarnya untuk membantu kami
+            mengkalibrasi model. Mengacu pada prediksi #{predictionLogId}.
+          </p>
+        </div>
+      </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Hari ke panen (aktual)"
-          unit="hari"
-          required
-          inputProps={{
-            type: "number",
-            min: 1,
-            step: 1,
-            value: actualHarvestDays,
-            onChange: (e) => setActualHarvestDays(e.target.value),
-          }}
-        />
-        <Field
-          label="Hasil per ha (aktual)"
-          unit="ton / ha"
-          required
-          inputProps={{
-            type: "number",
-            min: 0,
-            step: 0.01,
-            value: actualYield,
-            onChange: (e) => setActualYield(e.target.value),
-          }}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="fb-days">
+            Hari ke panen aktual <span className="text-muted-foreground">(hari)</span>
+          </Label>
+          <Input
+            id="fb-days"
+            type="number"
+            min={1}
+            step={1}
+            value={actualHarvestDays}
+            onChange={(e) => setActualHarvestDays(e.target.value)}
+            required
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="fb-yield">
+            Hasil per ha aktual <span className="text-muted-foreground">(ton/ha)</span>
+          </Label>
+          <Input
+            id="fb-yield"
+            type="number"
+            min={0}
+            step={0.01}
+            value={actualYield}
+            onChange={(e) => setActualYield(e.target.value)}
+            required
+          />
+        </div>
       </div>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-          Catatan (opsional)
-        </span>
+      <div className="mt-4 space-y-2">
+        <Label htmlFor="fb-notes">
+          Catatan <span className="text-muted-foreground">(opsional)</span>
+        </Label>
         <textarea
-          rows={2}
+          id="fb-notes"
+          rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Hama yang muncul, kondisi cuaca tak terduga, dsb."
-          className="border border-ink/20 bg-paper px-3 py-2 font-sans text-[14px] text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
+          className="flex w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         />
-      </label>
+      </div>
 
       {status.kind === "error" && (
-        <p className="border-l-2 border-[#A8442C] bg-[#A8442C]/10 px-3 py-2 font-mono text-[11px] text-[#A8442C]">
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           {status.message}
-        </p>
+        </div>
       )}
 
-      <Button type="submit" disabled={submitting}>
-        {submitting ? "Mengirim..." : "Kirim Umpan Balik"}
-      </Button>
+      <div className="mt-6">
+        <Button type="submit" disabled={submitting}>
+          {submitting ? "Mengirim..." : "Kirim umpan balik"}
+        </Button>
+      </div>
     </form>
-  );
-}
-
-function Field({
-  label,
-  unit,
-  required,
-  inputProps,
-}: {
-  label: string;
-  unit?: string;
-  required?: boolean;
-  inputProps: React.InputHTMLAttributes<HTMLInputElement>;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-        <span>{label}</span>
-        {unit && <span>{unit}</span>}
-      </span>
-      <input
-        {...inputProps}
-        required={required}
-        className="border border-ink/20 bg-paper px-3 py-2 font-sans text-[14px] text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
-      />
-    </label>
   );
 }

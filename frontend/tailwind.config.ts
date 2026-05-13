@@ -10,105 +10,106 @@ const config: Config = {
     container: {
       center: true,
       padding: { DEFAULT: "1.25rem", lg: "2rem" },
-      screens: { "2xl": "1440px" },
+      screens: { "2xl": "1280px" },
     },
     extend: {
       colors: {
-        // Paper / ink — the foundation
-        paper: {
-          DEFAULT: "#F4EFE6",
-          deep: "#EBE5D6",
-          edge: "#E2DBC7",
-        },
-        ink: {
-          DEFAULT: "#1A1D1B",
-          soft: "#3C4138",
-          faint: "#6B6F5F",
-          light: "#9A9A88",
-        },
-        rule: "#C8C0A8",
-
-        // Brand greens (earthier than Material green)
-        moss: {
-          DEFAULT: "#2A3D2F",
-          deep: "#1A2620",
-          mid: "#456049",
-          pale: "#87A07D",
-          wash: "#E5EBDA",
+        // Brand greens — deep, earthy, trustworthy
+        primary: {
+          DEFAULT: "#1F5132",
+          foreground: "#FFFFFF",
+          deep: "#143822",
+          soft: "#E8F0E5",
+          accent: "#5E8C5A",
         },
 
-        // Accents
-        saffron: "#C97B1A",
-        amber: "#D4933A",
-        clay: "#A8442C",
-        sky: "#5C7F8F",
+        // Surfaces
+        background: "#FAF7F2",
+        surface: "#FFFFFF",
+        foreground: "#0F1F18",
+        muted: {
+          DEFAULT: "#F1ECE3",
+          foreground: "#6B7568",
+        },
+        border: "#E7E2D6",
+        input: "#E7E2D6",
+        ring: "#1F5132",
+        card: { DEFAULT: "#FFFFFF", foreground: "#0F1F18" },
 
-        // Status (used in choropleth + KPIs)
+        // Earth accents
+        clay: "#A87042",
+        amber: "#C97B1A",
+        sand: "#F1ECE3",
+
+        // Status — choropleth + KPIs
         status: {
-          surplus: "#2A3D2F",
-          cukup: "#87A07D",
+          surplus: "#1F5132",
+          cukup: "#7AA876",
           waspada: "#D4933A",
-          defisit: "#A8442C",
+          defisit: "#B3573A",
         },
 
-        // shadcn semantic tokens (kept for Card/Button compatibility)
-        border: "#C8C0A8",
-        input: "#C8C0A8",
-        ring: "#2A3D2F",
-        background: "#F4EFE6",
-        foreground: "#1A1D1B",
-        muted: { DEFAULT: "#EBE5D6", foreground: "#6B6F5F" },
-        card: { DEFAULT: "#F4EFE6", foreground: "#1A1D1B" },
-        // legacy `brand` aliases so any leftover refs still resolve
-        brand: {
-          50: "#E5EBDA",
-          100: "#D7DEC5",
-          200: "#B5C39B",
-          300: "#87A07D",
-          400: "#5E7B5C",
-          500: "#456049",
-          600: "#345237",
-          700: "#2A3D2F",
-          800: "#1A2620",
-          900: "#0D1410",
+        // Destructive (shadcn slot)
+        destructive: {
+          DEFAULT: "#B3573A",
+          foreground: "#FFFFFF",
         },
+        accent: {
+          DEFAULT: "#E8F0E5",
+          foreground: "#1F5132",
+        },
+        secondary: {
+          DEFAULT: "#F1ECE3",
+          foreground: "#0F1F18",
+        },
+        popover: { DEFAULT: "#FFFFFF", foreground: "#0F1F18" },
       },
       borderRadius: {
         none: "0",
-        sm: "2px",
-        DEFAULT: "3px",
-        md: "4px",
-        lg: "6px",
-        xl: "8px",
+        sm: "6px",
+        DEFAULT: "8px",
+        md: "10px",
+        lg: "12px",
+        xl: "16px",
+        "2xl": "24px",
+        "3xl": "32px",
       },
       fontFamily: {
-        display: ["var(--font-display)", "ui-serif", "Georgia", "serif"],
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        display: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
-      letterSpacing: {
-        smallcaps: "0.14em",
-        cap: "0.08em",
+      boxShadow: {
+        card: "0 1px 2px rgba(15, 31, 24, 0.04), 0 4px 12px rgba(15, 31, 24, 0.06)",
+        elevated: "0 4px 12px rgba(15, 31, 24, 0.08), 0 12px 32px rgba(15, 31, 24, 0.10)",
+        glow: "0 0 0 1px rgba(31, 81, 50, 0.08), 0 8px 32px rgba(31, 81, 50, 0.18)",
       },
       keyframes: {
-        "ink-rise": {
-          "0%": { opacity: "0", transform: "translateY(6px)", filter: "blur(2px)" },
-          "60%": { opacity: "1", filter: "blur(0)" },
-          "100%": { opacity: "1", transform: "translateY(0)", filter: "blur(0)" },
-        },
         "fade-in": {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
-        "scale-x-in": {
-          "0%": { transform: "scaleX(0)" },
-          "100%": { transform: "scaleX(1)" },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        "shimmer": {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
         },
       },
       animation: {
-        "ink-rise": "ink-rise 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both",
         "fade-in": "fade-in 0.6s ease-out both",
-        "scale-x-in": "scale-x-in 0.9s cubic-bezier(0.65, 0, 0.35, 1) both",
+        "fade-in-up": "fade-in-up 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both",
+        "float": "float 6s ease-in-out infinite",
+        "shimmer": "shimmer 2.4s linear infinite",
+      },
+      backgroundImage: {
+        "gradient-mesh":
+          "radial-gradient(at 12% 0%, rgba(94, 140, 90, 0.18) 0px, transparent 50%), radial-gradient(at 88% 12%, rgba(31, 81, 50, 0.12) 0px, transparent 55%), radial-gradient(at 100% 100%, rgba(168, 112, 66, 0.10) 0px, transparent 50%)",
       },
     },
   },

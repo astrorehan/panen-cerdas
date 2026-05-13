@@ -4,15 +4,21 @@
 
 @layer base {
   :root {
-    --background: #f4efe6;
-    --foreground: #1a1d1b;
-    --border: #c8c0a8;
-    --ring: #2a3d2f;
-    --radius: 4px;
+    --background: #faf7f2;
+    --foreground: #0f1f18;
+    --border: #e7e2d6;
+    --ring: #1f5132;
+    --radius: 12px;
+    --primary: #1f5132;
+    --primary-soft: #e8f0e5;
   }
 
   * {
-    @apply border-rule;
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 
   html,
@@ -20,15 +26,8 @@
     background: var(--background);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
-    font-feature-settings: "ss01", "calt", "kern";
-  }
-
-  body {
-    background-image:
-      /* fine grain via radial dots */ radial-gradient(rgba(26, 29, 27, 0.045) 1px, transparent 1px),
-      /* second grain offset */ radial-gradient(rgba(26, 29, 27, 0.025) 1px, transparent 1px);
-    background-size: 3px 3px, 5px 5px;
-    background-position: 0 0, 1px 2px;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01", "ss03";
   }
 
   /* Leaflet container fills its parent */
@@ -36,54 +35,39 @@
     width: 100%;
     height: 100%;
     z-index: 0;
-    background: #ebe5d6 !important;
+    background: #f1ece3 !important;
     font-family: var(--font-sans);
+    border-radius: 16px;
   }
-  /* Sepia/warm tone for the basemap */
-  .leaflet-tile-pane {
-    filter: sepia(0.35) hue-rotate(-8deg) saturate(0.82) brightness(0.96);
+
+  ::selection {
+    background: rgba(31, 81, 50, 0.18);
+    color: #0f1f18;
   }
 }
 
 @layer components {
-  /* Decorative hairline rule with optional section marker */
-  .rule-h {
-    @apply relative h-px w-full bg-rule;
-  }
-  .rule-h::after {
-    content: "";
-    @apply absolute -top-px left-0 h-[3px] w-12 bg-ink;
+  /* Soft chip used for badges and eyebrows */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-primary;
   }
 
-  /* Scientific bulletin metadata block */
-  .meta-row {
-    @apply flex items-center gap-3 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint;
+  /* Eyebrow label above section titles */
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary-soft px-3 py-1 text-[11px] font-medium uppercase tracking-wider text-primary;
   }
 
-  /* Big italic Fraunces KPI numeral */
-  .display-numeral {
-    @apply font-display italic text-ink;
-    font-feature-settings: "ss01", "ss02";
-    font-variation-settings: "opsz" 144, "SOFT" 30, "WONK" 0;
+  /* Card primitive used outside the shadcn Card component */
+  .card-surface {
+    @apply rounded-2xl border border-border bg-surface shadow-card;
   }
 
-  /* Small caps label */
-  .smallcaps {
-    @apply font-mono uppercase tracking-smallcaps text-ink-faint;
+  /* Section title sizing */
+  .h-section {
+    @apply text-3xl font-semibold tracking-tight text-foreground md:text-4xl;
   }
-
-  /* Section header pair */
-  .section-eyebrow {
-    @apply font-mono text-[11px] uppercase tracking-smallcaps text-ink-faint;
-  }
-  .section-title {
-    @apply font-display text-3xl text-ink md:text-4xl;
-    font-variation-settings: "opsz" 72, "SOFT" 50, "WONK" 0;
-  }
-
-  /* Coordinate tag (e.g. "8°S · 107°E") */
-  .coord {
-    @apply font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint;
+  .h-display {
+    @apply text-4xl font-semibold tracking-tight text-foreground md:text-6xl;
   }
 }
 
@@ -92,19 +76,25 @@
     text-wrap: balance;
   }
 
-  /* Topographic line pattern overlay (SVG-encoded) */
-  .topo-bg {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 400' fill='none' stroke='%23c8c0a8' stroke-width='0.7' opacity='0.55'><path d='M-50 320 C 100 280 220 360 360 300 S 620 260 880 320'/><path d='M-50 280 C 100 240 220 320 360 260 S 620 220 880 280'/><path d='M-50 240 C 100 200 220 280 360 220 S 620 180 880 240'/><path d='M-50 200 C 100 160 220 240 360 180 S 620 140 880 200'/><path d='M-50 160 C 100 120 220 200 360 140 S 620 100 880 160'/><path d='M-50 120 C 100 80 220 160 360 100 S 620 60 880 120'/></svg>");
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
+  /* Animated mesh background for hero / cta */
+  .bg-mesh {
+    background-image:
+      radial-gradient(at 12% 0%, rgba(94, 140, 90, 0.18) 0px, transparent 50%),
+      radial-gradient(at 88% 12%, rgba(31, 81, 50, 0.12) 0px, transparent 55%),
+      radial-gradient(at 100% 100%, rgba(168, 112, 66, 0.10) 0px, transparent 50%);
   }
 
-  /* Stagger delay helpers — used with .animate-ink-rise */
+  /* Subtle dotted grid for sectioned backgrounds */
+  .bg-grid-dot {
+    background-image: radial-gradient(rgba(15, 31, 24, 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Stagger delay helpers */
   .stagger-1 { animation-delay: 60ms; }
   .stagger-2 { animation-delay: 140ms; }
   .stagger-3 { animation-delay: 220ms; }
   .stagger-4 { animation-delay: 300ms; }
   .stagger-5 { animation-delay: 380ms; }
   .stagger-6 { animation-delay: 460ms; }
-  .stagger-7 { animation-delay: 540ms; }
 }

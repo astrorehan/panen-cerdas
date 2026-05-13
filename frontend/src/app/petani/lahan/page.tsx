@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { ArrowRight, Layers, MapPin, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 type LahanStatus = "tumbuh" | "panen-segera" | "kosong";
 
@@ -31,7 +33,7 @@ const LAHAN: Array<{
     komoditas: "jagung",
     varietas: "NK7328",
     status: "panen-segera",
-    catatan: "Sudah 92 hari, NDVI menurun — siap dipanen pekan depan.",
+    catatan: "Sudah 92 hari, NDVI menurun - siap dipanen pekan depan.",
   },
   {
     id: "L03",
@@ -45,14 +47,10 @@ const LAHAN: Array<{
   },
 ];
 
-const STATUS_STYLE: Record<LahanStatus, { label: string; dot: string; bg: string }> = {
-  tumbuh: { label: "Sedang Tumbuh", dot: "bg-[#87A07D]", bg: "bg-[#87A07D]/15" },
-  "panen-segera": {
-    label: "Panen Segera",
-    dot: "bg-[#D4933A]",
-    bg: "bg-[#D4933A]/15",
-  },
-  kosong: { label: "Kosong", dot: "bg-ink/40", bg: "bg-paper-edge" },
+const STATUS_STYLE: Record<LahanStatus, { label: string; chip: string }> = {
+  tumbuh: { label: "Sedang Tumbuh", chip: "bg-primary-soft text-primary" },
+  "panen-segera": { label: "Panen Segera", chip: "bg-amber/15 text-amber" },
+  kosong: { label: "Kosong", chip: "bg-muted text-muted-foreground" },
 };
 
 export default function LahanPage() {
@@ -60,81 +58,66 @@ export default function LahanPage() {
   const aktif = LAHAN.filter((l) => l.status !== "kosong").length;
 
   return (
-    <div className="space-y-10">
-      <section>
-        <div className="meta-row">
-          <span className="h-px w-12 bg-ink" />
-          <span>§ Pasal III — Lahan Saya</span>
+    <div className="container space-y-8 py-8 md:py-12">
+      <header>
+        <div className="eyebrow">
+          <Layers className="h-3 w-3" />
+          Lahan Saya
         </div>
-        <h1
-          className="mt-5 font-display leading-[0.9] text-ink"
-          style={{
-            fontSize: "clamp(2.2rem, 5vw + 0.4rem, 4.5rem)",
-            fontVariationSettings: '"opsz" 144, "SOFT" 30',
-          }}
-        >
-          Catatan lahan
-          <br />
-          <span className="italic text-moss">yang Anda kelola.</span>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Catatan lahan yang Anda kelola
         </h1>
-        <p className="mt-5 max-w-prose font-display text-[16px] leading-relaxed text-ink-soft">
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Setiap petak terdaftar memiliki komoditas, luas, status, dan
           catatan terakhir. Data ini akan tersinkron dengan pengiriman
-          formulir prediksi pada Phase 7.
+          formulir prediksi.
         </p>
+      </header>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <StatCard label="Total Lahan" value={`${LAHAN.length}`} unit="petak" />
+        <StatCard label="Total Luas" value={totalHa.toFixed(2)} unit="hektar" />
+        <StatCard label="Aktif Bertanam" value={`${aktif}`} unit="petak" accent />
       </section>
 
-      <section className="grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Stat label="Total Lahan" value={`${LAHAN.length}`} unit="petak" />
-        <Stat label="Total Luas" value={totalHa.toFixed(2)} unit="hektar" />
-        <Stat label="Aktif Bertanam" value={`${aktif}`} unit="petak" accent />
-      </section>
-
-      <section className="space-y-4">
-        <div className="meta-row">
-          <span>§ III.1 — Daftar Petak</span>
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Daftar petak</h2>
+          <span className="text-xs text-muted-foreground">
+            {LAHAN.length} lahan
+          </span>
         </div>
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {LAHAN.map((l) => {
             const s = STATUS_STYLE[l.status];
             return (
               <article
                 key={l.id}
-                className="border border-ink/20 bg-paper-deep/40"
+                className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card"
               >
-                <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule px-5 py-3">
+                <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-                      Lahan № {l.id} — {l.lokasi}
+                    <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      Lahan #{l.id} - {l.lokasi}
                     </div>
-                    <h2
-                      className="mt-1 font-display text-xl italic text-ink"
-                      style={{ fontVariationSettings: '"opsz" 36, "SOFT" 50' }}
-                    >
+                    <h3 className="mt-1.5 text-xl font-semibold tracking-tight">
                       {l.nama}
-                    </h2>
+                    </h3>
                   </div>
-                  <div
-                    className={`flex items-center gap-2 border border-ink/15 px-3 py-1 ${s.bg}`}
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.chip}`}
                   >
-                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                    <span className="font-mono text-[10px] uppercase tracking-smallcaps text-ink">
-                      {s.label}
-                    </span>
-                  </div>
+                    <Sprout className="h-3 w-3" />
+                    {s.label}
+                  </span>
                 </header>
-                <div className="grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                  <Cell
-                    label="Komoditas"
-                    value={l.komoditas ? l.komoditas : "—"}
-                  />
-                  <Cell
-                    label="Varietas"
-                    value={l.varietas ?? "—"}
-                  />
+                <div className="grid grid-cols-3 divide-x divide-border">
+                  <Cell label="Komoditas" value={l.komoditas ?? "-"} />
+                  <Cell label="Varietas" value={l.varietas ?? "-"} />
                   <Cell label="Luas" value={`${l.luas_ha.toFixed(2)} ha`} />
                 </div>
-                <p className="border-t border-rule px-5 py-3 font-display text-[14px] italic leading-relaxed text-ink-soft">
+                <p className="border-t border-border bg-muted/30 px-5 py-3.5 text-sm leading-relaxed text-muted-foreground">
                   {l.catatan}
                 </p>
               </article>
@@ -143,20 +126,23 @@ export default function LahanPage() {
         </div>
       </section>
 
-      <section className="flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-6">
-        <p className="max-w-prose font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-muted/40 p-5">
+        <p className="max-w-md text-sm text-muted-foreground">
           Lahan baru akan otomatis tercatat setelah simulasi prediksi pertama
-          dikirim — fitur final Phase 7.
+          dikirim.
         </p>
         <Button asChild>
-          <Link href="/petani/prediksi">Simulasi lahan baru →</Link>
+          <Link href="/petani/prediksi">
+            Simulasi lahan baru
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </Button>
       </section>
     </div>
   );
 }
 
-function Stat({
+function StatCard({
   label,
   value,
   unit,
@@ -168,46 +154,33 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div className={`px-5 py-5 ${accent ? "bg-ink text-paper" : ""}`}>
+    <Card
+      className={`p-5 ${accent ? "border-primary/25 bg-gradient-to-br from-primary to-primary-deep text-primary-foreground" : ""}`}
+    >
       <div
-        className={`font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
-        }`}
+        className={`text-xs font-medium uppercase tracking-wider ${accent ? "text-primary-foreground/80" : "text-muted-foreground"}`}
       >
         {label}
       </div>
-      <div
-        className={`mt-1 font-display leading-none ${accent ? "text-paper" : "text-ink"}`}
-        style={{
-          fontSize: "clamp(1.8rem, 2.5vw + 0.6rem, 2.6rem)",
-          fontVariationSettings: '"opsz" 96, "SOFT" 30',
-        }}
-      >
-        {value}
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-3xl font-semibold tracking-tight">{value}</span>
+        <span
+          className={`text-sm ${accent ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+        >
+          {unit}
+        </span>
       </div>
-      <div
-        className={`mt-1 font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
-        }`}
-      >
-        {unit}
-      </div>
-    </div>
+    </Card>
   );
 }
 
 function Cell({ label, value }: { label: string; value: string }) {
   return (
-    <div className="px-5 py-3">
-      <div className="font-mono text-[9px] uppercase tracking-smallcaps text-ink-faint">
+    <div className="px-5 py-4">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div
-        className="mt-1 font-display text-base italic text-ink"
-        style={{ fontVariationSettings: '"opsz" 36, "SOFT" 40' }}
-      >
-        {value}
-      </div>
+      <div className="mt-1 text-sm font-semibold tracking-tight">{value}</div>
     </div>
   );
 }

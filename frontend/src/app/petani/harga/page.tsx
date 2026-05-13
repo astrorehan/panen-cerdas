@@ -1,3 +1,5 @@
+import { Coins, TrendingDown, TrendingUp } from "lucide-react";
+
 type Komoditas = "padi" | "jagung" | "kedelai" | "singkong";
 
 const HARGA: Array<{
@@ -39,7 +41,7 @@ const HARGA: Array<{
   {
     komoditas: "singkong",
     label: "Singkong Segar",
-    unit_local: "Umur ≥ 8 bulan",
+    unit_local: "Umur 8 bulan ke atas",
     price_idr_per_kg: 1850,
     delta_pct: 4.7,
     pasar: "Pengepul Garut",
@@ -53,126 +55,87 @@ function formatIdr(n: number) {
 
 export default function HargaPage() {
   return (
-    <div className="space-y-10">
-      <section>
-        <div className="meta-row">
-          <span className="h-px w-12 bg-ink" />
-          <span>§ Pasal IV — Harga Komoditas</span>
+    <div className="container space-y-8 py-8 md:py-12">
+      <header>
+        <div className="eyebrow">
+          <Coins className="h-3 w-3" />
+          Harga Komoditas
         </div>
-        <h1
-          className="mt-5 font-display leading-[0.9] text-ink"
-          style={{
-            fontSize: "clamp(2.2rem, 5vw + 0.4rem, 4.5rem)",
-            fontVariationSettings: '"opsz" 144, "SOFT" 30',
-          }}
-        >
-          Harga pasaran
-          <br />
-          <span className="italic text-moss">untuk pekan ini.</span>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Harga pasaran untuk pekan ini
         </h1>
-        <p className="mt-5 max-w-prose font-display text-[16px] leading-relaxed text-ink-soft">
-          Harga acuan mingguan dari pasar utama. Bandingkan dengan harga
-          jual lokal Anda untuk memutuskan kapan melepas hasil panen.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          Harga acuan mingguan dari pasar utama. Bandingkan dengan harga jual
+          lokal Anda untuk memutuskan kapan melepas hasil panen.
         </p>
-      </section>
+      </header>
 
-      <section className="overflow-x-auto border border-ink/20 bg-paper-deep/40">
-        <table className="w-full min-w-[680px] border-collapse">
-          <thead>
-            <tr className="border-b border-ink/20 text-left">
-              <Th>Komoditas</Th>
-              <Th>Pasar Acuan</Th>
-              <Th className="text-right">Harga / kg</Th>
-              <Th className="text-right">Δ 7-hari</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {HARGA.map((h) => {
-              const up = h.delta_pct >= 0;
-              return (
-                <tr
-                  key={h.komoditas}
-                  className="border-b border-rule align-top last:border-b-0"
+      <section className="grid gap-3 sm:grid-cols-2">
+        {HARGA.map((h) => {
+          const up = h.delta_pct >= 0;
+          return (
+            <article
+              key={h.komoditas}
+              className="rounded-2xl border border-border bg-surface p-6 shadow-card transition-all hover:-translate-y-0.5 hover:shadow-elevated"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-semibold tracking-tight">
+                    {h.label}
+                  </h3>
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {h.unit_local}
+                  </div>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                    up
+                      ? "bg-primary-soft text-primary"
+                      : "bg-destructive/12 text-destructive"
+                  }`}
                 >
-                  <td className="px-4 py-4">
-                    <div
-                      className="font-display text-xl italic text-ink"
-                      style={{ fontVariationSettings: '"opsz" 36, "SOFT" 50' }}
-                    >
-                      {h.label}
-                    </div>
-                    <div className="mt-1 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-                      {h.unit_local}
-                    </div>
-                    <p className="mt-2 max-w-prose font-display text-[13px] leading-relaxed text-ink-soft">
-                      {h.catatan}
-                    </p>
-                  </td>
-                  <td className="px-4 py-4 align-top font-mono text-[11px] uppercase tracking-smallcaps text-ink">
-                    {h.pasar}
-                  </td>
-                  <td className="px-4 py-4 text-right align-top">
-                    <div
-                      className="font-display leading-none text-ink"
-                      style={{
-                        fontSize: "clamp(1.4rem, 2vw + 0.4rem, 2rem)",
-                        fontVariationSettings: '"opsz" 72, "SOFT" 30',
-                      }}
-                    >
-                      Rp {formatIdr(h.price_idr_per_kg)}
-                    </div>
-                    <div className="mt-1 font-mono text-[9px] uppercase tracking-smallcaps text-ink-faint">
-                      per kilogram
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 text-right align-top">
-                    <span
-                      className={`inline-flex items-baseline gap-1 border px-2 py-1 font-mono text-[11px] ${
-                        up
-                          ? "border-[#2A3D2F]/30 bg-[#2A3D2F]/10 text-[#2A3D2F]"
-                          : "border-[#A8442C]/30 bg-[#A8442C]/10 text-[#A8442C]"
-                      }`}
-                    >
-                      <span>{up ? "▲" : "▼"}</span>
-                      <span>
-                        {up ? "+" : ""}
-                        {h.delta_pct.toFixed(1)}%
-                      </span>
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                  {up ? (
+                    <TrendingUp className="h-3 w-3" />
+                  ) : (
+                    <TrendingDown className="h-3 w-3" />
+                  )}
+                  {up ? "+" : ""}
+                  {h.delta_pct.toFixed(1)}%
+                </span>
+              </div>
+
+              <div className="mt-5 flex items-baseline gap-1.5">
+                <span className="text-xs text-muted-foreground">Rp</span>
+                <span className="text-4xl font-semibold tracking-tight">
+                  {formatIdr(h.price_idr_per_kg)}
+                </span>
+                <span className="text-sm text-muted-foreground">/kg</span>
+              </div>
+
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Pasar acuan
+                </div>
+                <div className="mt-1 text-sm font-medium">{h.pasar}</div>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  {h.catatan}
+                </p>
+              </div>
+            </article>
+          );
+        })}
       </section>
 
-      <section className="border border-ink/15 bg-paper-deep/40 px-6 py-5">
-        <div className="meta-row">
-          <span>§ Catatan Sumber</span>
+      <section className="rounded-2xl border border-border bg-muted/40 p-5">
+        <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Catatan sumber
         </div>
-        <p className="mt-3 max-w-prose font-display text-[14px] leading-relaxed text-ink-soft">
-          Data harga di atas adalah contoh statis untuk MVP UNITY #14.
-          Phase 7 akan menyambungkan API Panel Harga Pangan Nasional (PIHPS)
-          dan Bulog untuk pembaruan harian otomatis.
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Data harga di atas adalah contoh statis untuk MVP. Versi berikutnya
+          akan menyambungkan API Panel Harga Pangan Nasional (PIHPS) dan
+          Bulog untuk pembaruan harian otomatis.
         </p>
       </section>
     </div>
-  );
-}
-
-function Th({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <th
-      className={`px-4 py-3 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint ${className}`}
-    >
-      {children}
-    </th>
   );
 }

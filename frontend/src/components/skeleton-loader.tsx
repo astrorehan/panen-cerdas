@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SkeletonLoaderProps {
@@ -12,21 +13,18 @@ export function SkeletonLoader({
   return (
     <div
       className={cn(
-        "flex min-h-[40vh] flex-col items-center justify-center gap-4 border border-ink/15 bg-paper-deep/40 py-16",
+        "flex min-h-[40vh] flex-col items-center justify-center gap-5 rounded-2xl border border-border bg-surface p-12 shadow-card",
         className,
       )}
     >
-      <div className="flex items-center gap-3">
-        <span className="h-px w-8 bg-ink/40" />
-        <span className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-          {label}
-        </span>
-        <span className="h-px w-8 bg-ink/40" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-soft text-primary">
+        <Loader2 className="h-5 w-5 animate-spin" />
       </div>
-      <div className="flex w-full max-w-md flex-col gap-2 px-6">
-        <div className="h-3 animate-pulse bg-ink/10" />
-        <div className="h-3 w-4/5 animate-pulse bg-ink/10" />
-        <div className="h-3 w-2/3 animate-pulse bg-ink/10" />
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <div className="flex w-full max-w-md flex-col gap-2.5">
+        <div className="h-3 animate-pulse rounded-full bg-muted" />
+        <div className="h-3 w-4/5 animate-pulse rounded-full bg-muted" />
+        <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted" />
       </div>
     </div>
   );
