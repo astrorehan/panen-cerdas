@@ -24,6 +24,7 @@ app.use("/api/health", healthRoute);
 app.use("/api/dashboard", passthroughRoute);
 app.use("/api/predictions", passthroughRoute);
 app.use("/api/regions", passthroughRoute);
+app.use("/api/weather", passthroughRoute);
 
 app.get("/", (_req, res) => {
   res.json({

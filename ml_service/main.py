@@ -36,7 +36,7 @@ from database import (
     get_feedback_count, get_latest_model_version,
 )
 from data_cache import init_cache, get_or_fetch_climate, get_cache_stats, cleanup_expired_cache
-from data_fetcher import INDONESIA_DEFAULTS
+from data_fetcher import INDONESIA_DEFAULTS, fetch_climate_daily
 from ndvi_fetcher import get_or_fetch_ndvi
 from feedback_router import router as feedback_router
 from dashboard_router import router as dashboard_router
@@ -201,6 +201,90 @@ async def predict_harvest(
     except Exception as e:
         logger.error(f"Predict error: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+
+
+# ── WEATHER (untuk halaman /petani/cuaca) ──────────────
+_HARI_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+_BULAN_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+             "Jul", "Agu", "Sep", "Okt", "Nov", "Des"]
+
+
+def _classify_cuaca(rain_mm: float, radiation: float | None) -> str:
+    if rain_mm >= 15:
+        return "hujan-lebat"
+    if rain_mm >= 2:
+        return "hujan-ringan"
+    if radiation is not None and radiation < 180:
+        return "berawan"
+    return "cerah"
+
+
+def _catatan_for(cuaca: str, rain_mm: float, t_max: float | None) -> str:
+    if cuaca == "hujan-lebat":
+        return "Periksa drainase - potensi genangan di petak rendah."
+    if cuaca == "hujan-ringan":
+        return "Tunda pemupukan dan penyemprotan - hujan ringan dapat melarutkan."
+    if cuaca == "berawan":
+        return "Awan tebal - fotosintesis berkurang, jaga kelembapan tanah."
+    if t_max is not None and t_max >= 32:
+        return "Radiasi tinggi - pastikan irigasi cukup, semprot pagi/sore."
+    return "Hari baik untuk pemupukan dan penyemprotan hama pagi."
+
+
+@app.get("/api/weather/recent", tags=["weather"])
+async def weather_recent(lat: float = -7.855, lon: float = 110.42, days: int = 7):
+    """
+    Data cuaca harian 7 hari terakhir dari NASA POWER untuk koordinat tertentu.
+    Default centroid DI Yogyakarta. Dipakai halaman /petani/cuaca.
+
+    NASA POWER bukan layanan forecast - data delay 1-3 hari, jadi ini adalah
+    ringkasan cuaca minggu lalu, bukan ramalan ke depan.
+    """
+    from datetime import date as _date
+
+    days = max(1, min(days, 14))  # clamp 1..14
+    # Request 7 extra hari karena NASA POWER ada lag 3-7 hari; lalu trim ke "days" terakhir.
+    series = await fetch_climate_daily(lat=lat, lon=lon, days_back=days + 7)
+
+    # Konversi NASA POWER solar (MJ/m^2/hari) -> W/m^2 untuk konsistensi label UI.
+    # 1 MJ/m^2/hari = 1e6 J / 86400 s = ~11.574 W/m^2 (rata-rata harian).
+    MJ_TO_W = 11.574
+
+    items = []
+    for row in series:
+        d = _date.fromisoformat(row["date"])
+        hari = _HARI_ID[d.weekday()]
+        tanggal = f"{d.day:02d} {_BULAN_ID[d.month - 1]}"
+        rad_mj = row.get("solar_radiation")
+        rad_w  = round(rad_mj * MJ_TO_W) if rad_mj is not None else None
+        rain   = row.get("rainfall_mm") or 0.0
+        t_min  = row.get("temperature_min")
+        t_max  = row.get("temperature_max")
+        t_mean = row.get("temperature_mean")
+        cuaca   = _classify_cuaca(rain, rad_w)
+        catatan = _catatan_for(cuaca, rain, t_max)
+        items.append({
+            "date":         row["date"],
+            "hari":         hari,
+            "tanggal":      tanggal,
+            "cuaca":        cuaca,
+            "suhu_min":     t_min if t_min is not None else t_mean,
+            "suhu_max":     t_max if t_max is not None else t_mean,
+            "suhu_mean":    t_mean,
+            "hujan_mm":     rain,
+            "radiasi_w_m2": rad_w,
+            "catatan":      catatan,
+        })
+
+    # Ambil hanya N hari terakhir (NASA POWER returns in date-ascending order).
+    items = items[-days:]
+
+    return {
+        "lat":    lat,
+        "lon":    lon,
+        "source": "nasa_power" if items else "unavailable",
+        "items":  items,
+    }
 
 
 @app.post("/api/retrain", tags=["admin"])

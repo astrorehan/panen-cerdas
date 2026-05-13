@@ -121,6 +121,66 @@ async def _fetch_nasa_power(lat: float, lon: float, days_back: int = 30) -> dict
     }
 
 
+# ── DAILY SERIES (untuk halaman cuaca petani) ──────────
+async def fetch_climate_daily(lat: float, lon: float, days_back: int = 7) -> list[dict]:
+    """
+    Fetch data iklim harian (bukan rata-rata) untuk N hari terakhir.
+    Dipakai oleh halaman /petani/cuaca yang menampilkan ringkasan harian.
+
+    Returns:
+        list of {date, temperature_min, temperature_max, temperature_mean,
+                 rainfall_mm, solar_radiation} — satu entry per hari.
+        Empty list jika NASA POWER gagal.
+    """
+    end_date   = datetime.today()
+    start_date = end_date - timedelta(days=days_back - 1)
+
+    params = {
+        "parameters": "T2M,T2M_MIN,T2M_MAX,PRECTOTCORR,ALLSKY_SFC_SW_DWN",
+        "community":  "AG",
+        "longitude":  lon,
+        "latitude":   lat,
+        "start":      start_date.strftime("%Y%m%d"),
+        "end":        end_date.strftime("%Y%m%d"),
+        "format":     "JSON",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(NASA_POWER_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.warning(f"NASA POWER daily gagal: {e}")
+        return []
+
+    props = data.get("properties", {}).get("parameter", {})
+    dates = sorted(props.get("T2M", {}).keys())  # YYYYMMDD strings
+
+    series: list[dict] = []
+    for d in dates:
+        t_mean = props.get("T2M", {}).get(d)
+        t_min  = props.get("T2M_MIN", {}).get(d)
+        t_max  = props.get("T2M_MAX", {}).get(d)
+        rain   = props.get("PRECTOTCORR", {}).get(d)
+        rad    = props.get("ALLSKY_SFC_SW_DWN", {}).get(d)
+
+        # Skip baris yang seluruhnya invalid (-999)
+        if all(v == -999 or v is None for v in [t_mean, rain, rad]):
+            continue
+
+        series.append({
+            "date":             f"{d[:4]}-{d[4:6]}-{d[6:]}",  # ISO format
+            "temperature_min":  round(t_min,  1) if t_min  not in (None, -999) else None,
+            "temperature_max":  round(t_max,  1) if t_max  not in (None, -999) else None,
+            "temperature_mean": round(t_mean, 1) if t_mean not in (None, -999) else None,
+            "rainfall_mm":      round(rain,   1) if rain   not in (None, -999) else 0.0,
+            "solar_radiation":  round(rad,    1) if rad    not in (None, -999) else None,
+        })
+
+    return series
+
+
 # ── NDVI HELPER ────────────────────────────────────────
 def estimate_ndvi_from_season(lat: float, lon: float, crop_type: str) -> float:
     """
