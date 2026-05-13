@@ -115,12 +115,10 @@ export default async function PetaPage() {
                 Surplus &gt; +10% - Defisit &lt; -10%
               </p>
               <p>
-                7 polygon mewakili kecamatan Jawa Barat. Versi berikutnya
-                memuat batas asli GADM level 3 dan diwarnai oleh output{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">
-                  model/predict.py
-                </code>
-                .
+                7 kecamatan pilot di DI Yogyakarta (Sleman, Bantul, Kulon
+                Progo, Gunungkidul). Versi berikutnya memuat batas asli
+                BPS/GADM level 3 dan diwarnai oleh output model RandomForest
+                terlatih.
               </p>
             </CardContent>
           </Card>

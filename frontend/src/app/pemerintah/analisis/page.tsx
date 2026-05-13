@@ -138,7 +138,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
             <CardHeader>
               <CardTitle>Backtest - Prediksi vs Aktual</CardTitle>
               <CardDescription>
-                Validasi model XGBoost terhadap data BPS tahun sebelumnya
+                Validasi model RandomForest terhadap data BPS tahun sebelumnya
               </CardDescription>
             </CardHeader>
             <CardContent>

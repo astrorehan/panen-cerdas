@@ -19,7 +19,7 @@ const LAHAN: Array<{
   {
     id: "L01",
     nama: "Petak Utara",
-    lokasi: "Cikajang, Bandung",
+    lokasi: "Berbah, Sleman",
     luas_ha: 1.5,
     komoditas: "padi",
     varietas: "Ciherang",
@@ -29,7 +29,7 @@ const LAHAN: Array<{
   {
     id: "L02",
     nama: "Petak Tepi Sungai",
-    lokasi: "Cikajang, Bandung",
+    lokasi: "Pajangan, Bantul",
     luas_ha: 0.6,
     komoditas: "jagung",
     varietas: "NK7328",
@@ -39,7 +39,7 @@ const LAHAN: Array<{
   {
     id: "L03",
     nama: "Petak Belakang Rumah",
-    lokasi: "Cikajang, Bandung",
+    lokasi: "Playen, Gunungkidul",
     luas_ha: 0.3,
     komoditas: null,
     varietas: null,

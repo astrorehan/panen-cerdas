@@ -26,7 +26,7 @@ const FEATURES: Feature[] = [
     icon: BarChart3,
     title: "Analitik Panen",
     description:
-      "Estimasi yield padi per hektar dengan model XGBoost 3 bulan sebelum panen - lebih cepat dari rilis BPS.",
+      "Estimasi yield 9 komoditas per hektar dengan model RandomForest sebelum panen - lebih cepat dari rilis BPS.",
     accent: "primary",
   },
   {

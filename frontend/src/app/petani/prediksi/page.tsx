@@ -138,7 +138,7 @@ export default function PrediksiPage() {
             Isi kondisi lahan, biarkan AI menjawab
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-            Formulir di bawah dikirim ke model XGBoost untuk menghitung
+            Formulir di bawah dikirim ke model RandomForest untuk menghitung
             perkiraan hari panen, hasil per hektar, total produksi, dan
             rekomendasi tindakan.
           </p>
@@ -286,7 +286,7 @@ export default function PrediksiPage() {
 
             {climateMode === "default" && (
               <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-                Tanpa data tambahan, model memakai asumsi tropis Jawa Barat -
+                Tanpa data tambahan, model memakai asumsi tropis Yogyakarta -
                 curah hujan 150 mm, suhu 27 C, radiasi 200 W/m. Keyakinan akan
                 lebih rendah dibanding mode lain.
               </div>

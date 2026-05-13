@@ -41,7 +41,7 @@ export function Footer() {
             </p>
             <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground">
               <MapPin className="h-3.5 w-3.5" />
-              Jawa Barat, Indonesia
+              DI Yogyakarta, Indonesia
             </div>
           </div>
 
@@ -127,7 +127,7 @@ export function Footer() {
           </div>
           <div className="flex items-center gap-4">
             <span>v0.1.0 - MVP</span>
-            <span>Padi - Jawa Barat</span>
+            <span>Pilot - DI Yogyakarta</span>
           </div>
         </div>
       </div>

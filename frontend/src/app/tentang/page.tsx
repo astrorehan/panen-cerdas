@@ -49,7 +49,7 @@ export default function TentangPage() {
           <Issue
             numeral="02"
             title="Level provinsi"
-            body="Statistik resmi berhenti di provinsi. Petani di Garut atau Pangandaran tidak punya sinyal harga yang relevan untuk lahan mereka sendiri."
+            body="Statistik resmi berhenti di provinsi. Petani di Bantul atau Kulon Progo tidak punya sinyal harga yang relevan untuk lahan mereka sendiri."
           />
           <Issue
             numeral="03"
@@ -87,7 +87,7 @@ export default function TentangPage() {
               body: "NDVI T-3 / T-2 / T-1, curah hujan kumulatif growing season, lag yield tahun sebelumnya.",
             },
             {
-              title: "XGBoost time-split",
+              title: "RandomForest ensemble",
               body: "Training 2018-2022, test 2023-2024.",
             },
             {
@@ -153,14 +153,14 @@ export default function TentangPage() {
         </div>
         <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Day n="01" status="done" title="Foundation" body="Pivot Next.js + FastAPI, scaffold, dummy demo." />
-          <Day n="02" status="done" title="Pipeline + Model" body="GEE NDVI - BMKG - BPS - XGBoost baseline." />
+          <Day n="02" status="done" title="Pipeline + Model" body="NASA POWER - BPS - RandomForest 9 komoditas." />
           <Day n="03" status="now" title="Bind & Polish" body="Real data ke peta + detail. Filter & ekspor." />
           <Day n="04" status="next" title="Deploy + Pitch" body="Vercel + Railway. Demo video. Pitch deck." />
         </div>
       </section>
 
       <div className="border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        Tim Panen Cerdas - Jawa Barat - UNITY Competition 14 - UNY 2026
+        Tim Panen Cerdas - DI Yogyakarta - UNITY Competition 14 - UNY 2026
       </div>
     </div>
   );
@@ -169,7 +169,7 @@ export default function TentangPage() {
 const STACK = [
   { icon: Globe, label: "Frontend", value: "Next.js 14 + Tailwind + react-leaflet + Recharts" },
   { icon: Cpu, label: "Backend", value: "FastAPI - Python 3.12 - Pydantic" },
-  { icon: Sparkles, label: "ML", value: "XGBoost - scikit-learn" },
+  { icon: Sparkles, label: "ML", value: "RandomForest (scikit-learn)" },
   { icon: Satellite, label: "Citra", value: "Sentinel-2 L2A via Google Earth Engine" },
   { icon: Globe, label: "Cuaca", value: "NASA POWER - BMKG" },
   { icon: Database, label: "Truth", value: "BPS - Produksi padi 2018-2024" },

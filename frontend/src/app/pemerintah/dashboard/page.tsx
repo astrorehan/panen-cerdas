@@ -70,7 +70,7 @@ export default async function PemerintahDashboardPage() {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-muted-foreground">Model</dt>
-                <dd className="font-medium">XGBoost - time-split</dd>
+                <dd className="font-medium">RandomForest - ensemble</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="flex items-center gap-1.5 text-muted-foreground">

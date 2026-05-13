@@ -34,9 +34,9 @@ const CHANNELS = [
   {
     icon: MapPin,
     label: "Lokasi tim",
-    value: "Jawa Barat, Indonesia",
+    value: "DI Yogyakarta, Indonesia",
     href: null,
-    note: "Cikajang - Bandung - basis pengembangan.",
+    note: "Yogyakarta - basis pengembangan dan pilot deployment.",
   },
 ];
 
@@ -177,7 +177,7 @@ export default function HubungiKamiPage() {
       </section>
 
       <div className="border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        Tim Panen Cerdas - Jawa Barat - UNITY Competition 14 - UNY 2026
+        Tim Panen Cerdas - DI Yogyakarta - UNITY Competition 14 - UNY 2026
       </div>
     </div>
   );

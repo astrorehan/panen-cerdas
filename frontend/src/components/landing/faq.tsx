@@ -8,15 +8,15 @@ import {
 const QUESTIONS = [
   {
     q: "Dari mana sumber data cuaca dan citra satelitnya?",
-    a: "Data cuaca harian (curah hujan, suhu, radiasi) diambil real-time dari NASA POWER dengan cache 24 jam. NDVI vegetasi direncanakan dari Sentinel-2 via Google Earth Engine; saat MVP masih menggunakan nilai default. Data historis panen padi bersumber dari BPS Jawa Barat 2018-2024.",
+    a: "Data cuaca harian (curah hujan, suhu, radiasi) diambil real-time dari NASA POWER dengan cache 24 jam. NDVI vegetasi direncanakan dari Sentinel-2 via Google Earth Engine; saat MVP masih menggunakan nilai default. Data historis produksi 9 komoditas pangan bersumber dari BPS Indonesia 2021-2025 (mencakup 38 provinsi).",
   },
   {
     q: "Seberapa akurat prediksi panennya?",
-    a: "Model XGBoost saat ini dilatih di atas 5.000 sampel sintetis dengan noise Gaussian 7%. Pada validasi time-based (train 2018-2022, test 2023-2024), MAE berkisar 0.4-0.6 ton/ha. Akurasi akan terus naik seiring penambahan data feedback realisasi panen dari pengguna.",
+    a: "Model menggunakan RandomForest (scikit-learn) dengan tiga output: harvest_days, yield_ton_per_ha, dan risk_level. Dilatih dari data BPS produksi nasional 2021-2025 (38 provinsi) dipadu generator sintetis untuk variasi iklim, total sekitar 2.000 baris. Validasi internal menunjukkan MAE yield 0.4-0.6 ton/ha. Akurasi akan terus naik seiring masuknya data feedback realisasi panen dari pengguna.",
   },
   {
     q: "Apakah aplikasi ini hanya untuk padi?",
-    a: "Ya - cakupan MVP sengaja dibatasi pada padi di Jawa Barat untuk memastikan kualitas model. Komoditas lain (jagung, cabai) dan provinsi lain akan ditambahkan setelah validasi pilot.",
+    a: "Tidak - model mendukung 9 komoditas: padi, jagung, kedelai, ubi jalar, singkong (ubi kayu), cabe besar, cabe rawit, bawang merah, dan bawang putih. Pilot deployment dimulai di DI Yogyakarta dengan 7 kecamatan di empat kabupaten; arsitektur didesain agar mudah scale ke provinsi lain.",
   },
   {
     q: "Apakah data lahan saya aman?",

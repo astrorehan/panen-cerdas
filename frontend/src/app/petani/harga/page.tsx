@@ -26,7 +26,7 @@ const HARGA: Array<{
     unit_local: "Gabah Kering Panen",
     price_idr_per_kg: 5800,
     delta_pct: 2.1,
-    pasar: "Bulog Jawa Barat",
+    pasar: "Bulog DI Yogyakarta",
     catatan: "Tren naik tipis menjelang masa panen utama.",
   },
   {
@@ -44,7 +44,7 @@ const HARGA: Array<{
     unit_local: "Kualitas A",
     price_idr_per_kg: 11200,
     delta_pct: 0.3,
-    pasar: "Asosiasi Tahu Tempe Bandung",
+    pasar: "Asosiasi Tahu Tempe Bantul",
     catatan: "Permintaan stabil dari produsen tahu rumahan.",
   },
   {
@@ -53,7 +53,7 @@ const HARGA: Array<{
     unit_local: "Varietas Cilembu / lokal",
     price_idr_per_kg: 4200,
     delta_pct: 1.8,
-    pasar: "Pasar Caringin Bandung",
+    pasar: "Pasar Beringharjo Yogyakarta",
     catatan: "Permintaan stabil untuk konsumsi rumah tangga dan kue tradisional.",
   },
   {
@@ -62,7 +62,7 @@ const HARGA: Array<{
     unit_local: "Umur 8 bulan ke atas",
     price_idr_per_kg: 1850,
     delta_pct: 4.7,
-    pasar: "Pengepul Garut",
+    pasar: "Pengepul Gunungkidul",
     catatan: "Naik signifikan karena permintaan tepung tapioka industri.",
   },
   {
@@ -72,7 +72,7 @@ const HARGA: Array<{
     price_idr_per_kg: 42000,
     delta_pct: -8.3,
     pasar: "Pasar Induk Kramat Jati",
-    catatan: "Pasokan dari Sumbar dan Jabar berlimpah, harga melemah.",
+    catatan: "Pasokan dari Jateng dan Jatim berlimpah, harga melemah.",
   },
   {
     komoditas: "cabe_rawit",

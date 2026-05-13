@@ -106,7 +106,7 @@ export function ContactForm() {
           id="org"
           value={organisasi}
           onChange={(e) => setOrganisasi(e.target.value)}
-          placeholder="Contoh: Dinas Pertanian Garut, IPB, Bulog"
+          placeholder="Contoh: Dinas Pertanian Sleman, UGM, Bulog"
         />
       </div>
 

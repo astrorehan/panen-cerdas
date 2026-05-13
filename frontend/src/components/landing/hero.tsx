@@ -9,7 +9,7 @@ import { DashboardMockup } from "@/components/landing/dashboard-mockup";
 const TRUST = [
   { icon: Satellite, label: "Sentinel-2" },
   { icon: Cloud, label: "NASA POWER" },
-  { icon: Cpu, label: "XGBoost ML" },
+  { icon: Cpu, label: "RandomForest ML" },
 ];
 
 export function Hero() {

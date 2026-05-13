@@ -155,8 +155,8 @@ export default function PetaniDashboardPage() {
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             Data lahan, harga, dan cuaca beberapa menu masih memakai contoh
-            (mock) untuk MVP. Prediksi sudah memanggil model XGBoost terlatih
-            dan data NASA POWER live.
+            (mock) untuk MVP. Prediksi sudah memanggil model RandomForest
+            terlatih dan data NASA POWER live.
           </p>
         </section>
       </div>

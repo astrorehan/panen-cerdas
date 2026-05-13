@@ -94,7 +94,7 @@ export function BacktestChart({ points }: { points: YieldPoint[] }) {
               background: `repeating-linear-gradient(to right, ${AMBER} 0, ${AMBER} 4px, transparent 4px, transparent 7px)`,
             }}
           />
-          Prediksi XGBoost
+          Prediksi RandomForest
         </span>
         <span className="ml-auto">MAPE 13.4% - split per-tahun</span>
       </div>

@@ -119,7 +119,7 @@ export default function CuacaPage() {
           Prakiraan Cuaca
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-          Tujuh hari ke depan, Cikajang
+          Tujuh hari ke depan, DI Yogyakarta
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Prakiraan harian untuk merencanakan irigasi, pemupukan, penyemprotan

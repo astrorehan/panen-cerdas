@@ -3,10 +3,14 @@ regions_router.py
 -----------------
 Endpoints GeoJSON kecamatan untuk choropleth pemerintah.
 
-Polygons di-load dari data/jawa_barat_kecamatan.geojson — boundary
+Polygons di-load dari data/yogyakarta_kecamatan.geojson — boundary
 irregular hasil generate algoritmik (bukan square). Ganti file ini
 dengan ekspor BPS Wilayah / GADM level 3 saat tersedia, struktur
 properties (id/kabupaten/kecamatan) wajib dipertahankan.
+
+Pilot region: DI Yogyakarta (7 kecamatan di 4 kabupaten — Sleman,
+Bantul, Kulon Progo, Gunungkidul). Project di-frame sebagai platform
+nasional dengan pilot lokal di DIY.
 """
 
 import json
@@ -20,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/regions", tags=["regions"])
 
-GEOJSON_PATH = Path(__file__).parent / "data" / "jawa_barat_kecamatan.geojson"
+GEOJSON_PATH = Path(__file__).parent / "data" / "yogyakarta_kecamatan.geojson"
 
 
 @lru_cache(maxsize=1)
@@ -36,7 +40,7 @@ def _load_geojson() -> dict:
 
 
 @router.get("/geojson")
-def geojson(province: str = "Jawa Barat") -> dict:
+def geojson(province: str = "DI Yogyakarta") -> dict:
     data = _load_geojson()
     if not data["features"]:
         raise HTTPException(
@@ -47,7 +51,7 @@ def geojson(province: str = "Jawa Barat") -> dict:
 
 
 @router.get("")
-def list_regions(province: str = "Jawa Barat") -> dict:
+def list_regions(province: str = "DI Yogyakarta") -> dict:
     data = _load_geojson()
     return {
         "province": province,

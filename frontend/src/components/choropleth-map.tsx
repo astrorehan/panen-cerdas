@@ -14,7 +14,7 @@ type Props = {
   onSelect?: (id: string) => void;
 };
 
-const JABAR_CENTER: [number, number] = [-6.9147, 107.6098];
+const DIY_CENTER: [number, number] = [-7.8550, 110.4200];
 
 export default function ChoroplethMap({ geojson, predictions, onSelect }: Props) {
   const byId = useMemo(() => {
@@ -127,8 +127,8 @@ export default function ChoroplethMap({ geojson, predictions, onSelect }: Props)
         }
       `}</style>
       <MapContainer
-        center={JABAR_CENTER}
-        zoom={8}
+        center={DIY_CENTER}
+        zoom={10}
         className="h-[600px] w-full"
         zoomControl={true}
       >

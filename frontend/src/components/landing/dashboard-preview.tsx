@@ -126,7 +126,7 @@ export function DashboardPreview() {
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold tracking-tight">Tren prediksi vs aktual</div>
-                        <div className="text-xs text-muted-foreground">Jawa Barat - ton/ha</div>
+                        <div className="text-xs text-muted-foreground">DI Yogyakarta - ton/ha</div>
                       </div>
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
                         <span className="flex items-center gap-1">

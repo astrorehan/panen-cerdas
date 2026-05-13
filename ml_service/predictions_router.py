@@ -43,23 +43,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
 
+# DIY (Daerah Istimewa Yogyakarta) — pilot deployment region.
 # Centroid + luas per kecamatan. lat/lon dipakai untuk fetch iklim NASA POWER.
-# Luas baku dari estimasi BPS sentra; bukan angka resmi — placeholder demo.
+# Luas baku ~ estimasi sawah/lahan sentra BPS DIY; bukan angka resmi.
 KECAMATAN_DATA: list[dict] = [
-    {"id": "3204010", "kabupaten": "Bandung",  "kecamatan": "Cikajang",
-     "lat": -7.00, "lon": 107.55, "luas": 2140},
-    {"id": "3207100", "kabupaten": "Ciamis",   "kecamatan": "Pamarican",
-     "lat": -7.35, "lon": 108.36, "luas": 1980},
-    {"id": "3202050", "kabupaten": "Sukabumi", "kecamatan": "Cisaat",
-     "lat": -6.90, "lon": 106.90, "luas": 1820},
-    {"id": "3207080", "kabupaten": "Ciamis",   "kecamatan": "Cikoneng",
-     "lat": -7.27, "lon": 108.37, "luas": 1610},
-    {"id": "3207030", "kabupaten": "Ciamis",   "kecamatan": "Banjarsari",
-     "lat": -7.50, "lon": 108.55, "luas": 1450},
-    {"id": "3205010", "kabupaten": "Garut",    "kecamatan": "Cibalong",
-     "lat": -7.55, "lon": 107.85, "luas": 1320},
-    {"id": "3205020", "kabupaten": "Garut",    "kecamatan": "Pameungpeuk",
-     "lat": -7.60, "lon": 107.75, "luas": 1100},
+    # Sleman — sentra padi sawah DIY
+    {"id": "3404130", "kabupaten": "Sleman",      "kecamatan": "Prambanan",
+     "lat": -7.7700, "lon": 110.4920, "luas": 1800},
+    {"id": "3404020", "kabupaten": "Sleman",      "kecamatan": "Berbah",
+     "lat": -7.8140, "lon": 110.4500, "luas": 1100},
+    # Bantul — sawah + hortikultura
+    {"id": "3402100", "kabupaten": "Bantul",      "kecamatan": "Pajangan",
+     "lat": -7.9200, "lon": 110.3030, "luas": 1200},
+    {"id": "3402080", "kabupaten": "Bantul",      "kecamatan": "Imogiri",
+     "lat": -7.9290, "lon": 110.3920, "luas": 1400},
+    # Kulon Progo — sentra padi pesisir selatan
+    {"id": "3401040", "kabupaten": "Kulon Progo", "kecamatan": "Wates",
+     "lat": -7.8590, "lon": 110.1620, "luas": 1500},
+    # Gunungkidul — palawija (jagung, ubi kayu) karena topografi karst
+    {"id": "3403080", "kabupaten": "Gunungkidul", "kecamatan": "Playen",
+     "lat": -7.9460, "lon": 110.5870, "luas": 2200},
+    {"id": "3403140", "kabupaten": "Gunungkidul", "kecamatan": "Wonosari",
+     "lat": -7.9720, "lon": 110.5980, "luas": 1900},
 ]
 
 
@@ -138,7 +143,7 @@ async def _predict_one(
 
 @router.get("", response_model=PredictionsResponse)
 async def list_predictions(
-    province: str = "Jawa Barat",
+    province: str = "DI Yogyakarta",
     commodity: CropType = "padi",
     season: str = "MT 2024-1",
     db: Session = Depends(get_db),
