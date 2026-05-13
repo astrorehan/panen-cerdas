@@ -12,11 +12,22 @@ Catatan integrasi (feat/integrate-mlservices-v2):
     supaya FastAPI bisa melayani frontend /pemerintah/* lewat router terpisah.
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Literal, Optional
 
 
-CropType = Literal["padi", "jagung", "kedelai", "singkong"]
+CropType = Literal[
+    "padi",
+    "jagung",
+    "kedelai",
+    "ubi_jalar",
+    "ubi_kayu",
+    "cabe_besar",
+    "cabe_rawit",
+    "bawang_merah",
+    "bawang_putih",
+    "singkong",
+]
 RiskLevel = Literal["low", "medium", "high"]
 
 
@@ -30,6 +41,15 @@ class PredictInput(BaseModel):
         description="Jenis tanaman.",
         examples=["padi"],
     )
+
+    @field_validator("crop_type", mode="before")
+    @classmethod
+    def _alias_singkong(cls, v):
+        # "singkong" (frontend label lama) = "ubi_kayu" (label yang dipakai model v2.4)
+        if v == "singkong":
+            return "ubi_kayu"
+        return v
+
     land_area_ha: float = Field(
         ...,
         gt=0.0,

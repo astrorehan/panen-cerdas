@@ -32,7 +32,8 @@ ee-credentials.json
 
 # ML service runtime artifacts
 ml_service/.env
-ml_service/saved_models/
+# saved_models/: trained joblib artifacts ARE tracked (committed from PanenPintar-V2).
+# Regenerate with `python ml_service/train.py` if you need to retrain.
 ml_service/panencerdas_ml.db
 ml_service/*.db
 panencerdas_ml.db
