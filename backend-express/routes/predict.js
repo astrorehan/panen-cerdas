@@ -26,7 +26,7 @@ function buildFallback(body) {
 
 router.post("/", async (req, res) => {
   try {
-    const { data } = await axios.post(`${ML_URL}/predict`, req.body, {
+    const { data } = await axios.post(`${ML_URL}/api/predict`, req.body, {
       timeout: TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
     });

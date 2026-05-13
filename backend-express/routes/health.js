@@ -10,7 +10,7 @@ router.get("/", async (_req, res) => {
   let mlDetail = null;
   try {
     const { data } = await axios.get(`${ML_URL}/api/health`, { timeout: 2000 });
-    mlStatus = data?.status === "healthy" ? "ok" : "degraded";
+    mlStatus = data?.status === "ok" || data?.status === "healthy" ? "ok" : "degraded";
     mlDetail = data;
   } catch (err) {
     mlDetail = { error: err.code || err.message };

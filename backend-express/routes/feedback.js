@@ -8,7 +8,7 @@ const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
 
 router.post("/", async (req, res) => {
   try {
-    const { data } = await axios.post(`${ML_URL}/feedback`, req.body, {
+    const { data } = await axios.post(`${ML_URL}/api/feedback`, req.body, {
       timeout: TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
     });
