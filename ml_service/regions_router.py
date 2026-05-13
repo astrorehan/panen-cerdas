@@ -3,107 +3,54 @@ regions_router.py
 -----------------
 Endpoints GeoJSON kecamatan untuk choropleth pemerintah.
 
-Data masih dummy — port langsung dari ml_service/api/regions.py lama.
+Polygons di-load dari data/jawa_barat_kecamatan.geojson — boundary
+irregular hasil generate algoritmik (bukan square). Ganti file ini
+dengan ekspor BPS Wilayah / GADM level 3 saat tersedia, struktur
+properties (id/kabupaten/kecamatan) wajib dipertahankan.
 """
 
-from fastapi import APIRouter
+import json
+import logging
+from functools import lru_cache
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/regions", tags=["regions"])
 
+GEOJSON_PATH = Path(__file__).parent / "data" / "jawa_barat_kecamatan.geojson"
 
-DUMMY_GEOJSON = {
-    "type": "FeatureCollection",
-    "features": [
-        {
-            "type": "Feature",
-            "properties": {"id": "3204010", "kabupaten": "Bandung", "kecamatan": "Cikajang"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [107.50, -7.05], [107.60, -7.05], [107.60, -6.95],
-                    [107.50, -6.95], [107.50, -7.05],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3207100", "kabupaten": "Ciamis", "kecamatan": "Pamarican"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [108.30, -7.40], [108.42, -7.40], [108.42, -7.30],
-                    [108.30, -7.30], [108.30, -7.40],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3202050", "kabupaten": "Sukabumi", "kecamatan": "Cisaat"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [106.85, -6.95], [106.95, -6.95], [106.95, -6.85],
-                    [106.85, -6.85], [106.85, -6.95],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3207080", "kabupaten": "Ciamis", "kecamatan": "Cikoneng"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [108.32, -7.32], [108.42, -7.32], [108.42, -7.22],
-                    [108.32, -7.22], [108.32, -7.32],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3207030", "kabupaten": "Ciamis", "kecamatan": "Banjarsari"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [108.50, -7.55], [108.60, -7.55], [108.60, -7.45],
-                    [108.50, -7.45], [108.50, -7.55],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3205010", "kabupaten": "Garut", "kecamatan": "Cibalong"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [107.80, -7.60], [107.90, -7.60], [107.90, -7.50],
-                    [107.80, -7.50], [107.80, -7.60],
-                ]],
-            },
-        },
-        {
-            "type": "Feature",
-            "properties": {"id": "3205020", "kabupaten": "Garut", "kecamatan": "Pameungpeuk"},
-            "geometry": {
-                "type": "Polygon",
-                "coordinates": [[
-                    [107.70, -7.65], [107.80, -7.65], [107.80, -7.55],
-                    [107.70, -7.55], [107.70, -7.65],
-                ]],
-            },
-        },
-    ],
-}
+
+@lru_cache(maxsize=1)
+def _load_geojson() -> dict:
+    if not GEOJSON_PATH.exists():
+        logger.error(f"GeoJSON tidak ditemukan: {GEOJSON_PATH}")
+        return {"type": "FeatureCollection", "features": []}
+    with open(GEOJSON_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    n = len(data.get("features", []))
+    logger.info(f"GeoJSON loaded: {n} kecamatan dari {GEOJSON_PATH.name}")
+    return data
 
 
 @router.get("/geojson")
 def geojson(province: str = "Jawa Barat") -> dict:
-    return DUMMY_GEOJSON
+    data = _load_geojson()
+    if not data["features"]:
+        raise HTTPException(
+            status_code=503,
+            detail="GeoJSON kecamatan tidak tersedia di server",
+        )
+    return data
 
 
 @router.get("")
 def list_regions(province: str = "Jawa Barat") -> dict:
+    data = _load_geojson()
     return {
         "province": province,
-        "count": len(DUMMY_GEOJSON["features"]),
-        "items": [f["properties"] for f in DUMMY_GEOJSON["features"]],
+        "count": len(data["features"]),
+        "items": [f["properties"] for f in data["features"]],
     }
