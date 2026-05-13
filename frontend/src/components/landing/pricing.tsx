@@ -117,7 +117,7 @@ export function Pricing() {
             <div className="mt-8 pt-0">
               {highlight ? (
                 <Button asChild size="lg" className="w-full">
-                  <Link href="mailto:mraihansurya1@gmail.com?subject=Panen%20Cerdas%20-%20Pilot%20Project">
+                  <Link href="/hubungi-kami">
                     {cta}
                   </Link>
                 </Button>

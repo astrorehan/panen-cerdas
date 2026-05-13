@@ -38,6 +38,7 @@ const MARKETING_ITEMS = [
   { href: "/tentang", label: "Tentang" },
   { href: "#harga", label: "Harga" },
   { href: "#faq", label: "FAQ" },
+  { href: "/hubungi-kami", label: "Hubungi Kami" },
 ];
 
 function Wordmark({ href, role }: { href: string; role: Role | null }) {

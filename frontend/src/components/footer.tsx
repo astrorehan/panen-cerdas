@@ -10,7 +10,7 @@ const LINKS = {
   ],
   perusahaan: [
     { label: "Tentang", href: "/tentang" },
-    { label: "Kontak", href: "mailto:mraihansurya1@gmail.com" },
+    { label: "Hubungi Kami", href: "/hubungi-kami" },
     { label: "GitHub", href: "https://github.com/astrorehan/panen-cerdas" },
   ],
   data: [
