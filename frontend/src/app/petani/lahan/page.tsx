@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Layers, MapPin, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { CropType } from "@/types";
 
 type LahanStatus = "tumbuh" | "panen-segera" | "kosong";
 
@@ -10,7 +11,7 @@ const LAHAN: Array<{
   nama: string;
   lokasi: string;
   luas_ha: number;
-  komoditas: "padi" | "jagung" | "kedelai" | "singkong" | null;
+  komoditas: CropType | null;
   varietas: string | null;
   status: LahanStatus;
   catatan: string;

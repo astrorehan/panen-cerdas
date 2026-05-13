@@ -65,7 +65,16 @@ export type GeoJsonFC = {
   }>;
 };
 
-export type CropType = "padi" | "jagung" | "kedelai" | "singkong";
+export type CropType =
+  | "padi"
+  | "jagung"
+  | "kedelai"
+  | "ubi_jalar"
+  | "ubi_kayu"
+  | "cabe_besar"
+  | "cabe_rawit"
+  | "bawang_merah"
+  | "bawang_putih";
 export type RiskLevel = "low" | "medium" | "high";
 export type Provenance = "manual" | "estimated" | "default" | "fallback";
 

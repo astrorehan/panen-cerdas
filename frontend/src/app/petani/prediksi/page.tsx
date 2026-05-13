@@ -13,17 +13,27 @@ import { cn } from "@/lib/utils";
 import type { CropType, PredictResponse } from "@/types";
 
 const CROPS: Array<{ id: CropType; label: string; subtitle: string }> = [
-  { id: "padi", label: "Padi", subtitle: "± 105 hari" },
+  { id: "padi", label: "Padi", subtitle: "± 110 hari" },
   { id: "jagung", label: "Jagung", subtitle: "± 100 hari" },
   { id: "kedelai", label: "Kedelai", subtitle: "± 85 hari" },
-  { id: "singkong", label: "Singkong", subtitle: "± 240 hari" },
+  { id: "ubi_jalar", label: "Ubi Jalar", subtitle: "± 120 hari" },
+  { id: "ubi_kayu", label: "Singkong", subtitle: "± 270 hari" },
+  { id: "cabe_besar", label: "Cabe Besar", subtitle: "± 90 hari" },
+  { id: "cabe_rawit", label: "Cabe Rawit", subtitle: "± 75 hari" },
+  { id: "bawang_merah", label: "Bawang Merah", subtitle: "± 65 hari" },
+  { id: "bawang_putih", label: "Bawang Putih", subtitle: "± 100 hari" },
 ];
 
 const VARIETIES: Record<CropType, string[]> = {
   padi: ["Lokal", "IR64", "Ciherang", "Inpari32", "Memberamo"],
   jagung: ["Lokal", "NK7328", "Pioneer36", "Bisi18"],
   kedelai: ["Lokal", "Anjasmoro", "Dena1", "Grobogan"],
-  singkong: ["Lokal", "UJ3", "Adira1", "Malang6"],
+  ubi_jalar: ["Lokal", "Cilembu", "Papua Solossa", "Sukuh"],
+  ubi_kayu: ["Lokal", "UJ5", "Adira1", "Malang6"],
+  cabe_besar: ["Lokal", "Lado", "Tit Super", "Gada"],
+  cabe_rawit: ["Lokal", "Pelita", "Dewata", "Ori"],
+  bawang_merah: ["Lokal", "Bima Brebes", "Tajuk", "Katumi"],
+  bawang_putih: ["Lokal", "Lumbu Hijau", "Tawangmangu", "Kesuma"],
 };
 
 const PESTS: Array<{ value: number; label: string; hint: string }> = [
@@ -141,7 +151,7 @@ export default function PrediksiPage() {
             title="Komoditas dan lahan"
             description="Pilih jenis tanaman dan luas lahan Anda."
           >
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
               {CROPS.map((c) => (
                 <button
                   key={c.id}

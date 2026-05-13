@@ -1,6 +1,15 @@
 import { Coins, TrendingDown, TrendingUp } from "lucide-react";
 
-type Komoditas = "padi" | "jagung" | "kedelai" | "singkong";
+type Komoditas =
+  | "padi"
+  | "jagung"
+  | "kedelai"
+  | "ubi_jalar"
+  | "ubi_kayu"
+  | "cabe_besar"
+  | "cabe_rawit"
+  | "bawang_merah"
+  | "bawang_putih";
 
 const HARGA: Array<{
   komoditas: Komoditas;
@@ -39,13 +48,58 @@ const HARGA: Array<{
     catatan: "Permintaan stabil dari produsen tahu rumahan.",
   },
   {
-    komoditas: "singkong",
+    komoditas: "ubi_jalar",
+    label: "Ubi Jalar",
+    unit_local: "Varietas Cilembu / lokal",
+    price_idr_per_kg: 4200,
+    delta_pct: 1.8,
+    pasar: "Pasar Caringin Bandung",
+    catatan: "Permintaan stabil untuk konsumsi rumah tangga dan kue tradisional.",
+  },
+  {
+    komoditas: "ubi_kayu",
     label: "Singkong Segar",
     unit_local: "Umur 8 bulan ke atas",
     price_idr_per_kg: 1850,
     delta_pct: 4.7,
     pasar: "Pengepul Garut",
     catatan: "Naik signifikan karena permintaan tepung tapioka industri.",
+  },
+  {
+    komoditas: "cabe_besar",
+    label: "Cabe Merah Besar",
+    unit_local: "Kualitas super, segar",
+    price_idr_per_kg: 42000,
+    delta_pct: -8.3,
+    pasar: "Pasar Induk Kramat Jati",
+    catatan: "Pasokan dari Sumbar dan Jabar berlimpah, harga melemah.",
+  },
+  {
+    komoditas: "cabe_rawit",
+    label: "Cabe Rawit Merah",
+    unit_local: "Segar, pedas tinggi",
+    price_idr_per_kg: 68000,
+    delta_pct: 12.4,
+    pasar: "Pasar Induk Kramat Jati",
+    catatan: "Curah hujan tinggi mengurangi pasokan, harga naik tajam.",
+  },
+  {
+    komoditas: "bawang_merah",
+    label: "Bawang Merah",
+    unit_local: "Varietas Bima Brebes",
+    price_idr_per_kg: 32000,
+    delta_pct: -2.1,
+    pasar: "Pasar Induk Brebes",
+    catatan: "Panen raya di sentra Brebes menekan harga turun tipis.",
+  },
+  {
+    komoditas: "bawang_putih",
+    label: "Bawang Putih",
+    unit_local: "Lokal / kating impor",
+    price_idr_per_kg: 38500,
+    delta_pct: 5.6,
+    pasar: "Pasar Induk Kramat Jati",
+    catatan: "Stok impor menipis menjelang akhir kuartal, harga bergerak naik.",
   },
 ];
 

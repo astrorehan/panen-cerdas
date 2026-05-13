@@ -34,7 +34,7 @@ const QUICK_LINKS = [
     icon: Coins,
     title: "Harga Komoditas",
     blurb:
-      "Harga pasaran mingguan untuk padi, jagung, kedelai, dan singkong dari pasar acuan.",
+      "Harga pasaran mingguan untuk 9 komoditas pangan dan hortikultura dari pasar acuan.",
     cta: "Lihat harga",
   },
   {
