@@ -1,4 +1,4 @@
-# 📖 Cara Penggunaan — Online Learning System PanenCerdas
+# 📖 Cara Penggunaan — PanenCerdas ML Service v2.4
 
 ---
 
@@ -31,245 +31,223 @@ Petani input kondisi lahan
 
 ---
 
-### STEP 1 — Setup & Jalankan Server
+### STEP 0 — Persiapan (sekali jalan)
+
+#### 0a. Clone & masuk ke folder
 
 ```bash
-cd panencerdas/MLServices
-
-# Install dependencies
-pip install -r requirements.txt
-
-# (Opsional tapi direkomendasikan) Seed data historis NASA POWER
-# Estimasi waktu: 2–5 menit, hanya perlu dijalankan sekali
-python scripts/fetch_historical.py
-
-# Latih model pertama kali
-python train.py
-
-# Jalankan server
-python main.py
+cd MLservices
 ```
 
-Server jalan di `http://localhost:8000`
-Swagger UI di `http://localhost:8000/docs`
+#### 0b. Buat virtual environment (disarankan)
+
+```bash
+python -m venv venv
+source venv/bin/activate        # Linux/macOS
+venv\Scripts\activate           # Windows
+```
+
+#### 0c. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+#### 0d. Siapkan file `.env`
+
+Salin konfigurasi default sudah tersedia di `.env`. Untuk NDVI real dari MODIS, isi kredensial NASA APPEEARS:
+
+```env
+APPEEARS_USER=email_kamu@gmail.com
+APPEEARS_PASS=password_kamu
+```
+
+> **Tanpa APPEEARS**: service tetap berjalan normal — NDVI akan menggunakan estimasi musiman sebagai fallback.
 
 ---
 
-### STEP 2 — Petani Minta Prediksi
+### STEP 1 — (Opsional) Fetch Data Historis NASA POWER
 
-Ada dua cara mengirim request:
-
-**Cara A — Input nilai iklim manual:**
+Langkah ini akan men-generate `data/nasa_power_cache.csv` berisi data iklim 9 komoditas dari sentra produksi nyata.
 
 ```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ndvi": 0.72,
-    "rainfall_mm": 160,
-    "temperature_c": 28,
-    "solar_radiation": 210,
-    "land_area_ha": 2.0,
-    "crop_type": "padi"
-  }'
+# Dengan NDVI real dari APPEEARS (~15–25 menit, perlu akun APPEEARS)
+python fetch_historical.py
+
+# Tanpa NDVI real (~2–5 menit, NDVI pakai estimasi musiman)
+python fetch_historical.py --skip-ndvi
 ```
 
-**Cara B — Kirim koordinat, data iklim diambil otomatis dari NASA POWER:**
+> File `fetch_historical.py` dan `parse_bps.py` berada di **root folder** `MLservices/`, bukan di subfolder `scripts/`.
+
+---
+
+### STEP 2 — (Opsional) Parse Data BPS Padi
+
+Langkah ini men-generate `data/bps_produksi.csv` dari data BPS produksi padi per provinsi:
+
+```bash
+python parse_bps.py
+```
+
+---
+
+### STEP 3 — Training Model
+
+```bash
+# Training dasar (pakai bps_produksi.csv + nasa_power_cache.csv + synthetic fallback)
+python train.py
+
+# Training dengan feedback petani dari database (jika sudah ada)
+python train.py --with-db
+```
+
+Output yang diharapkan:
+```
+✅ Semua model tersimpan di saved_models/
+   MAE harvest_days : ±X.X hari
+   MAE yield        : ±X.XX ton/ha
+   Accuracy risk    : XX.X%
+✅ Model siap! Jalankan server dengan: python main.py
+```
+
+> Model yang sudah dilatih tersimpan di `saved_models/`. Jika folder ini sudah ada isinya (seperti sekarang), bisa langsung lanjut ke STEP 4.
+
+---
+
+### STEP 4 — Jalankan Server
+
+```bash
+python main.py
+```
+
+Server berjalan di: `http://localhost:8000`
+Swagger UI: `http://localhost:8000/docs`
+
+---
+
+## 🌾 Cara Pakai Endpoint
+
+---
+
+### POST `/predict` — Prediksi Panen
+
+**Mode 1: Manual (tanpa koordinat)**
 
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
-    "ndvi": 0.72,
-    "rainfall_mm": 0,
-    "temperature_c": 0,
-    "solar_radiation": 0,
-    "land_area_ha": 2.0,
+    "ndvi": 0.7,
+    "rainfall_mm": 150.0,
+    "temperature_c": 27.0,
+    "solar_radiation": 200.0,
+    "land_area_ha": 1.5,
     "crop_type": "padi",
-    "lat": -7.25,
-    "lon": 112.75
+    "variety": "Ciherang",
+    "pest_pressure": 0.3
   }'
 ```
 
-> Jika `lat` dan `lon` diisi, nilai `rainfall_mm`, `temperature_c`, dan `solar_radiation`
-> di-_override_ otomatis dengan data real 30 hari terakhir dari NASA POWER
-> (hasil di-cache selama 6 jam untuk menghindari fetch berulang).
+**Mode 2: Otomatis (dengan koordinat GPS)**
 
-**Response — simpan `prediction_log_id`-nya!**
+Jika `lat` dan `lon` diisi, data iklim dan NDVI diambil otomatis dari NASA:
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ndvi": 0.0,
+    "rainfall_mm": 0.0,
+    "temperature_c": 25.0,
+    "solar_radiation": 0.0,
+    "land_area_ha": 1.5,
+    "crop_type": "bawang_merah",
+    "variety": "Bima Brebes",
+    "lat": -6.90,
+    "lon": 109.13
+  }'
+```
+
+> Nilai `ndvi`, `rainfall_mm`, dan `solar_radiation` akan di-override dari NASA jika `lat`/`lon` diisi.
+
+**Contoh Response:**
 
 ```json
 {
   "prediction_log_id": 42,
-  "harvest_days": 88,
-  "yield_ton_per_ha": 5.04,
-  "total_yield_ton": 10.08,
+  "harvest_days": 68,
+  "yield_ton_per_ha": 9.8,
+  "total_yield_ton": 14.7,
   "risk_level": "low",
   "risk_score": 0.15,
-  "recommendations": ["✅ Kondisi optimal — pertahankan manajemen saat ini"],
+  "recommendations": ["Kondisi lahan baik", "Jaga kelembapan tanah"],
   "model_source": "ml_model",
-  "confidence": 0.98,
-  "climate_source": "nasa_power"
+  "confidence": 0.84,
+  "climate_source": "nasa_power",
+  "ndvi_source": "modis_appeears"
 }
 ```
 
+> Simpan `prediction_log_id` — digunakan saat lapor feedback.
+
 ---
 
-### STEP 3 — Petani Selesai Panen, Lapor Hasil Nyata
-
-Setelah panen selesai, petani mengisi hasil nyatanya.
-Field `prediction_log_id` opsional — boleh tidak diisi jika petani langsung input manual.
+### POST `/feedback` — Lapor Hasil Panen Nyata
 
 ```bash
 curl -X POST http://localhost:8000/feedback \
   -H "Content-Type: application/json" \
   -d '{
     "prediction_log_id": 42,
-    "ndvi": 0.72,
-    "rainfall_mm": 160,
-    "temperature_c": 28,
-    "solar_radiation": 210,
-    "land_area_ha": 2.0,
-    "crop_type": "padi",
-    "actual_harvest_days": 91,
-    "actual_yield_ton_per_ha": 4.8,
+    "ndvi": 0.7,
+    "rainfall_mm": 150.0,
+    "temperature_c": 27.0,
+    "solar_radiation": 200.0,
+    "land_area_ha": 1.5,
+    "crop_type": "bawang_merah",
+    "variety": "Bima Brebes",
+    "pest_pressure": 0.3,
+    "actual_harvest_days": 65,
+    "actual_yield_ton_per_ha": 9.5,
     "actual_risk_level": "low",
     "petani_id": "P001",
-    "catatan": "Ada sedikit hama wereng di minggu ke-3, sudah ditangani"
+    "lahan_id": "L001",
+    "catatan": "Panen normal, sedikit serangan thrips"
   }'
 ```
 
-**Response:**
-
-```json
-{
-  "success": true,
-  "message": "Terima kasih! Data panen Anda akan membantu meningkatkan akurasi prediksi",
-  "feedback_id": 7,
-  "total_feedback_terkumpul": 7,
-  "estimasi_retrain": "Perlu 3 feedback lagi untuk trigger retrain otomatis"
-}
-```
-
 ---
 
-### STEP 4 — Retrain Otomatis Terjadi
-
-Setelah **10 feedback baru** terkumpul, retrain berjalan otomatis di background.
-
-Yang terjadi di balik layar:
-
-```
-10 feedback baru masuk
-       ↓
-Gabungkan: ~2000 data synthetic + data nyata (dikalikan 3 untuk bobot lebih besar)
-       ↓
-Train model baru (Random Forest, 150 estimators)
-       ↓
-Evaluasi: MAE harvest, MAE yield, Accuracy risk
-       ↓
-Lebih baik dari model lama?
-  ├─ YA  → ganti model aktif → versi naik (v1 → v2)
-  └─ TIDAK → rollback, tetap pakai model lama
-```
-
-**Cek status model setelah retrain:**
-
-```bash
-curl http://localhost:8000/model/info
-```
-
-```json
-{
-  "model_loaded": true,
-  "active_version": 2,
-  "trained_at": "2025-05-12T03:00:00",
-  "metrics": {
-    "mae_harvest_days": 6.8,
-    "mae_yield": 0.29,
-    "risk_accuracy": 0.945
-  },
-  "training_data": {
-    "n_synthetic": 500,
-    "n_real": 10
-  },
-  "feedback_pool": {
-    "total": 10,
-    "unused": 0,
-    "used": 10
-  },
-  "climate_cache": {
-    "total": 25,
-    "active": 18,
-    "expired": 7
-  },
-  "next_retrain": "Perlu 10 feedback lagi untuk auto-retrain"
-}
-```
-
----
-
-### STEP 5 — (Opsional) Trigger Retrain Manual
-
-Untuk admin/developer yang ingin paksa retrain:
-
-```bash
-# Retrain hanya jika ada ≥10 feedback baru
-curl -X POST http://localhost:8000/retrain
-
-# Paksa retrain meski belum cukup data
-curl -X POST "http://localhost:8000/retrain?force=true"
-```
-
----
-
-## 📊 Cek Statistik Feedback
-
-```bash
-curl http://localhost:8000/feedback/stats
-```
-
-```json
-{
-  "feedback": {
-    "total": 47,
-    "unused": 3,
-    "used": 44
-  },
-  "predictions": {
-    "total_predictions": 120,
-    "with_feedback": 47,
-    "feedback_rate": 39.2
-  },
-  "pesan": "Terkumpul 47 feedback — model sudah mulai belajar dari data nyata"
-}
-```
-
-**Lihat riwayat feedback per petani:**
-
-```bash
-curl "http://localhost:8000/feedback/history?petani_id=P001&limit=10"
-```
-
----
-
-## 🌍 Cek Status Health & Cache
+### GET `/health` — Cek Status Service
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-```json
-{
-  "status": "ok",
-  "model_loaded": true,
-  "service": "PanenCerdas ML Service",
-  "version": "v2",
-  "feedback_stats": { "total": 47, "unused": 3, "used": 44 },
-  "cache_stats": { "total": 25, "active": 18, "expired": 7 }
-}
+---
+
+### GET `/feedback/stats` — Statistik Feedback
+
+```bash
+curl http://localhost:8000/feedback/stats
 ```
 
-**Bersihkan cache expired:**
+---
+
+### POST `/retrain` — Trigger Retrain Manual (Admin)
+
+```bash
+# Retrain hanya jika threshold terpenuhi
+curl -X POST http://localhost:8000/retrain
+
+# Retrain paksa meski belum cukup feedback
+curl -X POST "http://localhost:8000/retrain?force=true"
+```
+
+---
+
+### DELETE `/cache/expired` — Bersihkan Cache Expired
 
 ```bash
 curl -X DELETE http://localhost:8000/cache/expired
@@ -277,63 +255,56 @@ curl -X DELETE http://localhost:8000/cache/expired
 
 ---
 
-## 🔄 Jadwal Retrain Otomatis
+## 📋 Daftar Varietas yang Dikenali
 
-| Trigger   | Kapan                         | Keterangan                            |
-| --------- | ----------------------------- | ------------------------------------- |
-| Threshold | Setiap 10 feedback baru masuk | Otomatis langsung                     |
-| Scheduled | Tiap Minggu pukul 02.00       | Force retrain meski belum 10 feedback |
-| Manual    | POST /retrain                 | Dipanggil developer                   |
+| Komoditas | Varietas |
+|---|---|
+| Padi | IR64, Ciherang, Inpari32, Memberamo, Lokal |
+| Jagung | NK7328, Pioneer36, Bisi18, Lokal |
+| Kedelai | Anjasmoro, Dena1, Grobogan, Lokal |
+| Ubi Jalar | Cilembu, Papua Solossa, Sukuh, Lokal |
+| Ubi Kayu | UJ5, Adira1, Malang6, Lokal |
+| Cabe Besar | Lado, Tit Super, Gada, Lokal |
+| Cabe Rawit | Pelita, Dewata, Ori, Lokal |
+| Bawang Merah | Bima Brebes, Tajuk, Katumi, Lokal |
+| Bawang Putih | Lumbu Hijau, Tawangmangu, Kesuma, Lokal |
 
----
-
-## ⚠️ Sistem Rollback
-
-Model lama tidak langsung dihapus. Jika model baru lebih buruk:
-
-```
-Model baru dievaluasi
-       ↓
-MAE harvest baru < MAE lama × 1.05  → lebih baik (toleransi 5%)
-  ATAU
-Accuracy risk baru > accuracy lama × 0.95
-
-       ├─ Kondisi terpenuhi → ganti model aktif
-       └─ Tidak terpenuhi   → rollback, simpan model lama
-```
+> Varietas yang tidak dikenal otomatis di-fallback ke `"Lokal"`.
 
 ---
 
-## 📁 File Database
+## ⚙️ Nilai `pest_pressure` (Tingkat Serangan Hama)
 
-| Tabel               | Isi                                     |
-| ------------------- | --------------------------------------- |
-| `prediction_log`    | Semua history request `/predict`        |
-| `training_feedback` | Hasil panen nyata dari petani           |
-| `model_version`     | Riwayat versi model (untuk rollback)    |
-| `climate_cache`     | Cache data iklim NASA POWER (TTL 6 jam) |
+| Nilai | Kategori |
+|---|---|
+| `0.0` | Tidak ada serangan |
+| `0.3` | Serangan ringan |
+| `0.6` | Serangan sedang |
+| `0.9` | Serangan berat |
 
-Development menggunakan **SQLite** (auto-dibuat, zero-config):
-
-```
-panencerdas_ml.db
-```
-
-Untuk production, ganti di `.env`:
-
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/panencerdas
-```
+Nama hama spesifik juga bisa digunakan langsung (dikonversi otomatis di `model.py`):
+`wereng_coklat`, `blast`, `penggerek_batang`, `ulat_grayak`, `bulai`, `antraknosa`, `thrips`, `fusarium`, dll.
 
 ---
 
-## 🌱 Kapan Model Jadi Benar-benar Akurat?
+## 🔄 Alur Auto-Retrain
 
-| Jumlah Feedback | Kondisi Model                               |
-| --------------- | ------------------------------------------- |
-| 0 – 9           | Synthetic only, belum belajar dari lapangan |
-| 10 – 49         | Mulai belajar, ada improvement kecil        |
-| 50 – 199        | Signifikan belajar dari data nyata          |
-| 200+            | Model optimal, dominasi data lapangan nyata |
+1. Setiap **10 feedback baru** masuk → retrain otomatis dipicu
+2. Setiap **Minggu pukul 02.00** → scheduled retrain
+3. Model baru dievaluasi vs model lama:
+   - Jika lebih baik → model aktif diganti
+   - Jika lebih buruk → rollback ke model lama
+4. Versi model tersimpan di tabel `model_version` (database)
 
-Makin banyak petani yang pakai dan lapor → model makin pintar untuk semua petani. 🌾
+---
+
+## 🐛 Troubleshooting
+
+| Masalah | Solusi |
+|---|---|
+| `Model belum ada — jalankan: python train.py` | Jalankan `python train.py` terlebih dahulu |
+| NDVI selalu `seasonal_estimate` | Isi `APPEEARS_USER` dan `APPEEARS_PASS` di `.env` |
+| `climate_source: default_fallback` | API NASA POWER tidak terjangkau — cek koneksi internet |
+| Varietas tidak dikenali | Gunakan nama persis seperti di tabel varietas di atas, atau `"Lokal"` |
+| `crop_type not in trained_crops` | Jalankan ulang `python train.py` agar semua 9 komoditas ter-encode |
+| Port 8000 sudah dipakai | Ubah `PORT=8001` di `.env` dan jalankan `python main.py` |
