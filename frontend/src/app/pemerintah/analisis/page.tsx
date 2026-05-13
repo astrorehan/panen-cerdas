@@ -126,7 +126,9 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
             <CardHeader>
               <CardTitle>NDVI Time Series</CardTitle>
               <CardDescription>
-                Sentinel-2 L2A - 2018 - 2024 - rerata bulanan per kecamatan
+                Estimasi monsun + koordinat lokal - 2018-2024 bulanan per
+                kecamatan. MODIS real (APPEEARS) tersedia begitu kredensial
+                NASA Earthdata dipasang.
               </CardDescription>
             </CardHeader>
             <CardContent>

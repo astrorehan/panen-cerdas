@@ -8,7 +8,7 @@ import {
 const QUESTIONS = [
   {
     q: "Dari mana sumber data cuaca dan citra satelitnya?",
-    a: "Data cuaca harian (curah hujan, suhu, radiasi) diambil real-time dari NASA POWER dengan cache 24 jam. NDVI vegetasi direncanakan dari Sentinel-2 via Google Earth Engine; saat MVP masih menggunakan nilai default. Data historis produksi 9 komoditas pangan bersumber dari BPS Indonesia 2021-2025 (mencakup 38 provinsi).",
+    a: "Data cuaca harian (curah hujan, suhu, radiasi) diambil real-time dari NASA POWER dengan cache 6 jam - lihat /petani/cuaca. NDVI vegetasi pada chart historis adalah estimasi berbasis pola monsun Indonesia + koordinat lokal; pipeline ndvi_fetcher.py untuk MODIS Terra (MOD13Q1) via NASA APPEEARS sudah tersedia dan tinggal aktif begitu kredensial NASA Earthdata dipasang. Data produksi 9 komoditas pangan bersumber dari BPS Indonesia 2021-2025 (38 provinsi).",
   },
   {
     q: "Seberapa akurat prediksi panennya?",
