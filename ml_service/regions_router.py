@@ -1,13 +1,15 @@
-"""Region endpoints — GeoJSON polygons + region metadata for choropleth.
-
-Day 1: returns dummy polygon list.
-Day 2: load from data/shapefiles/ via geopandas.
 """
-from __future__ import annotations
+regions_router.py
+-----------------
+Endpoints GeoJSON kecamatan untuk choropleth pemerintah.
+
+Data masih dummy — port langsung dari ml_service/api/regions.py lama.
+"""
 
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(prefix="/api/regions", tags=["regions"])
+
 
 DUMMY_GEOJSON = {
     "type": "FeatureCollection",

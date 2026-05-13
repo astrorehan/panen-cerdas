@@ -1,48 +1,249 @@
-"""FastAPI ML service entry point.
-
-Run (dev):
-    uvicorn ml_service.main:app --reload --port 8000
 """
-from __future__ import annotations
+main.py
+-------
+PanenCerdas ML Service - entry point.
 
-from fastapi import FastAPI
+Sumber: V2 (Muhammad Choirudin Ammar) + integrasi router pemerintah dari main.
+Perubahan vs V2:
+  - Path /predict, /feedback, /health di-prefix /api supaya Express gateway
+    bisa proxy 1:1 tanpa perlu rewrite path.
+  - Field iklim sekarang opsional; kalau None dan tidak ada lat/lon -> diisi
+    Indonesia defaults sebelum prediksi.
+  - Mount dashboard_router, predictions_router, regions_router untuk sisi
+    pemerintah (frontend /pemerintah/* memanggil endpoint ini lewat Express).
+"""
+
+import sys
+# V2 banyak pakai emoji di print(); paksa stdout UTF-8 supaya Windows cp1252
+# console tidak crash dengan UnicodeEncodeError saat boot.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
+import logging
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+import uvicorn
 
-from ml_service.api import dashboard, ml, predictions, regions
-from ml_service.core.config import settings
+from schemas import PredictInput, PredictOutput, HealthResponse
+from model import load_models, is_model_loaded, predict as ml_predict
+from database import (
+    init_db, get_db, save_prediction_log,
+    get_feedback_count, get_latest_model_version,
+)
+from data_cache import init_cache, get_or_fetch_climate, get_cache_stats, cleanup_expired_cache
+from data_fetcher import INDONESIA_DEFAULTS
+from ndvi_fetcher import get_or_fetch_ndvi
+from feedback_router import router as feedback_router
+from dashboard_router import router as dashboard_router
+from predictions_router import router as predictions_router
+from regions_router import router as regions_router
+from retrain_scheduler import start_scheduler, stop_scheduler, retrain
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+DEFAULT_NDVI = 0.6
+
+
+# ── LIFESPAN ───────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("\nPanenCerdas ML Service starting...")
+    init_db()
+    init_cache()
+    loaded = load_models()
+    if not loaded:
+        print("Model belum ada - jalankan: python train.py (fallback rules aktif)")
+    start_scheduler()
+    print("ML Service ready at http://localhost:8000\n")
+    yield
+    stop_scheduler()
+    print("ML Service shutdown")
+
+
+# ── APP ────────────────────────────────────────────────
 app = FastAPI(
     title="PanenCerdas ML Service",
-    description="ML service for harvest prediction (per-petani) + kecamatan-level aggregates.",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    version="2.3.0",
+    description=(
+        "Prediksi panen dengan ML + data iklim NASA POWER + NDVI MODIS APPEEARS. "
+        "Endpoint /api/predict + /api/feedback dipakai aplikasi petani; "
+        "endpoint /api/dashboard, /api/predictions, /api/regions dipakai dashboard pemerintah."
+    ),
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(predictions.router, prefix="/api/predictions", tags=["predictions"])
-app.include_router(regions.router, prefix="/api/regions", tags=["regions"])
-app.include_router(ml.router, tags=["ml"])
+app.include_router(feedback_router)         # /api/feedback (prefix di router)
+app.include_router(dashboard_router)        # /api/dashboard/*
+app.include_router(predictions_router)      # /api/predictions[/{id}]
+app.include_router(regions_router)          # /api/regions[/geojson]
 
 
-@app.get("/", tags=["health"])
-def root() -> dict:
+# ── ROUTES ─────────────────────────────────────────────
+@app.get("/", tags=["info"])
+def root():
     return {
         "service": "PanenCerdas ML Service",
-        "version": "0.1.0",
-        "status": "ok",
-        "docs": "/docs",
+        "version": "2.3.0",
+        "docs":    "/docs",
+        "features": [
+            "ml_prediction",
+            "real_climate_data_nasa_power",
+            "real_ndvi_modis_appeears",
+            "online_learning",
+            "auto_retrain",
+            "pemerintah_dashboard_routes",
+        ],
     }
 
 
-@app.get("/api/health", tags=["health"])
-def health() -> dict:
-    return {"status": "healthy"}
+@app.get("/api/health", response_model=HealthResponse, tags=["info"])
+def health(db: Session = Depends(get_db)):
+    ver = get_latest_model_version(db)
+    fb  = get_feedback_count(db)
+    cs  = get_cache_stats(db)
+    return HealthResponse(
+        status="ok",
+        model_loaded=is_model_loaded(),
+        service="PanenCerdas ML Service",
+        version=f"v{ver.version}" if ver else "v1 (synthetic only)",
+        feedback_stats=fb,
+        cache_stats=cs,
+    )
+
+
+def _fill_climate_defaults(data: PredictInput) -> None:
+    """Isi field iklim yang None dengan Indonesia defaults supaya model/fallback
+    rules tidak crash. Mutates data in-place (PredictInput.frozen=False)."""
+    if data.temperature_c is None:
+        data.temperature_c = INDONESIA_DEFAULTS["temperature_c"]
+    if data.rainfall_mm is None:
+        data.rainfall_mm = INDONESIA_DEFAULTS["rainfall_mm"]
+    if data.solar_radiation is None:
+        data.solar_radiation = INDONESIA_DEFAULTS["solar_radiation"]
+    if data.ndvi is None:
+        data.ndvi = DEFAULT_NDVI
+
+
+@app.post("/api/predict", response_model=PredictOutput, tags=["prediction"])
+async def predict_harvest(
+    data: PredictInput,
+    petani_id: str = None,
+    lahan_id: str = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Prediksi panen.
+
+    - lat+lon ada -> iklim dari NASA POWER, NDVI dari APPEEARS (override input).
+    - lat/lon kosong -> pakai field iklim yang dikirim; sisanya default Indonesia.
+    """
+    climate_source = "user_input"
+    ndvi_source    = "user_input"
+
+    try:
+        if data.lat is not None and data.lon is not None:
+            import asyncio
+            climate_task = get_or_fetch_climate(
+                lat=data.lat, lon=data.lon, db=db, period_days=30,
+            )
+            ndvi_task = get_or_fetch_ndvi(
+                lat=data.lat, lon=data.lon, db=db,
+                crop_type=data.crop_type, days_back=32,
+            )
+            climate, ndvi_result = await asyncio.gather(climate_task, ndvi_task)
+
+            data.temperature_c   = climate["temperature_c"]
+            data.rainfall_mm     = climate["rainfall_mm"]
+            data.solar_radiation = climate["solar_radiation"]
+            climate_source       = climate.get("data_source", "nasa_power")
+
+            data.ndvi  = ndvi_result["ndvi"]
+            ndvi_source = ndvi_result["ndvi_source"]
+
+            logger.info(
+                f"Overrides: iklim={climate_source} | NDVI={data.ndvi} [{ndvi_source}]"
+            )
+
+        _fill_climate_defaults(data)
+
+        result = ml_predict(data)
+
+        log = save_prediction_log(
+            db,
+            input_data={
+                **data.model_dump(),
+                "petani_id": petani_id,
+                "lahan_id":  lahan_id,
+            },
+            output_data=result.model_dump(),
+        )
+
+        result_dict = result.model_dump()
+        result_dict["prediction_log_id"] = log.id
+        result_dict["climate_source"]    = climate_source
+        result_dict["ndvi_source"]       = ndvi_source
+        return result_dict
+
+    except Exception as e:
+        logger.error(f"Predict error: {e}")
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
+
+
+@app.post("/api/retrain", tags=["admin"])
+def trigger_retrain(force: bool = False, db: Session = Depends(get_db)):
+    return retrain(force=force, db=db)
+
+
+@app.get("/api/model/info", tags=["admin"])
+def model_info(db: Session = Depends(get_db)):
+    ver = get_latest_model_version(db)
+    fb  = get_feedback_count(db)
+    cs  = get_cache_stats(db)
+    unused    = fb.get("unused", 0)
+    threshold = 10
+
+    return {
+        "model_loaded":   is_model_loaded(),
+        "active_version": ver.version if ver else None,
+        "trained_at":     ver.trained_at.isoformat() if ver else None,
+        "metrics": {
+            "mae_harvest_days": ver.mae_harvest_days if ver else None,
+            "mae_yield":        ver.mae_yield        if ver else None,
+            "risk_accuracy":    ver.risk_accuracy    if ver else None,
+        },
+        "training_data": {
+            "n_synthetic": ver.n_synthetic if ver else None,
+            "n_real":      ver.n_real      if ver else None,
+        },
+        "feedback_pool": fb,
+        "climate_cache": cs,
+        "next_retrain":  f"Perlu {max(0, threshold - unused)} feedback lagi untuk auto-retrain",
+        "data_sources": {
+            "climate": "NASA POWER (suhu, hujan, radiasi) - cache 6 jam",
+            "ndvi":    "NASA APPEEARS MODIS MOD13Q1 - cache 24 jam, fallback ke estimasi musiman",
+        },
+    }
+
+
+@app.delete("/api/cache/expired", tags=["admin"])
+def clear_expired_cache(db: Session = Depends(get_db)):
+    deleted = cleanup_expired_cache(db)
+    return {"deleted": deleted, "message": f"{deleted} entri cache expired dihapus"}
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

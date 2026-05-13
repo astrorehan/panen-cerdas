@@ -1,20 +1,21 @@
-"""Dashboard endpoints — KPI tiles + national/provincial trend.
-
-Day 1: returns dummy data.
-Day 2-3: bind to model/predict.py output.
 """
-from __future__ import annotations
+dashboard_router.py
+-------------------
+Endpoints untuk dashboard pemerintah (KPI tiles + tren produksi).
+
+Data masih dummy — ganti dengan agregasi dari prediction_log + BPS saat siap.
+"""
 
 from fastapi import APIRouter
 
-from ml_service.schemas import (
+from schemas import (
     DashboardSummary,
     KpiTile,
     YieldPoint,
     YieldTrend,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 @router.get("/summary", response_model=DashboardSummary)

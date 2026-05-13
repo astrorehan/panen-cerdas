@@ -1,13 +1,17 @@
-"""Prediction endpoints — list per kecamatan + detail drill-down.
-
-Day 1: dummy data.
-Day 2-3: replace with model.predict.predict_yield + to_surplus_deficit.
 """
-from __future__ import annotations
+predictions_router.py
+---------------------
+Endpoints untuk daftar prediksi kecamatan (pemerintah).
+
+Data masih dummy — port langsung dari ml_service/api/predictions.py lama.
+"""
+
+import math
+from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException
 
-from ml_service.schemas import (
+from schemas import (
     KecamatanDetail,
     KecamatanPrediction,
     NdviPoint,
@@ -15,16 +19,17 @@ from ml_service.schemas import (
     YieldPoint,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/api/predictions", tags=["predictions"])
+
 
 DUMMY_KECAMATAN: list[dict] = [
-    {"id": "3204010", "kabupaten": "Bandung", "kecamatan": "Cikajang", "yield": 5.8, "luas": 2140, "surplus_pct": 18.2},
-    {"id": "3207100", "kabupaten": "Ciamis", "kecamatan": "Pamarican", "yield": 5.6, "luas": 1980, "surplus_pct": 12.4},
-    {"id": "3202050", "kabupaten": "Sukabumi", "kecamatan": "Cisaat", "yield": 5.4, "luas": 1820, "surplus_pct": 6.1},
-    {"id": "3207080", "kabupaten": "Ciamis", "kecamatan": "Cikoneng", "yield": 5.2, "luas": 1610, "surplus_pct": 2.3},
-    {"id": "3207030", "kabupaten": "Ciamis", "kecamatan": "Banjarsari", "yield": 4.9, "luas": 1450, "surplus_pct": -4.2},
-    {"id": "3205010", "kabupaten": "Garut", "kecamatan": "Cibalong", "yield": 4.7, "luas": 1320, "surplus_pct": -12.8},
-    {"id": "3205020", "kabupaten": "Garut", "kecamatan": "Pameungpeuk", "yield": 4.3, "luas": 1100, "surplus_pct": -23.1},
+    {"id": "3204010", "kabupaten": "Bandung",  "kecamatan": "Cikajang",    "yield": 5.8, "luas": 2140, "surplus_pct": 18.2},
+    {"id": "3207100", "kabupaten": "Ciamis",   "kecamatan": "Pamarican",   "yield": 5.6, "luas": 1980, "surplus_pct": 12.4},
+    {"id": "3202050", "kabupaten": "Sukabumi", "kecamatan": "Cisaat",      "yield": 5.4, "luas": 1820, "surplus_pct": 6.1},
+    {"id": "3207080", "kabupaten": "Ciamis",   "kecamatan": "Cikoneng",    "yield": 5.2, "luas": 1610, "surplus_pct": 2.3},
+    {"id": "3207030", "kabupaten": "Ciamis",   "kecamatan": "Banjarsari",  "yield": 4.9, "luas": 1450, "surplus_pct": -4.2},
+    {"id": "3205010", "kabupaten": "Garut",    "kecamatan": "Cibalong",    "yield": 4.7, "luas": 1320, "surplus_pct": -12.8},
+    {"id": "3205020", "kabupaten": "Garut",    "kecamatan": "Pameungpeuk", "yield": 4.3, "luas": 1100, "surplus_pct": -23.1},
 ]
 
 
@@ -65,9 +70,6 @@ def get_detail(kecamatan_id: str) -> KecamatanDetail:
     row = next((r for r in DUMMY_KECAMATAN if r["id"] == kecamatan_id), None)
     if not row:
         raise HTTPException(status_code=404, detail=f"Kecamatan {kecamatan_id} tidak ditemukan")
-
-    import math
-    from datetime import date, timedelta
 
     start = date(2018, 1, 1)
     series: list[NdviPoint] = []
