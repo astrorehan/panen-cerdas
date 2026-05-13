@@ -1,0 +1,175 @@
+ndvi,rainfall_mm,temperature_c,solar_radiation,land_area_ha,crop_type,harvest_days,yield_ton_per_ha,risk_level,provinsi,tahun,data_source,ndvi_source,produksi_ton,luas_panen_ha
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.793,high,ACEH,2017,default_fallback,seasonal_estimate,53799.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.058,high,SUMATERA UTARA,2017,default_fallback,seasonal_estimate,31727.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.762,high,SUMATERA BARAT,2017,default_fallback,seasonal_estimate,22871.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.363,high,RIAU,2017,default_fallback,seasonal_estimate,10901.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.278,high,JAMBI,2017,default_fallback,seasonal_estimate,8352.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.528,high,SUMATERA SELATAN,2017,default_fallback,seasonal_estimate,15826.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.261,high,BENGKULU,2017,default_fallback,seasonal_estimate,7822.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.49,high,LAMPUNG,2017,default_fallback,seasonal_estimate,14705.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.058,high,KEPULAUAN BANGKA BELITUNG,2017,default_fallback,seasonal_estimate,1728.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.035,high,KEPULAUAN RIAU,2017,default_fallback,seasonal_estimate,1060.8,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.497,medium,JAWA BARAT,2017,default_fallback,seasonal_estimate,134909.5,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,3.703,high,JAWA TENGAH,2017,default_fallback,seasonal_estimate,148139.0,40000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.28,high,DAERAH ISTIMEWA YOGYAKARTA,2017,default_fallback,seasonal_estimate,8386.2,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,5.65,low,JAWA TIMUR,2017,default_fallback,seasonal_estimate,339021.7,60000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.152,high,BANTEN,2017,default_fallback,seasonal_estimate,4571.8,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,1.049,high,BALI,2017,default_fallback,seasonal_estimate,31463.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,7.846,low,NUSA TENGGARA BARAT,2017,default_fallback,seasonal_estimate,156922.1,20000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.174,high,NUSA TENGGARA TIMUR,2017,default_fallback,seasonal_estimate,5227.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.59,high,KALIMANTAN BARAT,2017,default_fallback,seasonal_estimate,4719.1,8000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.092,high,KALIMANTAN TENGAH,2017,default_fallback,seasonal_estimate,2774.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.395,high,KALIMANTAN SELATAN,2017,default_fallback,seasonal_estimate,11848.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.201,high,KALIMANTAN TIMUR,2017,default_fallback,seasonal_estimate,6040.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.09,high,KALIMANTAN UTARA,2017,default_fallback,seasonal_estimate,2706.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.692,high,SULAWESI UTARA,2017,default_fallback,seasonal_estimate,16915.0,10000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.708,high,SULAWESI TENGAH,2017,default_fallback,seasonal_estimate,21229.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.526,high,SULAWESI SELATAN,2017,default_fallback,seasonal_estimate,45770.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.11,high,SULAWESI TENGGARA,2017,default_fallback,seasonal_estimate,3312.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.838,high,GORONTALO,2017,default_fallback,seasonal_estimate,25125.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.088,high,SULAWESI BARAT,2017,default_fallback,seasonal_estimate,2651.2,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.135,high,MALUKU,2017,default_fallback,seasonal_estimate,4038.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.042,high,MALUKU UTARA,2017,default_fallback,seasonal_estimate,1261.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.03,high,PAPUA BARAT,2017,default_fallback,seasonal_estimate,889.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.03,high,PAPUA BARAT,2017,default_fallback,seasonal_estimate,889.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.214,high,PAPUA,2017,default_fallback,seasonal_estimate,6424.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,44.52,low,"1,153,155.00",2017,default_fallback,seasonal_estimate,1335595.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.072,high,ACEH,2018,default_fallback,seasonal_estimate,62167.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.328,high,SUMATERA UTARA,2018,default_fallback,seasonal_estimate,39825.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.839,high,SUMATERA BARAT,2018,default_fallback,seasonal_estimate,25178.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.423,high,RIAU,2018,default_fallback,seasonal_estimate,12691.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.276,high,JAMBI,2018,default_fallback,seasonal_estimate,8271.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.448,high,SUMATERA SELATAN,2018,default_fallback,seasonal_estimate,13450.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.378,high,BENGKULU,2018,default_fallback,seasonal_estimate,11353.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.488,high,LAMPUNG,2018,default_fallback,seasonal_estimate,14648.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.068,high,KEPULAUAN BANGKA BELITUNG,2018,default_fallback,seasonal_estimate,2034.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.057,high,KEPULAUAN RIAU,2018,default_fallback,seasonal_estimate,1715.7,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.381,medium,JAWA BARAT,2018,default_fallback,seasonal_estimate,131418.2,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,3.544,high,JAWA TENGAH,2018,default_fallback,seasonal_estimate,141770.5,40000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.338,high,DAERAH ISTIMEWA YOGYAKARTA,2018,default_fallback,seasonal_estimate,10146.8,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,7.556,low,JAWA TIMUR,2018,default_fallback,seasonal_estimate,453338.0,60000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.174,high,BANTEN,2018,default_fallback,seasonal_estimate,5224.6,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,1.055,high,BALI,2018,default_fallback,seasonal_estimate,31653.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,10.527,low,NUSA TENGGARA BARAT,2018,default_fallback,seasonal_estimate,210530.3,20000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.175,high,NUSA TENGGARA TIMUR,2018,default_fallback,seasonal_estimate,5247.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.521,high,KALIMANTAN BARAT,2018,default_fallback,seasonal_estimate,4164.7,8000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.121,high,KALIMANTAN TENGAH,2018,default_fallback,seasonal_estimate,3638.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.422,high,KALIMANTAN SELATAN,2018,default_fallback,seasonal_estimate,12670.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.227,high,KALIMANTAN TIMUR,2018,default_fallback,seasonal_estimate,6795.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.11,high,KALIMANTAN UTARA,2018,default_fallback,seasonal_estimate,3298.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.647,high,SULAWESI UTARA,2018,default_fallback,seasonal_estimate,16469.7,10000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.87,high,SULAWESI TENGAH,2018,default_fallback,seasonal_estimate,26090.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.219,high,SULAWESI SELATAN,2018,default_fallback,seasonal_estimate,36568.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.149,high,SULAWESI TENGGARA,2018,default_fallback,seasonal_estimate,4484.2,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.856,high,GORONTALO,2018,default_fallback,seasonal_estimate,25694.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.089,high,SULAWESI BARAT,2018,default_fallback,seasonal_estimate,2658.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.124,high,MALUKU,2018,default_fallback,seasonal_estimate,3732.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.037,high,MALUKU UTARA,2018,default_fallback,seasonal_estimate,1095.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.021,high,PAPUA BARAT,2018,default_fallback,seasonal_estimate,624.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.021,high,PAPUA BARAT,2018,default_fallback,seasonal_estimate,624.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.231,high,PAPUA,2018,default_fallback,seasonal_estimate,6943.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,45.807,low,"1,153,155.00",2018,default_fallback,seasonal_estimate,1374214.97,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.063,high,ACEH,2019,default_fallback,seasonal_estimate,61886.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.642,high,SUMATERA UTARA,2019,default_fallback,seasonal_estimate,49246.2,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.059,high,SUMATERA BARAT,2019,default_fallback,seasonal_estimate,31782.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.271,high,RIAU,2019,default_fallback,seasonal_estimate,8120.12,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.329,high,JAMBI,2019,default_fallback,seasonal_estimate,9879.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.367,high,SUMATERA SELATAN,2019,default_fallback,seasonal_estimate,11013.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.371,high,BENGKULU,2019,default_fallback,seasonal_estimate,11118.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.427,high,LAMPUNG,2019,default_fallback,seasonal_estimate,12795.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.067,high,KEPULAUAN BANGKA BELITUNG,2019,default_fallback,seasonal_estimate,2001.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.078,high,KEPULAUAN RIAU,2019,default_fallback,seasonal_estimate,2338.9,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.283,medium,JAWA BARAT,2019,default_fallback,seasonal_estimate,128494.1,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,3.719,high,JAWA TENGAH,2019,default_fallback,seasonal_estimate,148750.0,40000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.335,high,DAERAH ISTIMEWA YOGYAKARTA,2019,default_fallback,seasonal_estimate,10039.8,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,8.935,low,JAWA TIMUR,2019,default_fallback,seasonal_estimate,536097.7,60000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.167,high,BANTEN,2019,default_fallback,seasonal_estimate,5019.4,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.955,high,BALI,2019,default_fallback,seasonal_estimate,28655.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,8.239,low,NUSA TENGGARA BARAT,2019,default_fallback,seasonal_estimate,164772.6,20000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.294,high,NUSA TENGGARA TIMUR,2019,default_fallback,seasonal_estimate,8816.0,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.716,high,KALIMANTAN BARAT,2019,default_fallback,seasonal_estimate,5730.6,8000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.195,high,KALIMANTAN TENGAH,2019,default_fallback,seasonal_estimate,5864.48,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.459,high,KALIMANTAN SELATAN,2019,default_fallback,seasonal_estimate,13768.0,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.268,high,KALIMANTAN TIMUR,2019,default_fallback,seasonal_estimate,8029.3,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.127,high,KALIMANTAN UTARA,2019,default_fallback,seasonal_estimate,3821.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.476,high,SULAWESI UTARA,2019,default_fallback,seasonal_estimate,14760.2,10000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.754,high,SULAWESI TENGAH,2019,default_fallback,seasonal_estimate,22631.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.87,high,SULAWESI SELATAN,2019,default_fallback,seasonal_estimate,26114.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.122,high,SULAWESI TENGGARA,2019,default_fallback,seasonal_estimate,3668.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.686,high,GORONTALO,2019,default_fallback,seasonal_estimate,20579.8,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.089,high,SULAWESI BARAT,2019,default_fallback,seasonal_estimate,2663.0,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.115,high,MALUKU,2019,default_fallback,seasonal_estimate,3440.4,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.155,high,MALUKU UTARA,2019,default_fallback,seasonal_estimate,4649.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.109,high,PAPUA BARAT,2019,default_fallback,seasonal_estimate,3276.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.109,high,PAPUA BARAT,2019,default_fallback,seasonal_estimate,3276.5,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.146,high,PAPUA,2019,default_fallback,seasonal_estimate,4388.27,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,50.28,low,"1,153,155.00",2019,default_fallback,seasonal_estimate,1508404.17,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.159,high,ACEH,2020,default_fallback,seasonal_estimate,64781.6,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.039,high,SUMATERA UTARA,2020,default_fallback,seasonal_estimate,61160.11,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.112,high,SUMATERA BARAT,2020,default_fallback,seasonal_estimate,33355.93,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.288,high,RIAU,2020,default_fallback,seasonal_estimate,8626.96,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.453,high,JAMBI,2020,default_fallback,seasonal_estimate,13587.98,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.388,high,SUMATERA SELATAN,2020,default_fallback,seasonal_estimate,11644.96,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.383,high,BENGKULU,2020,default_fallback,seasonal_estimate,11475.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.352,high,LAMPUNG,2020,default_fallback,seasonal_estimate,10558.12,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.113,high,KEPULAUAN BANGKA BELITUNG,2020,default_fallback,seasonal_estimate,3385.92,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.074,high,KEPULAUAN RIAU,2020,default_fallback,seasonal_estimate,2230.12,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.361,medium,JAWA BARAT,2020,default_fallback,seasonal_estimate,130838.47,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,3.977,medium,JAWA TENGAH,2020,default_fallback,seasonal_estimate,159098.91,40000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.502,high,DAERAH ISTIMEWA YOGYAKARTA,2020,default_fallback,seasonal_estimate,15052.32,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,11.416,low,JAWA TIMUR,2020,default_fallback,seasonal_estimate,684942.94,60000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.195,high,BANTEN,2020,default_fallback,seasonal_estimate,5861.0,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,1.178,high,BALI,2020,default_fallback,seasonal_estimate,35331.32,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,4.947,medium,NUSA TENGGARA BARAT,2020,default_fallback,seasonal_estimate,98941.4,20000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.349,high,NUSA TENGGARA TIMUR,2020,default_fallback,seasonal_estimate,10467.9,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.767,high,KALIMANTAN BARAT,2020,default_fallback,seasonal_estimate,6132.54,8000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.204,high,KALIMANTAN TENGAH,2020,default_fallback,seasonal_estimate,6124.11,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.521,high,KALIMANTAN SELATAN,2020,default_fallback,seasonal_estimate,15615.78,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.303,high,KALIMANTAN TIMUR,2020,default_fallback,seasonal_estimate,9080.98,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.111,high,KALIMANTAN UTARA,2020,default_fallback,seasonal_estimate,3330.41,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.241,high,SULAWESI UTARA,2020,default_fallback,seasonal_estimate,22414.49,10000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.835,high,SULAWESI TENGAH,2020,default_fallback,seasonal_estimate,25041.74,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.802,high,SULAWESI SELATAN,2020,default_fallback,seasonal_estimate,24051.58,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.127,high,SULAWESI TENGGARA,2020,default_fallback,seasonal_estimate,3801.35,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.491,high,GORONTALO,2020,default_fallback,seasonal_estimate,14729.22,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.047,high,SULAWESI BARAT,2020,default_fallback,seasonal_estimate,1398.65,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.168,high,MALUKU,2020,default_fallback,seasonal_estimate,5027.25,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.151,high,MALUKU UTARA,2020,default_fallback,seasonal_estimate,4527.48,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.078,high,PAPUA BARAT,2020,default_fallback,seasonal_estimate,2350.52,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.078,high,PAPUA BARAT,2020,default_fallback,seasonal_estimate,2350.52,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.115,high,PAPUA,2020,default_fallback,seasonal_estimate,3436.42,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,46.215,low,"1,153,155.00",2020,default_fallback,seasonal_estimate,1386446.91,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.723,high,ACEH,2021,default_fallback,seasonal_estimate,51686.25,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,2.622,high,SUMATERA UTARA,2021,default_fallback,seasonal_estimate,78662.97,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.171,high,SUMATERA BARAT,2021,default_fallback,seasonal_estimate,35117.92,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.223,high,RIAU,2021,default_fallback,seasonal_estimate,6693.87,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.384,high,JAMBI,2021,default_fallback,seasonal_estimate,11526.13,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.385,high,SUMATERA SELATAN,2021,default_fallback,seasonal_estimate,11562.44,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.543,high,BENGKULU,2021,default_fallback,seasonal_estimate,16278.13,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.364,high,LAMPUNG,2021,default_fallback,seasonal_estimate,10921.29,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.132,high,KEPULAUAN BANGKA BELITUNG,2021,default_fallback,seasonal_estimate,3954.1,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.054,high,KEPULAUAN RIAU,2021,default_fallback,seasonal_estimate,1626.96,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.582,medium,JAWA BARAT,2021,default_fallback,seasonal_estimate,137456.25,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,4.482,medium,JAWA TENGAH,2021,default_fallback,seasonal_estimate,179286.91,40000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.531,high,DAERAH ISTIMEWA YOGYAKARTA,2021,default_fallback,seasonal_estimate,15933.22,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,9.648,low,JAWA TIMUR,2021,default_fallback,seasonal_estimate,578883.0,60000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.133,high,BANTEN,2021,default_fallback,seasonal_estimate,3993.26,30000.0
+0.54,150.0,27.0,185.0,2.0,cabe_rawit,85,0.972,high,BALI,2021,default_fallback,seasonal_estimate,29174.92,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,3.127,high,NUSA TENGGARA BARAT,2021,default_fallback,seasonal_estimate,62538.86,20000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.303,high,NUSA TENGGARA TIMUR,2021,default_fallback,seasonal_estimate,9075.94,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.791,high,KALIMANTAN BARAT,2021,default_fallback,seasonal_estimate,6331.79,8000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.232,high,KALIMANTAN TENGAH,2021,default_fallback,seasonal_estimate,6961.43,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.392,high,KALIMANTAN SELATAN,2021,default_fallback,seasonal_estimate,11757.72,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.279,high,KALIMANTAN TIMUR,2021,default_fallback,seasonal_estimate,8367.13,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.194,high,KALIMANTAN UTARA,2021,default_fallback,seasonal_estimate,5818.88,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,1.737,high,SULAWESI UTARA,2021,default_fallback,seasonal_estimate,17370.63,10000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.74,high,SULAWESI TENGAH,2021,default_fallback,seasonal_estimate,22198.53,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.881,high,SULAWESI SELATAN,2021,default_fallback,seasonal_estimate,26423.23,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.143,high,SULAWESI TENGGARA,2021,default_fallback,seasonal_estimate,4286.7,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.434,high,GORONTALO,2021,default_fallback,seasonal_estimate,13031.76,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.111,high,SULAWESI BARAT,2021,default_fallback,seasonal_estimate,3335.74,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.12,high,MALUKU,2021,default_fallback,seasonal_estimate,3596.23,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.124,high,MALUKU UTARA,2021,default_fallback,seasonal_estimate,3732.51,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.127,high,PAPUA BARAT,2021,default_fallback,seasonal_estimate,3807.59,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.127,high,PAPUA BARAT,2021,default_fallback,seasonal_estimate,3807.59,30000.0
+0.52,150.0,27.0,185.0,2.0,cabe_rawit,85,0.168,high,PAPUA,2021,default_fallback,seasonal_estimate,5054.05,30000.0
