@@ -30,6 +30,14 @@ yarn-error.log*
 service-account*.json
 ee-credentials.json
 
+# ML service runtime artifacts
+ml_service/.env
+ml_service/saved_models/
+ml_service/panencerdas_ml.db
+ml_service/*.db
+panencerdas_ml.db
+*.db
+
 # Data (raw downloads are heavy — share via Drive)
 data/raw/*
 !data/raw/.gitkeep
