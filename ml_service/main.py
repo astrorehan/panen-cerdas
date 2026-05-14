@@ -23,6 +23,7 @@ except Exception:
     pass
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -80,9 +81,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS: comma-separated list di env ALLOWED_ORIGINS. Default "*" untuk dev;
+# prod harus diisi domain Express gateway (+ frontend kalau memang akses
+# langsung). Contoh: "https://api.panen.app,https://panen.app".
+_origins_env = os.getenv("ALLOWED_ORIGINS", "*").strip()
+allowed_origins = (
+    ["*"] if _origins_env == "*"
+    else [o.strip() for o in _origins_env.split(",") if o.strip()]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -374,4 +384,8 @@ def list_varieties(crop_type: str | None = None):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    # PaaS (Render/Railway/Fly) assigns PORT; lokal fallback ke 8000.
+    # UVICORN_RELOAD=true buat hot-reload saat dev; default off di prod.
+    port = int(os.getenv("PORT", "8000"))
+    reload = os.getenv("UVICORN_RELOAD", "false").lower() in ("1", "true", "yes")
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload)

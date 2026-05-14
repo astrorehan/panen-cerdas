@@ -158,7 +158,7 @@ def init_db():
     karena itu di-manage oleh Supabase (auth.users)."""
     owned = [t for t in Base.metadata.sorted_tables if t.schema != "auth"]
     Base.metadata.create_all(bind=engine, tables=owned)
-    print("✅ Database & tabel siap")
+    print("[OK] Database & tabel siap")
 
 
 # ── SESSION HELPER ─────────────────────────────────────
