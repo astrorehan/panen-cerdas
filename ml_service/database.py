@@ -6,13 +6,14 @@ Ganti DATABASE_URL ke PostgreSQL saat production.
 """
 
 import os
+import uuid as _uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import (
     Column, Integer, Float, String, DateTime,
-    Boolean, Text, create_engine, text
+    Boolean, Text, ForeignKey, Table, Uuid, create_engine, text
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from dotenv import load_dotenv
@@ -20,13 +21,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ── CONFIG ─────────────────────────────────────────────
-# Development  : SQLite (langsung jalan, tanpa install apapun)
-# Production   : ganti ke PostgreSQL
-#   DATABASE_URL=postgresql://user:pass@localhost:5432/panencerdas
+# Default        : Supabase Postgres (multi-device).
+# Fallback offline: SQLite anchored ke folder ml_service/ (untuk dev tanpa internet).
+#   sqlite:///<absolute>/panencerdas_ml.db  → set DATABASE_URL=sqlite:///./local.db
+#   Uuid columns degrade ke CHAR(32) di SQLite (no FK ke auth.users).
 
-# Path absolut ke file DB, anchored ke ml_service/, supaya train.py (CWD=ml_service)
-# dan uvicorn (CWD=root) baca/tulis file yang sama. Sebelumnya pakai
-# "sqlite:///./panencerdas_ml.db" yang CWD-dependent → 3 DB file scattered.
 _DEFAULT_DB_PATH = Path(__file__).resolve().parent / "panencerdas_ml.db"
 
 DATABASE_URL = os.getenv(
@@ -51,6 +50,17 @@ class Base(DeclarativeBase):
     pass
 
 
+# Supabase auth.users — kita FK ke sini dari petani_id, tapi tidak boleh
+# di-create oleh init_db() (managed oleh Supabase Auth). Declarasi reflection-like
+# supaya SQLAlchemy bisa resolve target FK. Di-exclude dari create_all().
+auth_users = Table(
+    "users",
+    Base.metadata,
+    Column("id", Uuid(as_uuid=False), primary_key=True),
+    schema="auth",
+)
+
+
 # ── TABEL 1: prediction_log ────────────────────────────
 # Menyimpan setiap request /predict beserta hasilnya
 class PredictionLog(Base):
@@ -71,8 +81,15 @@ class PredictionLog(Base):
     pred_confidence       = Column(Float, nullable=False)
     model_source          = Column(String(20), nullable=False)
     # Metadata
-    petani_id        = Column(String(50), nullable=True)   # ID petani jika login
-    lahan_id         = Column(String(50), nullable=True)   # ID lahan
+    # petani_id: UUID Supabase auth.users(id). FK aktif di Postgres; di SQLite
+    # SQLAlchemy degrade ke CHAR(32) tanpa FK (auth.users tidak ada).
+    petani_id        = Column(
+        Uuid(as_uuid=False),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    lahan_id         = Column(String(50), nullable=True, index=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
     # Feedback (diisi nanti setelah panen)
     feedback_given   = Column(Boolean, default=False)
@@ -102,8 +119,13 @@ class TrainingFeedback(Base):
     pest_pressure         = Column(Float, nullable=True, default=0.0)
     variety               = Column(String(50), nullable=True, default="Lokal")
     # Metadata
-    petani_id             = Column(String(50), nullable=True)
-    lahan_id              = Column(String(50), nullable=True)
+    petani_id             = Column(
+        Uuid(as_uuid=False),
+        ForeignKey("auth.users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    lahan_id              = Column(String(50), nullable=True, index=True)
     catatan               = Column(Text, nullable=True)   # Catatan bebas petani
     created_at            = Column(DateTime, default=datetime.utcnow)
     used_in_training      = Column(Boolean, default=False)  # Sudah dipakai retrain?
@@ -132,8 +154,10 @@ class ModelVersion(Base):
 
 # ── INIT DB ────────────────────────────────────────────
 def init_db():
-    """Buat semua tabel jika belum ada."""
-    Base.metadata.create_all(bind=engine)
+    """Buat semua tabel jika belum ada. Exclude tabel di schema 'auth'
+    karena itu di-manage oleh Supabase (auth.users)."""
+    owned = [t for t in Base.metadata.sorted_tables if t.schema != "auth"]
+    Base.metadata.create_all(bind=engine, tables=owned)
     print("✅ Database & tabel siap")
 
 
@@ -145,6 +169,21 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
+
+
+def normalize_petani_id(value) -> Optional[str]:
+    """Coerce ke UUID string yang valid; kalau bukan UUID return None.
+
+    Kolom petani_id di-FK ke auth.users.id (uuid). Frontend yang belum login
+    bisa kirim string seperti 'demo' / 'petani_abc' — kita simpan NULL daripada
+    melempar 500. Boleh None / empty string juga (passthrough sebagai NULL).
+    """
+    if not value:
+        return None
+    try:
+        return str(_uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return None
 
 
 # ── CRUD HELPERS ───────────────────────────────────────
@@ -161,7 +200,7 @@ def save_prediction_log(db: Session, input_data: dict, output_data: dict) -> Pre
         pred_risk_level=output_data["risk_level"],
         pred_confidence=output_data["confidence"],
         model_source=output_data["model_source"],
-        petani_id=input_data.get("petani_id"),
+        petani_id=normalize_petani_id(input_data.get("petani_id")),
         lahan_id=input_data.get("lahan_id"),
     )
     db.add(log)
@@ -171,6 +210,7 @@ def save_prediction_log(db: Session, input_data: dict, output_data: dict) -> Pre
 
 
 def save_feedback(db: Session, feedback_data: dict) -> TrainingFeedback:
+    feedback_data = {**feedback_data, "petani_id": normalize_petani_id(feedback_data.get("petani_id"))}
     fb = TrainingFeedback(**feedback_data)
     db.add(fb)
     db.commit()

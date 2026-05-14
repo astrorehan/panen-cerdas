@@ -4,7 +4,7 @@ Platform prediksi panen dua-peran (petani + pemerintah) berbasis NDVI satelit MO
 
 **UNITY Competition #14 UNY 2026 — Software Development**
 
-**Status:** MVP feature-complete. NDVI real dari NASA APPEEARS (MODIS MOD13Q1), cuaca live NASA POWER, 9 komoditas terlatih (padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih), pilot DIY per-kecamatan + 37 provinsi nasional, online retraining tiap 10 feedback. Autentikasi via Supabase (email + password + role).
+**Status:** MVP feature-complete. NDVI real dari NASA APPEEARS (MODIS MOD13Q1), cuaca live NASA POWER, 9 komoditas terlatih (padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih), pilot DIY per-kecamatan + 37 provinsi nasional, online retraining tiap 10 feedback. Autentikasi + database via Supabase (email + password + role, Postgres `prediction_log` / `training_feedback` / `model_version` / `climate_cache`).
 
 ## Arsitektur
 
@@ -17,7 +17,11 @@ Browser  ->  Next.js 14 (frontend, :3000)  ----> Supabase (auth + profiles)
             Express gateway (:4400)         <- proxy + fallback layer
               |
               v
-            FastAPI ml_service (:8000)      <- ML, NASA POWER, APPEEARS NDVI, SQLite
+            FastAPI ml_service (:8000)      <- ML, NASA POWER, APPEEARS NDVI
+              |
+              v
+            Supabase Postgres (cloud)       <- prediction_log, training_feedback,
+                                               model_version, climate_cache
 ```
 
 | Layer | Tech | Folder |
@@ -25,7 +29,7 @@ Browser  ->  Next.js 14 (frontend, :3000)  ----> Supabase (auth + profiles)
 | Frontend | Next.js 14 + TypeScript + Tailwind + react-leaflet + recharts + @supabase/supabase-js | `frontend/` |
 | Auth | Supabase (email/password + `profiles` table dengan role check) | (BaaS) |
 | Gateway | Node 20 + Express 4 + axios | `backend-express/` |
-| ML service | FastAPI + Pydantic + scikit-learn + SQLAlchemy/SQLite | `ml_service/` |
+| ML service | FastAPI + Pydantic + scikit-learn + SQLAlchemy (Supabase Postgres, SQLite fallback) | `ml_service/` |
 | Data sources | NASA POWER (cuaca), NASA APPEEARS MOD13Q1 (NDVI 250m/16-hari), BPS 2020-2025 | `ml_service/data/` |
 | Training | 3 model RandomForest (harvest_days, yield_ratio, risk) + online retrain | `ml_service/model.py`, `ml_service/retrain_scheduler.py` |
 
@@ -57,16 +61,18 @@ cd ..
 
 ### Konfigurasi env
 
-**`ml_service/.env`** — kredensial APPEEARS untuk NDVI real (daftar gratis di https://appeears.earthdatacloud.nasa.gov/). Tanpa ini NDVI fallback ke estimasi musiman.
+**`ml_service/.env`** — kredensial Supabase Postgres (untuk shared DB antar device) + APPEEARS untuk NDVI real (daftar gratis di https://appeears.earthdatacloud.nasa.gov/). Tanpa APPEEARS, NDVI fallback ke estimasi musiman.
 
 ```
-DATABASE_URL=sqlite:///./panencerdas_ml.db
+DATABASE_URL=postgresql://postgres:PASSWORD@db.YOUR-PROJECT-REF.supabase.co:5432/postgres
 HOST=0.0.0.0
 PORT=8000
 RETRAIN_FEEDBACK_THRESHOLD=10
 APPEEARS_USER=your_user
 APPEEARS_PASS=your_pass
 ```
+
+Cara dapetin `DATABASE_URL` + init tabel: lihat [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) §6.
 
 **`frontend/.env.local`** — kredensial Supabase. Lihat [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) untuk langkah lengkap (bikin project, disable email confirm, bikin tabel `profiles`).
 
@@ -170,8 +176,8 @@ panen-cerdas/
 │   ├── fallback_rules.py             # rule-based fallback (saat model belum ada)
 │   ├── data_fetcher.py               # NASA POWER fetcher
 │   ├── ndvi_fetcher.py               # NASA APPEEARS MOD13Q1 (single + time-series)
-│   ├── data_cache.py                 # SQLite cache untuk POWER + APPEEARS
-│   ├── database.py                   # SQLAlchemy ORM + CRUD
+│   ├── data_cache.py                 # cache POWER + APPEEARS (table climate_cache)
+│   ├── database.py                   # SQLAlchemy ORM + CRUD (Supabase Postgres)
 │   ├── bps_data.py                   # reader BPS produksi 2020-2025
 │   ├── provinces_data.py             # lookup 37 provinsi (kode BPS + centroid + alias)
 │   ├── feedback_router.py            # /api/feedback{,/stats,/history}
@@ -183,8 +189,8 @@ panen-cerdas/
 │   ├── scripts/                      # fetch_historical, prewarm_ndvi_cache, test_appeears_login
 │   ├── data/                         # bps_produksi.csv, nasa_power_cache.csv, yogyakarta_kecamatan.geojson
 │   ├── Data_Raw/                     # CSV mentah BPS per komoditas
-│   ├── saved_models/                 # *.joblib artifacts (gitignored)
-│   ├── .env                          # APPEEARS creds + DB URL (gitignored)
+│   ├── saved_models/                 # *.joblib artifacts (committed dari PanenPintar-V2)
+│   ├── .env                          # APPEEARS creds + Supabase DATABASE_URL (gitignored)
 │   └── README.md
 ├── backend-express/                  # Node Express gateway (port 4400)
 │   ├── index.js
@@ -214,6 +220,65 @@ panen-cerdas/
 ├── ROADMAP.md
 └── CONTRIBUTING.md
 ```
+
+## Deploy
+
+Status saat ini: **dev/demo-ready, belum 100% deploy-ready**. Lihat checklist di bawah.
+
+### Target hosting (rekomendasi gratis-tier)
+
+| Service | Platform | Catatan |
+|---|---|---|
+| Frontend | Vercel | Auto-detect Next.js, tambah env vars di dashboard |
+| Express gateway | Render / Railway / Fly | Web Service, root: `backend-express/`, build: `npm install`, start: `node index.js` |
+| ml_service | Render / Railway / Fly | Web Service, root: `ml_service/`, runtime Python 3.12, build: `pip install -r requirements.txt`, start: `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+| Postgres | Supabase | Sudah aktif (project `mhjxabdsfeaafawnoeyn`) |
+
+### Env vars per service (saat deploy)
+
+**Vercel (frontend):**
+```
+NEXT_PUBLIC_SUPABASE_URL=https://mhjxabdsfeaafawnoeyn.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<dari Supabase Dashboard>
+NEXT_PUBLIC_API_URL=https://<express-prod-url>
+```
+
+**Express:**
+```
+ML_SERVICE_URL=https://<ml-service-prod-url>
+FRONTEND_URL=https://<frontend-prod-url>
+ML_TIMEOUT_MS=60000
+# PORT — biarkan PaaS yang assign
+```
+
+**ml_service:**
+```
+DATABASE_URL=postgresql://postgres.mhjxabdsfeaafawnoeyn:<pwd>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres
+APPEEARS_USER=<creds>
+APPEEARS_PASS=<creds>
+RETRAIN_FEEDBACK_THRESHOLD=10
+```
+
+### Checklist sebelum deploy
+
+- [x] **Tabel Postgres** sudah live di Supabase (apply via MCP / SUPABASE_SETUP.md §6).
+- [x] **Trained models** (`saved_models/*.joblib`) di-commit, jadi tidak perlu re-train saat deploy.
+- [x] **`ml_service/main.py`** — `_fill_climate_defaults` jalan kalau iklim None, jadi tahan input minim.
+- [x] **`backend-express/index.js`** — sudah `Number(process.env.PORT) || 4000`, kompatibel PaaS.
+- [ ] **`ml_service/.env`** — `DATABASE_URL` harus diisi password asli (saat ini masih `[YOUR-PASSWORD]`). Untuk deploy: set di env var hosting, jangan commit.
+- [ ] **`ml_service/main.py` line 377** — `uvicorn.run(..., port=8000, reload=True)`. Untuk prod, jangan dipakai (start lewat CLI: `uvicorn main:app --port $PORT`). Hapus `reload=True` di prod.
+- [ ] **CORS** — `ml_service/main.py:85` masih `allow_origins=["*"]`. Ganti ke `[FRONTEND_URL, EXPRESS_URL]` sebelum publish.
+- [ ] **Runtime pin** — tambah `runtime.txt` (`python-3.12.8`) di `ml_service/` supaya Render/Railway pakai Python 3.12.
+- [ ] **`backend-express/.env`** vs prod env — `PORT=4400` di `.env` akan override `process.env.PORT`. Hapus baris `PORT=` di production env vars.
+- [ ] **Supabase URL `frontend/.env.local`** masih anon key legacy. Boleh tetap (still works) atau pindah ke `sb_publishable_*` key baru.
+- [ ] **Leaked password protection** — `Supabase Dashboard → Auth → Password security` toggle ON (advisor WARN).
+- [ ] **APPEEARS rate limit** — 1 task/min/user di tier gratis. Kalau prod traffic banyak, prewarm cache (`scripts/prewarm_ndvi_cache.py`) atau register user APPEEARS kedua.
+
+### Risiko yang masih ada
+
+1. **Cold start ml_service** — load 6 joblib models + connect Postgres pool butuh 5-15 detik. Render free tier sleep setelah 15 menit idle → request pertama akan delay. Mitigasi: paid tier atau cron ping tiap 10 menit.
+2. **Supabase pool limit** — free tier session pooler ≈ 60 koneksi. SQLAlchemy default pool 5 + overflow 10, masih aman untuk demo. Pantau kalau scale.
+3. **NDVI fetcher async** — `ndvi_fetcher.py` polling APPEEARS task selama beberapa menit. Kalau request timeout (Express `ML_TIMEOUT_MS=60000`), fallback ke estimasi musiman. Acceptable untuk demo.
 
 ## Kontribusi
 
