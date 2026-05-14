@@ -4,7 +4,7 @@ const axios = require("axios");
 const router = express.Router();
 
 const ML_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
-const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
+const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 20000;
 
 function buildFallback(body) {
   const landArea = Number(body?.land_area_ha) || 1;

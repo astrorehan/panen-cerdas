@@ -106,6 +106,16 @@ export default function PetaPage() {
 
   const isNational = provinceKey === "ALL";
 
+  // Pan map ke provinsi yang dipilih. DIY pakai centroid kecamatan, nasional
+  // pakai centroid Indonesia, provinsi lain pakai lat/lon dari BPS.
+  const mapView = useMemo<{ center: [number, number]; zoom: number }>(() => {
+    if (isNational) return { center: [-2.5, 117.5], zoom: 5 };
+    if (provinceKey === "DI Yogyakarta") return { center: [-7.855, 110.42], zoom: 10 };
+    const prov = provinces.find((p) => p.name === provinceKey);
+    if (prov) return { center: [prov.lat, prov.lon], zoom: 7 };
+    return { center: [-2.5, 117.5], zoom: 5 };
+  }, [isNational, provinceKey, provinces]);
+
   return (
     <div className="container space-y-8 py-8 md:py-12">
       <header>
@@ -201,6 +211,9 @@ export default function PetaPage() {
                   geojson={geojson}
                   predictions={predictions.items}
                   national={isNational}
+                  center={mapView.center}
+                  zoom={mapView.zoom}
+                  viewKey={`${provinceKey}-${predictions.items.length}`}
                 />
               </div>
             </CardContent>

@@ -177,7 +177,7 @@ export default function HubungiKamiPage() {
       </section>
 
       <div className="border-t border-border pt-6 text-center text-xs text-muted-foreground">
-        Tim Panen Cerdas - DI Yogyakarta - UNITY Competition 14 - UNY 2026
+        Tim Panen Cerdas - DI Yogyakarta
       </div>
     </div>
   );

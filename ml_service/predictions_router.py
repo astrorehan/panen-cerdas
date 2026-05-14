@@ -340,6 +340,11 @@ async def list_predictions(
 
     # ── MODE 1: National view (semua provinsi sekaligus) ──
     if prov_key in ("ALL", "INDONESIA", "NASIONAL"):
+        # Sequential await per-provinsi. Concurrent gather sempat dicoba tapi
+        # menyebabkan kontensi pada `db` session (SQLAlchemy session bukan
+        # async-safe untuk dipakai paralel). Karena tiap call fetch NDVI/climate
+        # cache, total ~20-25s pada cache cold. Frontend lewat Express harus
+        # punya timeout >= 30s (lihat backend-express/.env ML_TIMEOUT_MS).
         items = []
         for prov in provinces_data.all_provinces():
             row = _province_row(prov.name, commodity)

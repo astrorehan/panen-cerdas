@@ -165,7 +165,17 @@ export type CropType =
   | "bawang_merah"
   | "bawang_putih";
 export type RiskLevel = "low" | "medium" | "high";
-export type Provenance = "manual" | "estimated" | "default" | "fallback";
+export type Provenance =
+  | "manual"
+  | "estimated"
+  | "default"
+  | "fallback"
+  | "user_input"
+  | "nasa_power"
+  | "appeears"
+  | "modis_appeears"
+  | "seasonal_estimate"
+  | (string & {});
 
 export type PredictRequest = {
   crop_type: CropType;

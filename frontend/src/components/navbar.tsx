@@ -11,7 +11,6 @@ import {
   SheetTrigger,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { RolePickerDialog } from "@/components/role-picker-dialog";
 import { cn } from "@/lib/utils";
 import { clearRole, getRole, type Role } from "@/lib/auth";
 
@@ -35,8 +34,6 @@ const PEMERINTAH_ITEMS: AppNavItem[] = [
 const MARKETING_ITEMS = [
   { href: "#features", label: "Fitur" },
   { href: "/tentang", label: "Tentang" },
-  { href: "#harga", label: "Harga" },
-  { href: "#faq", label: "FAQ" },
   { href: "/hubungi-kami", label: "Hubungi Kami" },
 ];
 
@@ -80,12 +77,12 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  if (pathname === "/login") return null;
+  if (pathname === "/login" || pathname === "/register") return null;
 
   const isMarketing = pathname === "/" || pathname === "/tentang";
 
-  function logout() {
-    clearRole();
+  async function logout() {
+    await clearRole();
     setRoleState(null);
     router.push("/");
   }
@@ -156,9 +153,9 @@ export function Navbar() {
                   <Link href="/login">Masuk</Link>
                 </Button>
               )}
-              <RolePickerDialog>
-                <Button size="sm">Coba Demo</Button>
-              </RolePickerDialog>
+              <Button asChild size="sm">
+                <Link href="/register">Daftar</Link>
+              </Button>
             </>
           ) : (
             role && (
@@ -212,11 +209,13 @@ export function Navbar() {
                       <Link href="/login">Masuk</Link>
                     </Button>
                   )}
-                  <RolePickerDialog>
-                    <Button className="w-full" onClick={() => setMobileOpen(false)}>
-                      Coba Demo
-                    </Button>
-                  </RolePickerDialog>
+                  <Button
+                    asChild
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full"
+                  >
+                    <Link href="/register">Daftar</Link>
+                  </Button>
                 </>
               ) : (
                 role && (

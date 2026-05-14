@@ -5,8 +5,6 @@ const LINKS = {
   produk: [
     { label: "Fitur", href: "/#features" },
     { label: "Dashboard Preview", href: "/#preview" },
-    { label: "Harga", href: "/#harga" },
-    { label: "FAQ", href: "/#faq" },
   ],
   perusahaan: [
     { label: "Tentang", href: "/tentang" },
@@ -16,8 +14,7 @@ const LINKS = {
   data: [
     { label: "NASA POWER", href: "https://power.larc.nasa.gov/" },
     { label: "Sentinel-2", href: "https://sentinels.copernicus.eu/" },
-    { label: "BMKG", href: "https://www.bmkg.go.id/" },
-    { label: "BPS", href: "https://www.bps.go.id/" },
+    { label: "Kementan", href: "https://www.pertanian.go.id/" },
   ],
 };
 
@@ -122,8 +119,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row md:items-center">
           <div>
-            &copy; {new Date().getFullYear()} Panen Cerdas. Dibuat untuk
-            UNITY Competition #14 - UNY 2026.
+            &copy; {new Date().getFullYear()} Panen Cerdas.
           </div>
           <div className="flex items-center gap-4">
             <span>v0.1.0 - MVP</span>

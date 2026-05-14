@@ -11,12 +11,35 @@ const RISK_STYLE: Record<
   high: { ring: "ring-destructive/30", bg: "bg-destructive/12", text: "text-destructive", label: "Risiko Tinggi" },
 };
 
-const PROVENANCE_LABEL: Record<Provenance, string> = {
+const PROVENANCE_LABEL: Record<string, string> = {
   manual: "Manual",
+  user_input: "Input Manual",
   estimated: "Estimasi GPS",
   default: "Asumsi Default",
   fallback: "Fallback (ML Offline)",
+  nasa_power: "NASA POWER",
+  appeears: "MODIS APPEEARS",
+  modis_appeears: "MODIS APPEEARS",
+  seasonal_estimate: "Estimasi Musiman",
 };
+
+function labelProvenance(source: Provenance | string | null | undefined): string {
+  if (!source) return "Tidak diketahui";
+  return (
+    PROVENANCE_LABEL[source] ||
+    source.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())
+  );
+}
+
+function formatCropLabel(crop: string): string {
+  return crop.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+// Strip leading emoji/pictograph characters yang masih ikut dari rekomendasi backend.
+const EMOJI_PREFIX_RE = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}☀-➿️]+\s*/u;
+function stripLeadingEmoji(text: string): string {
+  return text.replace(EMOJI_PREFIX_RE, "").trim();
+}
 
 interface ResultCardProps {
   result: PredictResponse;
@@ -39,7 +62,7 @@ export function ResultCard({ result, cropType, landAreaHa }: ResultCardProps) {
             Hasil prediksi #{result.prediction_log_id}
           </div>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
-            {cropType.charAt(0).toUpperCase() + cropType.slice(1)} - {landAreaHa} ha
+            {formatCropLabel(cropType)} - {landAreaHa} ha
           </h2>
         </div>
         <div
@@ -80,7 +103,7 @@ export function ResultCard({ result, cropType, landAreaHa }: ResultCardProps) {
           {result.recommendations.map((r, i) => (
             <li key={i} className="flex gap-3 text-sm leading-relaxed text-foreground">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-              <span>{r}</span>
+              <span>{stripLeadingEmoji(r)}</span>
             </li>
           ))}
         </ul>
@@ -169,7 +192,7 @@ function ProvCard({
 }: {
   icon: typeof CloudRain;
   kind: string;
-  source: Provenance;
+  source: Provenance | string | null | undefined;
 }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-3">
@@ -178,7 +201,7 @@ function ProvCard({
         {kind}
       </div>
       <div className="mt-2 text-sm font-semibold tracking-tight text-foreground">
-        {PROVENANCE_LABEL[source]}
+        {labelProvenance(source)}
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { setRole, type Role } from "@/lib/auth";
+import type { Role } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 interface RolePickerDialogProps {
@@ -46,9 +46,8 @@ export function RolePickerDialog({ children }: RolePickerDialogProps) {
   const router = useRouter();
 
   const choose = (role: Role) => {
-    setRole(role);
     setOpen(false);
-    router.push(`/${role}/dashboard`);
+    router.push(`/register?role=${role}`);
   };
 
   return (
@@ -56,10 +55,10 @@ export function RolePickerDialog({ children }: RolePickerDialogProps) {
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Pilih perspektif demo</DialogTitle>
+          <DialogTitle className="text-2xl">Pilih peran Anda</DialogTitle>
           <DialogDescription>
-            Panen Cerdas melayani dua persona. Pilih salah satu untuk masuk ke
-            dashboard demo.
+            Panen Cerdas melayani dua persona. Pilih peran untuk lanjut ke
+            pendaftaran.
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -95,7 +94,7 @@ export function RolePickerDialog({ children }: RolePickerDialogProps) {
           ))}
         </div>
         <p className="mt-2 text-center text-xs text-muted-foreground">
-          Anda bisa berpindah peran kapan saja dari menu Keluar.
+          Sudah punya akun? Klik Masuk di pojok kanan atas.
         </p>
       </DialogContent>
     </Dialog>

@@ -106,48 +106,25 @@ export default async function PemerintahDashboardPage() {
         </div>
       </section>
 
-      {/* Trend + note */}
+      {/* Trend */}
       <section>
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Tren Produksi</h2>
           <span className="text-xs text-muted-foreground">
-            Aktual BPS 2018-2023, prediksi 2024 terputus
+            Sumber BPS - aktual 2020-2024, proyeksi tahun berjalan
           </span>
         </div>
-        <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                Produksi {trend.commodity} {trend.province}
-              </CardTitle>
-              <CardDescription>Unit - {trend.unit}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TrendChart trend={trend} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Catatan</CardTitle>
-              <CardDescription>Data dummy - Phase 7</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-              <p>
-                Dashboard ini memuat data dari endpoint{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs text-foreground">
-                  /api/dashboard/summary
-                </code>
-                . Endpoint akan diganti dengan output{" "}
-                <em>model/predict.py</em> setelah pipeline GEE + BPS jalan.
-              </p>
-              <p className="border-t border-border pt-3">
-                Selanjutnya: bind ke peta choropleth dan tambah filter komoditas,
-                musim tanam, serta ekspor PDF buletin per pekan.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              Produksi {trend.commodity} {trend.province}
+            </CardTitle>
+            <CardDescription>Unit - {trend.unit}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TrendChart trend={trend} />
+          </CardContent>
+        </Card>
       </section>
 
       {/* Impact statement */}
@@ -164,7 +141,7 @@ export default async function PemerintahDashboardPage() {
             Salah prediksi pangan merugikan triliunan rupiah per tahun.&rdquo;
           </blockquote>
           <div className="mt-7 text-xs font-medium uppercase tracking-wider text-primary-foreground/70">
-            Latar belakang Panen Cerdas - UNITY 14 UNY 2026
+            Latar belakang Panen Cerdas
           </div>
         </div>
       </section>

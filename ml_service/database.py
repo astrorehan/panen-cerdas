@@ -7,6 +7,7 @@ Ganti DATABASE_URL ke PostgreSQL saat production.
 
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import (
@@ -23,9 +24,14 @@ load_dotenv()
 # Production   : ganti ke PostgreSQL
 #   DATABASE_URL=postgresql://user:pass@localhost:5432/panencerdas
 
+# Path absolut ke file DB, anchored ke ml_service/, supaya train.py (CWD=ml_service)
+# dan uvicorn (CWD=root) baca/tulis file yang sama. Sebelumnya pakai
+# "sqlite:///./panencerdas_ml.db" yang CWD-dependent → 3 DB file scattered.
+_DEFAULT_DB_PATH = Path(__file__).resolve().parent / "panencerdas_ml.db"
+
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "sqlite:///./panencerdas_ml.db"   # default: SQLite lokal
+    f"sqlite:///{_DEFAULT_DB_PATH.as_posix()}"
 )
 
 # SQLite perlu flag tambahan untuk async safety

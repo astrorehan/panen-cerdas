@@ -438,8 +438,8 @@ export default function PrediksiPage() {
           {/* Submit */}
           <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-5 shadow-card">
             <p className="max-w-md text-xs text-muted-foreground">
-              Pengiriman akan memanggil POST /api/predict via Express -
-              ml_service. Hasil dicatat ke data/predictions.jsonl.
+              Setelah dikirim, data lahan dan hasil prediksi akan tersimpan di
+              akun Anda untuk memantau riwayat panen.
             </p>
             <Button type="submit" size="lg" disabled={status.kind === "loading"}>
               {status.kind === "loading" ? "Menghitung..." : "Kirim ke Model"}
@@ -474,7 +474,10 @@ export default function PrediksiPage() {
                 cropType={cropType}
                 landAreaHa={Number(landAreaHa)}
               />
-              <FeedbackForm predictionLogId={status.result.prediction_log_id} />
+              <FeedbackForm
+                predictionLogId={status.result.prediction_log_id}
+                landAreaHa={Number(landAreaHa)}
+              />
             </>
           )}
         </div>

@@ -12,6 +12,10 @@ type Props = {
   geojson: GeoJsonFC;
   predictions: KecamatanPrediction[];
   national?: boolean;
+  center?: [number, number];
+  zoom?: number;
+  /** Stable identifier per region so the map remounts (and re-centers) when user switches province. */
+  viewKey?: string;
   onSelect?: (id: string) => void;
 };
 
@@ -22,6 +26,9 @@ export default function ChoroplethMap({
   geojson,
   predictions,
   national = false,
+  center,
+  zoom,
+  viewKey,
   onSelect,
 }: Props) {
   const byId = useMemo(() => {
@@ -145,8 +152,8 @@ export default function ChoroplethMap({
     });
   };
 
-  const center = national ? INDONESIA_CENTER : DIY_CENTER;
-  const zoom   = national ? 5 : 10;
+  const resolvedCenter = center ?? (national ? INDONESIA_CENTER : DIY_CENTER);
+  const resolvedZoom   = zoom   ?? (national ? 5 : 10);
 
   return (
     <>
@@ -185,9 +192,9 @@ export default function ChoroplethMap({
         }
       `}</style>
       <MapContainer
-        key={`${national ? "nat" : "diy"}-${predictions.length}`}
-        center={center}
-        zoom={zoom}
+        key={viewKey ?? `${national ? "nat" : "diy"}-${predictions.length}`}
+        center={resolvedCenter}
+        zoom={resolvedZoom}
         className="h-[600px] w-full"
         zoomControl={true}
       >

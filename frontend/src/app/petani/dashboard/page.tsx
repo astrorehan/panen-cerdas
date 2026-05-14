@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   ArrowRight,
   Sprout,
@@ -9,6 +12,9 @@ import {
   Bot,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { api } from "@/lib/api";
+import { getPetaniId } from "@/lib/auth";
+import type { LahanResponse } from "@/types";
 
 const QUICK_LINKS = [
   {
@@ -38,13 +44,49 @@ const QUICK_LINKS = [
   },
 ];
 
-const STATS = [
-  { icon: Sprout, label: "Lahan aktif", value: "3", unit: "lahan" },
-  { icon: TrendingUp, label: "Prediksi terakhir", value: "6.2", unit: "ton/ha" },
-  { icon: CloudRain, label: "Hujan 7 hari", value: "18.6", unit: "mm/hari" },
-];
-
 export default function PetaniDashboardPage() {
+  const [lahan, setLahan] = useState<LahanResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.lahan
+      .list(getPetaniId())
+      .then((res) => {
+        if (!cancelled) setLahan(res);
+      })
+      .catch(() => {
+        if (!cancelled) setLahan(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const lastYield = lahan?.items.find(
+    (l) => l.last_yield_ton_per_ha != null,
+  )?.last_yield_ton_per_ha;
+
+  const stats = [
+    {
+      icon: Sprout,
+      label: "Lahan aktif",
+      value: lahan ? String(lahan.aktif) : "-",
+      unit: "lahan",
+    },
+    {
+      icon: TrendingUp,
+      label: "Prediksi terakhir",
+      value: lastYield != null ? lastYield.toFixed(2) : "-",
+      unit: "ton/ha",
+    },
+    {
+      icon: Layers,
+      label: "Total luas",
+      value: lahan ? lahan.total_ha.toFixed(2) : "-",
+      unit: "hektar",
+    },
+  ];
+
   return (
     <div className="container py-8 md:py-12">
       <div className="grid gap-8">
@@ -84,7 +126,7 @@ export default function PetaniDashboardPage() {
 
         {/* Quick stats */}
         <section className="grid gap-3 sm:grid-cols-3">
-          {STATS.map(({ icon: Icon, label, value, unit }) => (
+          {stats.map(({ icon: Icon, label, value, unit }) => (
             <Card key={label} className="p-5">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

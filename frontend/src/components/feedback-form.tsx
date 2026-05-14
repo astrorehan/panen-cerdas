@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 
 interface FeedbackFormProps {
   predictionLogId: number;
+  landAreaHa: number;
 }
 
 type Status =
@@ -17,20 +18,33 @@ type Status =
   | { kind: "ok"; feedbackId: number }
   | { kind: "error"; message: string };
 
-export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
+export function FeedbackForm({ predictionLogId, landAreaHa }: FeedbackFormProps) {
   const [actualHarvestDays, setActualHarvestDays] = useState("");
-  const [actualYield, setActualYield] = useState("");
+  const [actualTotalYield, setActualTotalYield] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
+  const totalNum = Number(actualTotalYield);
+  const perHaPreview =
+    actualTotalYield && landAreaHa > 0 && Number.isFinite(totalNum)
+      ? totalNum / landAreaHa
+      : null;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!Number.isFinite(totalNum) || totalNum <= 0 || landAreaHa <= 0) {
+      setStatus({
+        kind: "error",
+        message: "Total hasil panen dan luas lahan harus lebih dari 0.",
+      });
+      return;
+    }
     setStatus({ kind: "submitting" });
     try {
       const res = await api.ml.feedback({
         prediction_log_id: predictionLogId,
         actual_harvest_days: Number(actualHarvestDays),
-        actual_yield_ton_per_ha: Number(actualYield),
+        actual_yield_ton_per_ha: Number((totalNum / landAreaHa).toFixed(4)),
         notes: notes.trim() || undefined,
       });
       setStatus({ kind: "ok", feedbackId: res.feedback_id });
@@ -51,8 +65,8 @@ export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
         <div>
           <div className="text-sm font-semibold text-primary">Terima kasih!</div>
           <p className="mt-0.5 text-sm leading-relaxed text-foreground">
-            Data realisasi #{status.feedbackId} tercatat ke
-            data/feedback.jsonl dan akan digunakan untuk retrain model.
+            Data realisasi panen #{status.feedbackId} sudah tercatat dan akan
+            kami gunakan untuk mengkalibrasi model.
           </p>
         </div>
       </div>
@@ -75,8 +89,9 @@ export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
             Umpan balik realisasi panen
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Setelah panen aktual, isi data sebenarnya untuk membantu kami
-            mengkalibrasi model. Mengacu pada prediksi #{predictionLogId}.
+            Setelah panen aktual, isi data sebenarnya supaya kami bisa
+            menyempurnakan model. Mengacu pada prediksi #{predictionLogId}{" "}
+            (luas lahan {landAreaHa} ha).
           </p>
         </div>
       </header>
@@ -97,18 +112,24 @@ export function FeedbackForm({ predictionLogId }: FeedbackFormProps) {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="fb-yield">
-            Hasil per ha aktual <span className="text-muted-foreground">(ton/ha)</span>
+          <Label htmlFor="fb-total-yield">
+            Total hasil panen <span className="text-muted-foreground">(ton)</span>
           </Label>
           <Input
-            id="fb-yield"
+            id="fb-total-yield"
             type="number"
             min={0}
             step={0.01}
-            value={actualYield}
-            onChange={(e) => setActualYield(e.target.value)}
+            value={actualTotalYield}
+            onChange={(e) => setActualTotalYield(e.target.value)}
+            placeholder="Misal 5.4"
             required
           />
+          <p className="text-xs text-muted-foreground">
+            {perHaPreview != null
+              ? `Setara ${perHaPreview.toFixed(2)} ton/ha (otomatis dihitung dari luas lahan ${landAreaHa} ha).`
+              : "Isi jumlah total panen Anda. Sistem akan menghitung sendiri ton/ha-nya."}
+          </p>
         </div>
       </div>
 

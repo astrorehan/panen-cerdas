@@ -81,6 +81,32 @@ if __name__ == "__main__":
     print(f"   MAE Yield      : ±{metrics['mae_yield']} ton/ha")
     print(f"   Risk Accuracy  : {metrics['risk_accuracy']:.1%}")
 
+    # Registrasi versi ke DB supaya dashboard pemerintah punya angka MAE/akurasi.
+    # Tanpa ini, get_latest_model_version() return None dan UI tampil "belum ada".
+    print("\n💾 Registrasi versi model ke database...")
+    try:
+        from database import init_db, SessionLocal, save_model_version, get_latest_model_version
+        init_db()
+        reg_db = SessionLocal()
+        try:
+            latest = get_latest_model_version(reg_db)
+            next_version = (latest.version + 1) if latest else 1
+            save_model_version(reg_db, {
+                "version":          next_version,
+                "mae_harvest_days": metrics["mae_harvest_days"],
+                "mae_yield":        metrics["mae_yield"],
+                "risk_accuracy":    metrics["risk_accuracy"],
+                "n_real":           metrics.get("n_real", 0),
+                "n_synthetic":      metrics.get("n_synthetic", 0),
+                "notes":            "Training manual via train.py",
+            })
+            print(f"   ✅ Versi {next_version} aktif di model_version")
+        finally:
+            reg_db.close()
+    except Exception as e:
+        print(f"   ⚠️  Gagal registrasi versi: {e}")
+        print("   → Model .joblib tetap tersimpan, tapi dashboard akan tampil 'belum ada'")
+
     print("\n🔄 Memuat model yang baru dilatih...")
     ok = load_models()
     if ok:
