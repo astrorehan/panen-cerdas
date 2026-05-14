@@ -64,6 +64,13 @@ FEATURES_BASE = [
 FEATURES_PEST = ["pest_pressure"]
 FEATURES_VAR  = ["variety_encoded"]
 
+# Fitur untuk yield & risk model — pakai yield_ratio agar tidak didominasi crop
+# yield_ratio = yield / baseline_per_crop → range ~0.3–1.4 untuk semua crop
+FEATURES_YIELD_MODEL = ["ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
+                         "land_area_ha", "yield_ratio"]
+FEATURES_RISK_MODEL  = ["ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
+                         "land_area_ha", "yield_ratio", "crop_group_encoded"]
+
 MIN_REAL_SAMPLES    = 100
 TARGET_TOTAL        = 2000
 DEFAULT_PEST_PRESSURE = 0.0
@@ -94,6 +101,23 @@ BASE_HARVEST = {
     "bawang_merah":  65,
     "bawang_putih": 100,
 }
+
+# ── KELOMPOK CROP ─────────────────────────────────────────────────────────────
+CROP_GROUP = {
+    "padi":         "pangan",
+    "jagung":       "pangan",
+    "kedelai":      "pangan",
+    "ubi_jalar":    "umbi",
+    "ubi_kayu":     "umbi",
+    "cabe_besar":   "hortikultura",
+    "cabe_rawit":   "hortikultura",
+    "bawang_merah": "hortikultura",
+    "bawang_putih": "hortikultura",
+}
+CROP_GROUPS_LIST   = ["hortikultura", "pangan", "umbi"]  # sorted → LabelEncoder konsisten
+CROP_GROUP_ENCODER = LabelEncoder().fit(CROP_GROUPS_LIST)
+
+CROP_GROUP_ENCODER_PATH = MODEL_DIR / "crop_group_encoder.joblib"
 
 
 # ── VARIETY CATALOG ───────────────────────────────────────────────────────────
@@ -450,6 +474,22 @@ def _encode_features(df: pd.DataFrame, crop_enc=None, fit: bool = False):
     df = df.copy()
     df["crop_encoded"] = crop_enc.transform(df["crop_type"])
 
+    # crop_group (pangan / umbi / hortikultura)
+    if "crop_group" not in df.columns:
+        df["crop_group"] = df["crop_type"].map(CROP_GROUP).fillna("pangan")
+    df["crop_group_encoded"] = CROP_GROUP_ENCODER.transform(
+        df["crop_group"].fillna("pangan")
+    )
+
+    # yield_ratio = yield / baseline per crop → normalisasi lintas komoditas
+    # padi 5.2 ton/ha → ratio 1.0 | ubi kayu 25 ton/ha → ratio 1.0 | dst.
+    # Ini mencegah model "shortcut" hanya belajar angka yield absolut per crop
+    if "yield_ton_per_ha" in df.columns:
+        df["yield_ratio"] = df.apply(
+            lambda r: r["yield_ton_per_ha"] / max(BASE_YIELD.get(r["crop_type"], 5.0), 0.01),
+            axis=1,
+        ).clip(0.1, 2.0)
+
     if USE_VARIETY:
         if "variety" not in df.columns: df["variety"] = "Lokal"
         df["variety"] = df["variety"].fillna("Lokal")
@@ -479,48 +519,112 @@ def train_and_save(db=None) -> dict:
     if "data_source" in df.columns:
         print(f"   Sumber data    : {df['data_source'].value_counts().to_dict()}")
     print(f"   Per crop       : {df['crop_type'].value_counts().to_dict()}")
+    print(f"   Risk distribusi: {df['risk_level'].value_counts().to_dict()}")
     print(f"   Total data     : {len(df)} baris "
           f"({data_stats['n_real']} real + {data_stats['n_synthetic']} synthetic)")
 
-    X         = df[active_features]
+    # ── Fitur per model ───────────────────────────────────────────────────────
+    # harvest model: semua fitur standar (crop_encoded penting untuk hari panen)
+    harvest_feats = active_features
+
+    # yield model: pakai yield_ratio agar lintas-crop sebanding
+    # pest & variety tetap dipakai karena mempengaruhi yield
+    yield_feats = list(FEATURES_YIELD_MODEL)
+    if USE_PEST:    yield_feats += FEATURES_PEST
+    if USE_VARIETY: yield_feats += FEATURES_VAR
+
+    # risk model: pakai yield_ratio + iklim + crop_group (tanpa crop_encoded agar tidak shortcut)
+    risk_feats = list(FEATURES_RISK_MODEL)
+    if USE_PEST:    risk_feats += FEATURES_PEST
+    if USE_VARIETY: risk_feats += FEATURES_VAR
+
+    print(f"   Fitur harvest  : {harvest_feats}")
+    print(f"   Fitur yield    : {yield_feats}")
+    print(f"   Fitur risk     : {risk_feats}")
+
+    X_harvest = df[harvest_feats]
+    X_yield   = df[yield_feats]
+    X_risk    = df[risk_feats]
     y_harvest = df["harvest_days"]
     y_yield   = df["yield_ton_per_ha"]
     y_risk    = df["risk_level"]
 
-    X_tr, X_te, yh_tr, yh_te, yy_tr, yy_te, yr_tr, yr_te = train_test_split(
-        X, y_harvest, y_yield, y_risk, test_size=0.2, random_state=42
-    )
+    # Split konsisten (random_state sama) agar test set sama
+    from sklearn.model_selection import StratifiedShuffleSplit
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    train_idx, test_idx = next(sss.split(X_harvest, y_risk))
 
+    # ── 1. Harvest days model ─────────────────────────────────────────────────
     print("🤖 Training harvest_days model...")
-    harvest_model = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
-    harvest_model.fit(X_tr, yh_tr)
-    mae_h = mean_absolute_error(yh_te, harvest_model.predict(X_te))
+    harvest_model = RandomForestRegressor(n_estimators=200, random_state=42, n_jobs=-1)
+    harvest_model.fit(X_harvest.iloc[train_idx], y_harvest.iloc[train_idx])
+    mae_h = mean_absolute_error(y_harvest.iloc[test_idx], harvest_model.predict(X_harvest.iloc[test_idx]))
     print(f"   MAE harvest_days : {mae_h:.1f} hari")
+    imp_h = dict(zip(harvest_feats, harvest_model.feature_importances_.round(3)))
+    print(f"   Feature importance: {imp_h}")
 
-    print("🌾 Training yield model...")
-    yield_model = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
-    yield_model.fit(X_tr, yy_tr)
-    mae_y = mean_absolute_error(yy_te, yield_model.predict(X_te))
-    print(f"   MAE yield        : {mae_y:.2f} ton/ha")
+    # ── 2. Yield model (pakai yield_ratio sebagai target) ────────────────────
+    # Train dengan yield_ratio → prediksi yield_ratio → kalikan baseline di predict()
+    # Ini membuat model belajar "seberapa bagus relatif" bukan "angka absolut"
+    print("🌾 Training yield model (normalized)...")
+    y_yield_ratio = df["yield_ratio"]  # sudah dihitung di _encode_features
+    yield_model = RandomForestRegressor(
+        n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1
+    )
+    yield_model.fit(X_yield.iloc[train_idx], y_yield_ratio.iloc[train_idx])
+    pred_ratio = yield_model.predict(X_yield.iloc[test_idx])
+    # Rekonstruksi yield absolut untuk MAE yang bermakna
+    test_crops   = df["crop_type"].iloc[test_idx].values
+    pred_yield   = [pred_ratio[i] * BASE_YIELD.get(test_crops[i], 5.0) for i in range(len(pred_ratio))]
+    actual_yield = y_yield.iloc[test_idx].values
+    mae_y = mean_absolute_error(actual_yield, pred_yield)
+    mae_ratio = mean_absolute_error(y_yield_ratio.iloc[test_idx], pred_ratio)
+    print(f"   MAE yield        : {mae_y:.2f} ton/ha (ratio error: {mae_ratio:.3f})")
+    imp_y = dict(zip(yield_feats, yield_model.feature_importances_.round(3)))
+    print(f"   Feature importance: {imp_y}")
 
+    # ── 3. Risk classifier ────────────────────────────────────────────────────
     print("⚠️  Training risk classifier...")
-    risk_model = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1)
-    risk_model.fit(X_tr, yr_tr)
-    acc = accuracy_score(yr_te, risk_model.predict(X_te))
+    risk_model = RandomForestClassifier(
+        n_estimators=300,
+        class_weight="balanced",
+        max_depth=12,
+        min_samples_leaf=3,
+        random_state=42,
+        n_jobs=-1,
+    )
+    risk_model.fit(X_risk.iloc[train_idx], y_risk.iloc[train_idx])
+    pred_risk = risk_model.predict(X_risk.iloc[test_idx])
+    acc = accuracy_score(y_risk.iloc[test_idx], pred_risk)
     print(f"   Accuracy risk    : {acc:.1%}")
+    from sklearn.metrics import classification_report
+    print(classification_report(
+        y_risk.iloc[test_idx], pred_risk,
+        target_names=sorted(["high", "low", "medium"]),
+        zero_division=0,
+    ))
+    imp_r = dict(zip(risk_feats, risk_model.feature_importances_.round(3)))
+    print(f"   Feature importance: {imp_r}")
 
-    # Feature importance
-    imp = dict(zip(active_features, harvest_model.feature_importances_.round(3)))
-    print(f"   Feature importance (harvest): {imp}")
-
+    # ── Simpan semua model ────────────────────────────────────────────────────
     MODEL_DIR.mkdir(exist_ok=True)
     joblib.dump(harvest_model, HARVEST_MODEL_PATH)
     joblib.dump(yield_model,   YIELD_MODEL_PATH)
     joblib.dump(risk_model,    RISK_MODEL_PATH)
     joblib.dump(encoder,       ENCODER_PATH)
+    joblib.dump(CROP_GROUP_ENCODER, CROP_GROUP_ENCODER_PATH)
     joblib.dump(
-        {"features": active_features, "use_pest": USE_PEST, "use_variety": USE_VARIETY,
-         "crop_types": CROP_TYPES},
+        {
+            "harvest_features": harvest_feats,
+            "yield_features":   yield_feats,
+            "risk_features":    risk_feats,
+            "features":         harvest_feats,   # backward compat
+            "use_pest":         USE_PEST,
+            "use_variety":      USE_VARIETY,
+            "crop_types":       CROP_TYPES,
+            "crop_groups_list": CROP_GROUPS_LIST,
+            "yield_normalized": True,            # flag: yield model pakai ratio
+        },
         FEATURE_META_PATH,
     )
     print(f"✅ Semua model tersimpan di {MODEL_DIR}/")
@@ -528,8 +632,11 @@ def train_and_save(db=None) -> dict:
     return {
         "mae_harvest_days": round(mae_h, 2),
         "mae_yield":        round(mae_y, 3),
+        "mae_yield_ratio":  round(mae_ratio, 3),
         "risk_accuracy":    round(acc, 4),
-        "features_used":    active_features,
+        "features_harvest": harvest_feats,
+        "features_yield":   yield_feats,
+        "features_risk":    risk_feats,
         "crop_types":       CROP_TYPES,
         **data_stats,
     }
@@ -577,9 +684,13 @@ def predict(data: PredictInput) -> PredictOutput:
     try:
         enc          = _models["encoder"]
         feat_meta    = _models["feature_meta"]
-        active_feats = feat_meta["features"]
         use_pest_now = feat_meta.get("use_pest", False)
         use_var_now  = feat_meta.get("use_variety", False)
+        yield_norm   = feat_meta.get("yield_normalized", False)
+
+        harvest_feats = feat_meta.get("harvest_features", feat_meta.get("features", FEATURES_BASE))
+        yield_feats   = feat_meta.get("yield_features",   harvest_feats)
+        risk_feats    = feat_meta.get("risk_features",    harvest_feats)
 
         # Validasi crop_type dikenal model
         trained_crops = feat_meta.get("crop_types", CROP_TYPES)
@@ -587,6 +698,7 @@ def predict(data: PredictInput) -> PredictOutput:
             logger.warning(f"crop_type '{data.crop_type}' tidak ada di model → fallback")
             return predict_fallback(data)
 
+        # Bangun row dasar
         row = pd.DataFrame([{
             "ndvi":            data.ndvi,
             "rainfall_mm":     data.rainfall_mm,
@@ -595,7 +707,9 @@ def predict(data: PredictInput) -> PredictOutput:
             "land_area_ha":    data.land_area_ha,
             "crop_type":       data.crop_type,
         }])
-        row["crop_encoded"] = enc.transform(row["crop_type"])
+        row["crop_encoded"]       = enc.transform(row["crop_type"])
+        row["crop_group"]         = CROP_GROUP.get(data.crop_type, "pangan")
+        row["crop_group_encoded"] = CROP_GROUP_ENCODER.transform(row["crop_group"])
 
         if use_pest_now:
             pest_val = float(getattr(data, "pest_pressure", DEFAULT_PEST_PRESSURE) or DEFAULT_PEST_PRESSURE)
@@ -604,15 +718,39 @@ def predict(data: PredictInput) -> PredictOutput:
         if use_var_now:
             row["variety_encoded"] = encode_variety(getattr(data, "variety", None), data.crop_type)
 
-        X = row[active_feats]
+        # ── Harvest prediction ────────────────────────────────────────────────
+        X_h = row[[f for f in harvest_feats if f in row.columns]]
+        harvest_days = int(round(_models["harvest"].predict(X_h)[0]))
 
-        harvest_days = int(round(_models["harvest"].predict(X)[0]))
-        yield_per_ha = round(float(_models["yield"].predict(X)[0]), 2)
-        risk_level   = str(_models["risk"].predict(X)[0])
-        risk_proba   = _models["risk"].predict_proba(X)[0]
-        confidence   = round(float(risk_proba.max()), 2)
-        total_yield  = round(yield_per_ha * data.land_area_ha, 2)
-        risk_score   = round({"low": 0.15, "medium": 0.50, "high": 0.85}.get(risk_level, 0.5), 2)
+        # ── Yield prediction ──────────────────────────────────────────────────
+        # Yield model dilatih dengan yield_ratio → de-normalisasi dengan baseline
+        # Untuk prediksi baru (tidak ada yield_ton_per_ha di input),
+        # kita pakai yield_ratio = 1.0 sebagai starting point, lalu model
+        # memprediksi ratio berdasarkan kondisi iklim + hama + varietas
+        if yield_norm and "yield_ratio" in yield_feats:
+            # Saat prediksi, kita tidak tahu yield aktual → set ratio = 1.0 sebagai neutral
+            # Model akan menyesuaikan berdasarkan fitur iklim dll
+            row["yield_ratio"] = 1.0
+        X_y = row[[f for f in yield_feats if f in row.columns]]
+        raw_yield = float(_models["yield"].predict(X_y)[0])
+        if yield_norm:
+            # Model mengembalikan ratio → kalikan dengan baseline crop
+            baseline   = BASE_YIELD.get(data.crop_type, 5.0)
+            yield_per_ha = round(raw_yield * baseline, 2)
+        else:
+            yield_per_ha = round(raw_yield, 2)
+
+        # ── Risk prediction ───────────────────────────────────────────────────
+        # Risk model butuh yield_ratio dari yield yang baru diprediksi
+        predicted_ratio = yield_per_ha / max(BASE_YIELD.get(data.crop_type, 5.0), 0.01)
+        row["yield_ratio"] = np.clip(predicted_ratio, 0.1, 2.0)
+        X_r = row[[f for f in risk_feats if f in row.columns]]
+        risk_level = str(_models["risk"].predict(X_r)[0])
+        risk_proba = _models["risk"].predict_proba(X_r)[0]
+        confidence = round(float(risk_proba.max()), 2)
+
+        total_yield = round(yield_per_ha * data.land_area_ha, 2)
+        risk_score  = round({"low": 0.15, "medium": 0.50, "high": 0.85}.get(risk_level, 0.5), 2)
 
         from fallback_rules import (
             _build_recommendations, _temp_factor, _rain_factor, _ndvi_factor
