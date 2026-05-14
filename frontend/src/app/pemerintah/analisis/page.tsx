@@ -126,9 +126,25 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
             <CardHeader>
               <CardTitle>NDVI Time Series</CardTitle>
               <CardDescription>
-                Estimasi monsun + koordinat lokal - 2018-2024 bulanan per
-                kecamatan. MODIS real (APPEEARS) tersedia begitu kredensial
-                NASA Earthdata dipasang.
+                {detail.ndvi_source === "modis_appeears" ? (
+                  <>
+                    MODIS MOD13Q1 (16 hari, 250 m) dari NASA APPEEARS —
+                    {" "}
+                    <span className="font-medium text-foreground">
+                      {detail.ndvi_series.length} composite real
+                    </span>{" "}
+                    untuk titik koordinat ini, 2018–2025.
+                  </>
+                ) : (
+                  <>
+                    Estimasi monsun + variasi per koordinat (2018–2025 bulanan).
+                    Untuk MODIS real, jalankan{" "}
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
+                      python scripts/prewarm_ndvi_cache.py
+                    </code>{" "}
+                    sekali.
+                  </>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>

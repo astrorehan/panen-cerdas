@@ -16,15 +16,17 @@ const ChoroplethMap = dynamic(() => import("@/components/choropleth-map"), {
 type Props = {
   geojson: GeoJsonFC;
   predictions: KecamatanPrediction[];
+  national?: boolean;
 };
 
-export function MapPanel({ geojson, predictions }: Props) {
+export function MapPanel({ geojson, predictions, national = false }: Props) {
   const router = useRouter();
   return (
     <div className="relative border-t border-rule">
       <ChoroplethMap
         geojson={geojson}
         predictions={predictions}
+        national={national}
         onSelect={(id) => router.push(`/pemerintah/analisis?id=${id}`)}
       />
       {/* Cartographic frame overlays */}

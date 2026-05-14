@@ -21,7 +21,6 @@ const PETANI_ITEMS: AppNavItem[] = [
   { href: "/petani/dashboard", label: "Dashboard" },
   { href: "/petani/prediksi", label: "Prediksi" },
   { href: "/petani/lahan", label: "Lahan" },
-  { href: "/petani/harga", label: "Harga" },
   { href: "/petani/cuaca", label: "Cuaca" },
 ];
 

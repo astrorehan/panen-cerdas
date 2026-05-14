@@ -48,9 +48,10 @@ APPEEARS_PASS     = os.getenv("APPEEARS_PASS", "")
 MODIS_PRODUCT     = "MOD13Q1.061"
 MODIS_LAYER       = "_250m_16_days_NDVI"
 
-# Polling: cek status tiap N detik, maksimal M kali
+# Polling: cek status tiap N detik, maksimal M kali.
+# APPEEARS sering antri 10-15 menit saat server sibuk -> kasih ruang 20 menit.
 POLL_INTERVAL_SEC = 15
-POLL_MAX_ATTEMPTS = 40   # 40 × 15 detik = 10 menit maksimal
+POLL_MAX_ATTEMPTS = 80   # 80 × 15 detik = 20 menit maksimal
 
 # Token di-cache di memory selama sesi berjalan
 _token_cache: dict = {"token": None, "expires_at": 0.0}
@@ -188,13 +189,27 @@ async def _download_ndvi(
     resp.raise_for_status()
     files = resp.json().get("files", [])
 
-    # Cari file CSV yang berisi NDVI
+    # Cari file CSV hasil. APPEEARS naming: "<task_name>-MOD13Q1-061-results.csv"
+    # — layer name tidak ada di filename, hanya di kolom CSV.
     ndvi_file = next(
-        (f for f in files if MODIS_LAYER in f.get("file_name", "") and f["file_name"].endswith(".csv")),
+        (
+            f for f in files
+            if f.get("file_name", "").endswith(".csv")
+            and "results" in f["file_name"].lower()
+        ),
         None,
     )
     if not ndvi_file:
-        logger.warning("File NDVI CSV tidak ditemukan di bundle APPEEARS")
+        # Fallback: ambil .csv pertama
+        ndvi_file = next(
+            (f for f in files if f.get("file_name", "").endswith(".csv")),
+            None,
+        )
+    if not ndvi_file:
+        logger.warning(
+            f"File CSV tidak ditemukan di bundle APPEEARS. "
+            f"Files: {[f.get('file_name') for f in files]}"
+        )
         return None
 
     # Download CSV
@@ -218,18 +233,25 @@ async def _download_ndvi(
     values   = []
 
     for row in reader:
-        # Temukan kolom NDVI (nama kolom mengandung layer name)
+        # Temukan kolom NDVI persis (bukan kolom turunan VI_Quality dll yang
+        # juga mengandung "_250m_16_days_NDVI"). Kolom utama formatnya:
+        #   "<product>_<version>__250m_16_days_NDVI"  (mis. MOD13Q1_061__...)
         if ndvi_col is None:
-            ndvi_col = next((k for k in row if MODIS_LAYER in k), None)
+            ndvi_col = next(
+                (k for k in row if k.endswith("_250m_16_days_NDVI")),
+                None,
+            )
             if ndvi_col is None:
-                logger.warning(f"Kolom NDVI tidak ditemukan. Kolom tersedia: {list(row.keys())}")
+                logger.warning(f"Kolom NDVI tidak ditemukan. Kolom: {list(row.keys())[:10]}...")
                 return None
 
         raw = row.get(ndvi_col, "")
         try:
-            val = int(raw)
-            if val > -3000:  # filter nilai fill/invalid
-                values.append(val / 10000.0)
+            # APPEEARS CSV mengirim NDVI sudah ter-scale ke 0.0-1.0 (float string).
+            # Native MODIS HDF integer ×10000 — APPEEARS sudah handle scaling.
+            val = float(raw)
+            if -1.0 <= val <= 1.0 and val > 0.0:  # filter fill (-0.3) + air/awan
+                values.append(val)
         except (ValueError, TypeError):
             continue
 
@@ -427,6 +449,190 @@ async def get_or_fetch_ndvi(
             ttl_hours=24,
         )
 
+    return result
+
+
+# ── TIME SERIES (multi-tahun) ──────────────────────────
+async def _download_ndvi_series(
+    client: httpx.AsyncClient,
+    token: str,
+    task_id: str,
+) -> Optional[list[dict]]:
+    """
+    Download CSV hasil task lalu parse SEMUA row (bukan rata-rata).
+    Returns: list[{"date": "YYYY-MM-DD", "ndvi": float}] urut ascending.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+
+    resp = await client.get(
+        f"{APPEEARS_BASE}/bundle/{task_id}",
+        headers=headers, timeout=15,
+    )
+    resp.raise_for_status()
+    files = resp.json().get("files", [])
+
+    ndvi_file = next(
+        (
+            f for f in files
+            if f.get("file_name", "").endswith(".csv")
+            and "results" in f["file_name"].lower()
+        ),
+        None,
+    )
+    if not ndvi_file:
+        ndvi_file = next(
+            (f for f in files if f.get("file_name", "").endswith(".csv")),
+            None,
+        )
+    if not ndvi_file:
+        logger.warning(
+            f"File CSV time-series tidak ditemukan. "
+            f"Files: {[f.get('file_name') for f in files]}"
+        )
+        return None
+
+    file_id = ndvi_file["file_id"]
+    dl_resp = await client.get(
+        f"{APPEEARS_BASE}/bundle/{task_id}/{file_id}",
+        headers=headers, timeout=60, follow_redirects=True,
+    )
+    dl_resp.raise_for_status()
+
+    import io
+    import csv
+    reader = csv.DictReader(io.StringIO(dl_resp.text))
+
+    ndvi_col = None
+    date_col = None
+    points: list[dict] = []
+
+    for row in reader:
+        if ndvi_col is None:
+            # Cari kolom NDVI utama (akhiran tepat, hindari VI_Quality_*)
+            ndvi_col = next(
+                (k for k in row if k.endswith("_250m_16_days_NDVI")),
+                None,
+            )
+            date_col = next(
+                (k for k in row if k.lower() in ("date", "datestamp", "modis_date")),
+                None,
+            )
+            if not ndvi_col or not date_col:
+                logger.warning(
+                    f"Kolom ndvi/date tidak ditemukan. Kolom: {list(row.keys())[:10]}..."
+                )
+                return None
+
+        try:
+            val = float(row[ndvi_col])
+            if not (-1.0 <= val <= 1.0) or val <= 0.0:
+                continue
+            points.append({
+                "date": row[date_col].strip(),
+                "ndvi": round(val, 4),
+            })
+        except (ValueError, TypeError, KeyError):
+            continue
+
+    if not points:
+        return None
+
+    # Sort by date string (ISO format string-sorts correctly)
+    points.sort(key=lambda p: p["date"])
+    return points
+
+
+async def fetch_ndvi_series(
+    lat: float,
+    lon: float,
+    start_year: int = 2018,
+    end_year: int = 2025,
+) -> dict:
+    """
+    Fetch time series NDVI MODIS dari APPEEARS untuk 1 koordinat,
+    rentang `start_year`–`end_year` (inklusif).
+
+    Returns:
+        {
+          "ndvi_source": "modis_appeears" | "error",
+          "series":      [{"date": "YYYY-MM-DD", "ndvi": float}, ...],
+          "lat": float,
+          "lon": float,
+        }
+
+    MODIS MOD13Q1 16-hari → ~23 titik per tahun → ~160 titik untuk 7 tahun.
+    Pemanggil yang ingin monthly bisa resample sendiri.
+
+    Catatan: task ini bisa makan 3-10 menit (rentang besar). Pakai cache
+    keras di pemanggil — series 7 tahun stabil, cukup di-fetch sekali per
+    koordinat per tahun.
+    """
+    start_str = f"01-01-{start_year}"
+    end_str   = f"12-31-{end_year}"
+    task_name = f"panencerdas_series_{lat}_{lon}_{start_year}_{end_year}"
+
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as client:
+            token = await _get_token(client)
+            task_id = await _submit_task(client, token, lat, lon, start_str, end_str, task_name)
+            ok = await _wait_for_task(client, token, task_id)
+            if not ok:
+                raise RuntimeError("APPEEARS task time-series tidak selesai")
+            points = await _download_ndvi_series(client, token, task_id)
+            if not points:
+                raise RuntimeError("CSV time-series kosong")
+
+        logger.info(
+            f"NDVI series APPEEARS: {len(points)} titik untuk ({lat}, {lon}) "
+            f"{start_year}-{end_year}"
+        )
+        return {
+            "ndvi_source": "modis_appeears",
+            "series":      points,
+            "lat":         lat,
+            "lon":         lon,
+        }
+    except Exception as e:
+        logger.warning(f"APPEEARS series gagal untuk ({lat}, {lon}): {e}")
+        return {
+            "ndvi_source": "error",
+            "series":      [],
+            "lat":         lat,
+            "lon":         lon,
+        }
+
+
+async def get_or_fetch_ndvi_series(
+    lat: float,
+    lon: float,
+    db,
+    start_year: int = 2018,
+    end_year: int = 2025,
+    force_refresh: bool = False,
+) -> dict:
+    """
+    Time-series NDVI dengan cache. TTL 7 hari karena seri historis
+    multi-tahun praktis stabil — composite lama jarang di-revisi.
+
+    Cache di tabel climate_cache, key dibedakan dengan period_days = -2.
+    """
+    from data_cache import get_cached_climate, save_climate_cache
+
+    SERIES_PERIOD_SENTINEL = -2
+    if not force_refresh:
+        cached = get_cached_climate(db, lat, lon, period_days=SERIES_PERIOD_SENTINEL)
+        if cached and cached.get("series"):
+            logger.debug(f"NDVI series cache HIT untuk ({lat}, {lon})")
+            return cached
+
+    result = await fetch_ndvi_series(lat, lon, start_year, end_year)
+    if result["ndvi_source"] == "modis_appeears" and result["series"]:
+        save_climate_cache(
+            db, lat, lon,
+            data=result,
+            period_days=SERIES_PERIOD_SENTINEL,
+            ttl_hours=24 * 7,   # 7 hari, series jarang berubah
+        )
     return result
 
 

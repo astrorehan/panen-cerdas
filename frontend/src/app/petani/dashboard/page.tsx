@@ -3,7 +3,6 @@ import {
   ArrowRight,
   Sprout,
   CloudRain,
-  Coins,
   Layers,
   Sparkles,
   TrendingUp,
@@ -30,19 +29,11 @@ const QUICK_LINKS = [
     cta: "Lihat lahan",
   },
   {
-    href: "/petani/harga",
-    icon: Coins,
-    title: "Harga Komoditas",
-    blurb:
-      "Harga pasaran mingguan untuk 9 komoditas pangan dan hortikultura dari pasar acuan.",
-    cta: "Lihat harga",
-  },
-  {
     href: "/petani/cuaca",
     icon: CloudRain,
     title: "Prakiraan Cuaca",
     blurb:
-      "Cuaca harian 7 hari ke depan untuk merencanakan irigasi, pemupukan, dan panen.",
+      "Ringkasan cuaca 7 hari terakhir untuk merencanakan irigasi, pemupukan, dan panen.",
     cta: "Lihat cuaca",
   },
 ];
@@ -116,7 +107,7 @@ export default function PetaniDashboardPage() {
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">Pintasan</h2>
             <span className="text-xs text-muted-foreground">
-              4 menu utama
+              3 menu utama
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -154,9 +145,9 @@ export default function PetaniDashboardPage() {
             Catatan
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Data lahan, harga, dan cuaca beberapa menu masih memakai contoh
-            (mock) untuk MVP. Prediksi sudah memanggil model RandomForest
-            terlatih dan data NASA POWER live.
+            Lahan didaftarkan otomatis lewat formulir prediksi. Cuaca diambil
+            dari NASA POWER (rangkuman minggu lalu, bukan forecast). Prediksi
+            memanggil model RandomForest terlatih di server.
           </p>
         </section>
       </div>

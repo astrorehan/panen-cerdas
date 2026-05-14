@@ -42,6 +42,7 @@ from feedback_router import router as feedback_router
 from dashboard_router import router as dashboard_router
 from predictions_router import router as predictions_router
 from regions_router import router as regions_router
+from lahan_router import router as lahan_router
 from retrain_scheduler import start_scheduler, stop_scheduler, retrain
 
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +91,7 @@ app.include_router(feedback_router)         # /api/feedback (prefix di router)
 app.include_router(dashboard_router)        # /api/dashboard/*
 app.include_router(predictions_router)      # /api/predictions[/{id}]
 app.include_router(regions_router)          # /api/regions[/geojson]
+app.include_router(lahan_router)            # /api/lahan
 
 
 # ── ROUTES ─────────────────────────────────────────────
@@ -327,6 +329,48 @@ def model_info(db: Session = Depends(get_db)):
 def clear_expired_cache(db: Session = Depends(get_db)):
     deleted = cleanup_expired_cache(db)
     return {"deleted": deleted, "message": f"{deleted} entri cache expired dihapus"}
+
+
+# ── VARIETIES (untuk dropdown form prediksi) ───────────
+@app.get("/api/varieties", tags=["catalog"])
+def list_varieties(crop_type: str | None = None):
+    """
+    Daftar varietas per komoditas dari VARIETY_CATALOG model.
+
+    - Tanpa parameter -> return semua komoditas
+    - Dengan ?crop_type=padi -> return varietas untuk komoditas itu saja
+    """
+    from model import VARIETY_CATALOG, BASE_YIELD, BASE_HARVEST
+
+    def _format(crop: str, vlist: list[tuple[str, float, int]]) -> list[dict]:
+        base_yield = BASE_YIELD.get(crop, 5.0)
+        base_days  = BASE_HARVEST.get(crop, 100)
+        return [
+            {
+                "name":            name,
+                "yield_modifier":  yield_mod,
+                "days_modifier":   days_mod,
+                "estimated_yield": round(base_yield * yield_mod, 2),
+                "estimated_days":  base_days + days_mod,
+            }
+            for name, yield_mod, days_mod in vlist
+        ]
+
+    if crop_type:
+        if crop_type not in VARIETY_CATALOG:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Komoditas '{crop_type}' tidak dikenal",
+            )
+        return {
+            "crop_type": crop_type,
+            "varieties": _format(crop_type, VARIETY_CATALOG[crop_type]),
+        }
+
+    return {
+        crop: _format(crop, vlist)
+        for crop, vlist in VARIETY_CATALOG.items()
+    }
 
 
 if __name__ == "__main__":

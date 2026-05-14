@@ -200,4 +200,7 @@ class KecamatanDetail(BaseModel):
     luas_panen_ha: float
     total_produksi_ton: float
     ndvi_series: list[NdviPoint]
+    ndvi_source: Optional[Literal["modis_appeears", "seasonal_estimate"]] = (
+        "seasonal_estimate"
+    )
     backtest: list[YieldPoint]

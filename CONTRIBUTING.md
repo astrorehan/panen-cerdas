@@ -9,10 +9,12 @@ Tiga layanan harus jalan paralel: ML service (Python/FastAPI), gateway (Node/Exp
 git clone https://github.com/astrorehan/panen-cerdas.git
 cd panen-cerdas
 
-# 1. Backend Python + train XGBoost
+# 1. Backend Python + train RandomForest
 .\setup-backend.ps1
 .\.venv\Scripts\Activate.ps1
-python -m model.train_synthetic    # bikin data/models/xgb_*.pkl
+cd ml_service
+python train.py                    # bikin ml_service/saved_models/*.joblib
+cd ..
 
 # 2. Gateway Express
 .\setup-express.ps1
@@ -79,7 +81,7 @@ Endpoint yang sudah ada (lewat Express `:4400`):
 | Method | Path | Sumber |
 |--------|------|--------|
 | GET | `/api/health` | Express agregasi status ML |
-| POST | `/api/predict` | ML service (XGBoost + NASA POWER) |
+| POST | `/api/predict` | ML service (RandomForest + NASA POWER) |
 | POST | `/api/feedback` | ML service (`data/feedback.jsonl`) |
 | GET | `/api/dashboard/summary` | ML service dummy (untuk Pemerintah dashboard) |
 | GET | `/api/dashboard/trend` | ML service dummy |

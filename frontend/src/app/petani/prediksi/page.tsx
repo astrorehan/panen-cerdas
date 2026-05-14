@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles, MapPin, AlertCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { addLahanName, getLahanNames, getPetaniId } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,10 +53,16 @@ type Status =
   | { kind: "error"; message: string };
 
 export default function PrediksiPage() {
+  const [lahanName, setLahanName] = useState("");
+  const [lahanSuggestions, setLahanSuggestions] = useState<string[]>([]);
   const [cropType, setCropType] = useState<CropType>("padi");
   const [landAreaHa, setLandAreaHa] = useState("1.0");
   const [variety, setVariety] = useState<string>("Ciherang");
   const [pestPressure, setPestPressure] = useState<number>(0.0);
+
+  useEffect(() => {
+    setLahanSuggestions(getLahanNames());
+  }, []);
 
   const [climateMode, setClimateMode] = useState<ClimateMode>("default");
   const [lat, setLat] = useState("");
@@ -112,7 +119,12 @@ export default function PrediksiPage() {
           : {}),
         ...(ndvi ? { ndvi: Number(ndvi) } : {}),
       };
-      const result = await api.ml.predict(body);
+      const lahanId = lahanName.trim() || undefined;
+      const result = await api.ml.predict(body, {
+        petani_id: getPetaniId(),
+        lahan_id: lahanId,
+      });
+      if (lahanId) addLahanName(lahanId);
       setStatus({ kind: "ok", result });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -151,6 +163,33 @@ export default function PrediksiPage() {
             title="Komoditas dan lahan"
             description="Pilih jenis tanaman dan luas lahan Anda."
           >
+            <div className="mb-5 space-y-2">
+              <Label htmlFor="lahan-name">
+                Nama lahan{" "}
+                <span className="text-muted-foreground">(opsional, untuk halaman Lahan)</span>
+              </Label>
+              <Input
+                id="lahan-name"
+                type="text"
+                list="lahan-suggestions"
+                value={lahanName}
+                onChange={(e) => setLahanName(e.target.value)}
+                placeholder="Misal: Petak Utara, Sawah Belakang Rumah"
+                maxLength={50}
+              />
+              {lahanSuggestions.length > 0 && (
+                <datalist id="lahan-suggestions">
+                  {lahanSuggestions.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Diisi sekali, lahan akan otomatis tercatat dan muncul di halaman
+                Lahan. Kosongkan kalau hanya simulasi sekali pakai.
+              </p>
+            </div>
+
             <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
               {CROPS.map((c) => (
                 <button

@@ -1,10 +1,10 @@
 # PanenCerdas
 
-Platform prediksi panen dua-peran (petani + pemerintah) berbasis citra satelit Sentinel-2, data cuaca NASA POWER, data historis BPS, dan model XGBoost. Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kecamatan dan lembar peringatan defisit.
+Platform prediksi panen dua-peran (petani + pemerintah) berbasis citra satelit Sentinel-2, data cuaca NASA POWER, data historis BPS, dan model RandomForest (scikit-learn). Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kecamatan dan lembar peringatan defisit.
 
 **UNITY Competition #14 UNY 2026 - Software Development**
 
-**Status:** MVP feature-complete (Phase 0-7). NASA POWER live, XGBoost dilatih dari data sintetik (training pipeline final dengan label BPS adalah next phase).
+**Status:** MVP feature-complete (Phase 0-7). NASA POWER live, RandomForest dilatih dari kombinasi data BPS + sintetik (training pipeline final dengan label BPS asli adalah next phase).
 
 ## Arsitektur
 
@@ -24,8 +24,8 @@ Browser  ->  Next.js 14 (frontend, :3000)
 |-------|------|--------|
 | Frontend | Next.js 14 + TypeScript + Tailwind + react-leaflet + recharts | `frontend/` |
 | Gateway | Node 20 + Express 4 + axios | `backend-express/` |
-| ML service | FastAPI + Pydantic + XGBoost + NASA POWER | `ml_service/` |
-| Training | scikit-learn + XGBoost | `model/` |
+| ML service | FastAPI + Pydantic + scikit-learn (RandomForest) + NASA POWER | `ml_service/` |
+| Training | scikit-learn (RandomForestRegressor + RandomForestClassifier) | `ml_service/train.py` |
 
 ## Quick Start
 
@@ -37,12 +37,14 @@ Browser  ->  Next.js 14 (frontend, :3000)
 ### Setup pertama kali
 
 ```powershell
-# Backend Python (FastAPI + XGBoost)
+# Backend Python (FastAPI + scikit-learn RandomForest)
 .\setup-backend.ps1
 
-# Train XGBoost dari data sintetik (~3 detik, hasilkan dua .pkl di data/models/)
+# Train RandomForest (~5 detik, hasilkan tiga .joblib di ml_service/saved_models/)
 .\.venv\Scripts\Activate.ps1
-python -m model.train_synthetic
+cd ml_service
+python train.py
+cd ..
 
 # Gateway Express
 .\setup-express.ps1
@@ -110,8 +112,12 @@ Tidak ada JWT/DB pada MVP — peran disimpan di `localStorage` browser (`panen.r
 
 ## Catatan Model (Phase 7)
 
-- Model XGBoost (`data/models/xgb_yield_petani.pkl` + `xgb_harvest_petani.pkl`) saat ini dilatih dari **data sintetik** (5000 sample yang digenerate dari formula heuristik + ~7% Gaussian noise). Ini menghasilkan artefak `.pkl` asli dan pipeline inference yang sah, tapi akurasi terbatas oleh heuristik.
-- Pipeline training final dengan label BPS yield + fitur Sentinel-2/ERA5 belum diimplementasikan (next phase post-hackathon).
+- Tiga model RandomForest scikit-learn disimpan di `ml_service/saved_models/`:
+  - `harvest_days_model.joblib` — `RandomForestRegressor` untuk estimasi hari panen.
+  - `yield_model.joblib` — `RandomForestRegressor` untuk yield (ton/ha) — dilatih pada `yield_ratio` (yield / baseline per komoditas) supaya tidak didominasi satu crop.
+  - `risk_model.joblib` — `RandomForestClassifier` (low / medium / high) dengan `class_weight="balanced"`.
+- Sumber data training: CSV BPS produksi nasional 2021-2025 + cache NASA POWER + feedback realisasi petani (lewat DB), dilengkapi generator sintetik klimatologis untuk total ~2.000 baris.
+- Pipeline training final dengan label BPS + fitur Sentinel-2/ERA5 penuh belum diimplementasikan (next phase post-hackathon).
 - NASA POWER (`PRECTOTCORR`, `T2M`, `ALLSKY_SFC_SW_DWN`) di-fetch live untuk request GPS mode dengan 24h disk cache di `data/cache/power/`. Fallback ke nilai default tropis kalau jaringan gagal.
 - GEE Sentinel-2 NDVI **sengaja ditangguhkan** (auth + kuota terlalu berat untuk window hackathon). `ndvi_source="estimated"` masih kembalikan 0.65 hardcoded.
 
@@ -127,7 +133,9 @@ panen-cerdas/
 │   │   ├── predictions.py     # GET /api/predictions, /api/predictions/{id}
 │   │   └── regions.py         # GET /api/regions/geojson
 │   ├── climate.py             # NASA POWER fetcher + disk cache
-│   ├── predictor.py           # XGBoost loader + inference
+│   ├── model.py               # RandomForest training + inference (3 model: harvest/yield/risk)
+│   ├── train.py               # CLI entry point untuk re-train
+│   ├── saved_models/          # *.joblib artifacts (gitignored)
 │   ├── schemas.py             # Pydantic models (PredictRequest/Response, dst)
 │   └── core/config.py
 ├── backend-express/           # Node Express gateway (port 4400)
@@ -151,13 +159,7 @@ panen-cerdas/
 │       │   ├── api.ts         # api.dashboard.*, api.predictions.*, api.ml.predict/feedback
 │       │   └── auth.ts        # localStorage role
 │       └── types/
-├── model/                     # Training scripts
-│   ├── train_synthetic.py     # generate sintetik + fit XGBoost (Phase 7)
-│   ├── train.py               # helper (kecamatan-level, stub)
-│   ├── predict.py             # batch yield prediction (stub)
-│   └── evaluate.py            # MAPE / RMSE
 ├── data/
-│   ├── models/                # .pkl artifacts (gitignored)
 │   ├── cache/power/           # NASA POWER 24h cache (gitignored)
 │   ├── predictions.jsonl      # request log (gitignored)
 │   ├── feedback.jsonl         # realisasi panen petani (gitignored)
