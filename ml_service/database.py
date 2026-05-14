@@ -92,6 +92,9 @@ class TrainingFeedback(Base):
     actual_harvest_days   = Column(Integer,  nullable=False)
     actual_yield_ton_per_ha = Column(Float,  nullable=False)
     actual_risk_level     = Column(String(10), nullable=False)
+    # Fitur tambahan model v2.4 — opsional untuk kompatibilitas DB lama
+    pest_pressure         = Column(Float, nullable=True, default=0.0)
+    variety               = Column(String(50), nullable=True, default="Lokal")
     # Metadata
     petani_id             = Column(String(50), nullable=True)
     lahan_id              = Column(String(50), nullable=True)

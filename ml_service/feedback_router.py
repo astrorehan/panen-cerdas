@@ -26,8 +26,18 @@ from database import (
 )
 
 
-# Base yields untuk inferensi risk level kalau tidak dikirim
-_BASE_YIELDS = {"padi": 5.0, "jagung": 5.5, "kedelai": 1.5, "singkong": 20.0}
+# Base yields untuk inferensi risk level — harus sinkron dengan model.BASE_YIELD
+_BASE_YIELDS = {
+    "padi":         5.2,
+    "jagung":       5.8,
+    "kedelai":      1.5,
+    "ubi_kayu":     20.0,
+    "ubi_jalar":    15.0,
+    "cabe_besar":   8.0,
+    "cabe_rawit":   6.0,
+    "bawang_merah": 9.5,
+    "bawang_putih": 7.0,
+}
 
 
 def _infer_risk(crop_type: str, actual_yield: float) -> str:
@@ -65,8 +75,31 @@ class FeedbackInput(BaseModel):
     temperature_c: Optional[float] = Field(None, ge=10.0, le=50.0)
     solar_radiation: Optional[float] = Field(None, ge=0.0)
     land_area_ha: Optional[float] = Field(None, gt=0.0)
-    crop_type: Optional[Literal["padi", "jagung", "kedelai", "singkong"]] = None
+
+    # 9 komoditas lengkap — sinkron dengan schemas.CropType & model.CROP_TYPES
+    crop_type: Optional[Literal[
+        "padi",
+        "jagung",
+        "kedelai",
+        "ubi_kayu",
+        "ubi_jalar",
+        "cabe_besar",
+        "cabe_rawit",
+        "bawang_merah",
+        "bawang_putih",
+    ]] = None
+
     actual_risk_level: Optional[Literal["low", "medium", "high"]] = None
+
+    # Fitur tambahan — opsional, dipakai model v2.4+
+    pest_pressure: Optional[float] = Field(
+        default=0.0, ge=0.0, le=1.0,
+        description="Tekanan hama saat tanam (0.0–1.0). Default 0.0.",
+    )
+    variety: Optional[str] = Field(
+        default="Lokal",
+        description="Varietas yang ditanam. Default 'Lokal'.",
+    )
 
     petani_id: Optional[str] = None
     lahan_id: Optional[str] = None
@@ -155,6 +188,8 @@ def submit_feedback(data: FeedbackInput, db: Session = Depends(get_db)):
             "petani_id":               data.petani_id,
             "lahan_id":                data.lahan_id,
             "catatan":                 data.catatan or data.notes,
+            "pest_pressure":           data.pest_pressure or 0.0,
+            "variety":                 data.variety or "Lokal",
         })
 
         if log is not None:

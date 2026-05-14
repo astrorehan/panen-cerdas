@@ -190,22 +190,37 @@ def estimate_ndvi_from_season(lat: float, lon: float, crop_type: str) -> float:
     Indonesia:
       - Musim hujan (Okt–Mar): vegetasi lebih hijau → NDVI lebih tinggi
       - Musim kemarau (Apr–Sep): vegetasi lebih kering → NDVI lebih rendah
+
+    Nilai sinkron dengan convert_bps_to_training.NDVI_BASE dan
+    predictions_router._BASE_NDVI — update ketiganya jika ada perubahan.
     """
     month = datetime.today().month
     is_wet_season = month in [10, 11, 12, 1, 2, 3]
 
-    base_ndvi = {
-        "padi":     0.72 if is_wet_season else 0.58,
-        "jagung":   0.65 if is_wet_season else 0.52,
-        "kedelai":  0.60 if is_wet_season else 0.48,
-        "singkong": 0.55 if is_wet_season else 0.45,
+    # (wet_ndvi, dry_ndvi) per komoditas
+    # Hortikultura NDVI lebih rendah karena kanopi lebih kecil/jarang
+    base_ndvi: dict[str, tuple[float, float]] = {
+        "padi":         (0.72, 0.58),
+        "jagung":       (0.65, 0.52),
+        "kedelai":      (0.60, 0.48),
+        "ubi_kayu":     (0.65, 0.52),
+        "ubi_jalar":    (0.62, 0.50),
+        "cabe_besar":   (0.55, 0.44),
+        "cabe_rawit":   (0.52, 0.42),
+        "bawang_merah": (0.45, 0.38),
+        "bawang_putih": (0.42, 0.36),
     }
 
-    # Jawa & Bali punya irigasi lebih baik → NDVI lebih stabil
-    is_java_bali = (-9 <= lat <= -5) and (105 <= lon <= 116)
-    adjustment   = 0.05 if is_java_bali else 0.0
+    wet, dry = base_ndvi.get(crop_type, (0.58, 0.48))
+    ndvi = wet if is_wet_season else dry
 
-    ndvi = base_ndvi.get(crop_type, 0.60) + adjustment
+    # Jawa & Bali: irigasi lebih baik → NDVI lebih stabil dan sedikit lebih tinggi
+    # Hortikultura dapat koreksi lebih kecil (+0.02) karena kanopi tetap rendah
+    is_java_bali = (-9 <= lat <= -5) and (105 <= lon <= 116)
+    if is_java_bali:
+        hortikultura = crop_type in ("cabe_besar", "cabe_rawit", "bawang_merah", "bawang_putih")
+        ndvi += 0.02 if hortikultura else 0.05
+
     return round(min(ndvi, 0.95), 2)
 
 

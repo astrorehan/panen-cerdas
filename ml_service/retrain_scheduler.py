@@ -19,7 +19,7 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 from sklearn.metrics import mean_absolute_error, accuracy_score
 from sqlalchemy.orm import Session
 
@@ -30,9 +30,23 @@ from database import (
 )
 
 MODEL_DIR = Path(__file__).parent / "saved_models"
-FEATURES  = ["ndvi", "rainfall_mm", "temperature_c",
-             "solar_radiation", "land_area_ha", "crop_encoded"]
-CROP_TYPES = ["padi", "jagung", "kedelai", "singkong"]
+
+# Harus identik dengan model.py — update keduanya jika ada perubahan
+CROP_TYPES = [
+    "bawang_merah",
+    "bawang_putih",
+    "cabe_besar",
+    "cabe_rawit",
+    "jagung",
+    "kedelai",
+    "padi",
+    "ubi_jalar",
+    "ubi_kayu",
+]
+
+# Fitur base — pest & variety ditambahkan dinamis dari feature_meta
+FEATURES_BASE = ["ndvi", "rainfall_mm", "temperature_c",
+                 "solar_radiation", "land_area_ha", "crop_encoded"]
 
 # Minimum data nyata sebelum retrain
 RETRAIN_THRESHOLD = 10
@@ -47,9 +61,10 @@ def _load_synthetic_data(n: int = 500) -> pd.DataFrame:
     """
     Load versi ringkas data synthetic sebagai base.
     Dikurangi ke 500 agar data nyata punya bobot lebih besar.
+    Pakai _generate_synthetic_data dari model.py (nama fungsi v2.4).
     """
-    from model import _generate_training_data
-    return _generate_training_data(n)
+    from model import _generate_synthetic_data
+    return _generate_synthetic_data(n)
 
 
 # ── LOAD DATA NYATA DARI DB ────────────────────────────
@@ -62,7 +77,6 @@ def _load_real_data(db: Session) -> pd.DataFrame:
     records = []
     for r in rows:
         risk = r.actual_risk_level
-        # Hitung risk dari yield jika tidak valid
         if risk not in ["low", "medium", "high"]:
             risk = "medium"
         records.append({
@@ -75,18 +89,56 @@ def _load_real_data(db: Session) -> pd.DataFrame:
             "harvest_days":     r.actual_harvest_days,
             "yield_ton_per_ha": r.actual_yield_ton_per_ha,
             "risk_level":       risk,
+            # Kolom tambahan — pakai getattr agar aman dengan DB lama
+            # yang belum punya kolom ini
+            "pest_pressure":    getattr(r, "pest_pressure", 0.0) or 0.0,
+            "variety":          getattr(r, "variety", "Lokal") or "Lokal",
         })
     return pd.DataFrame(records)
 
 
 # ── ENCODE ─────────────────────────────────────────────
 def _encode(df: pd.DataFrame, encoder) -> pd.DataFrame:
+    """
+    Encode crop_type + crop_group + pest_pressure + variety
+    sesuai feature_meta yang disimpan saat train.py dijalankan.
+    Konsisten dengan model.py _encode_features().
+    """
+    from model import CROP_GROUP, CROP_GROUP_ENCODER, ALL_VARIETIES, VARIETY_ENCODER
+
     df = df.copy()
-    # Handle crop_type yang tidak dikenal
+
+    # Fallback crop_type tidak dikenal → "padi"
     df["crop_type"] = df["crop_type"].apply(
         lambda x: x if x in CROP_TYPES else "padi"
     )
     df["crop_encoded"] = encoder.transform(df["crop_type"])
+
+    # crop_group (pangan / umbi / hortikultura)
+    df["crop_group"] = df["crop_type"].map(CROP_GROUP).fillna("pangan")
+    df["crop_group_encoded"] = CROP_GROUP_ENCODER.transform(df["crop_group"])
+
+    # yield_ratio — normalisasi lintas komoditas
+    from model import BASE_YIELD
+    if "yield_ton_per_ha" in df.columns:
+        df["yield_ratio"] = df.apply(
+            lambda r: r["yield_ton_per_ha"] / max(BASE_YIELD.get(r["crop_type"], 5.0), 0.01),
+            axis=1,
+        ).clip(0.1, 2.0)
+
+    # pest_pressure
+    if "pest_pressure" not in df.columns:
+        df["pest_pressure"] = 0.0
+    df["pest_pressure"] = df["pest_pressure"].fillna(0.0).clip(0.0, 1.0)
+
+    # variety_encoded
+    if "variety" not in df.columns:
+        df["variety"] = "Lokal"
+    df["variety"] = df["variety"].fillna("Lokal")
+    known = set(ALL_VARIETIES)
+    df["variety"] = df["variety"].apply(lambda v: v if v in known else "Lokal")
+    df["variety_encoded"] = VARIETY_ENCODER.transform(df["variety"])
+
     return df
 
 
@@ -117,11 +169,28 @@ def retrain(force: bool = False, db: Session = None) -> dict:
         print(f"\n🔄 Memulai retraining...")
         print(f"   Data nyata baru: {unused} feedback")
 
-        # 2. Load encoder lama
-        encoder_path = MODEL_DIR / "crop_encoder.joblib"
+        # 2. Load encoder + feature_meta dari model yang sudah di-train
+        encoder_path      = MODEL_DIR / "crop_encoder.joblib"
+        feature_meta_path = MODEL_DIR / "feature_meta.joblib"
+
         if not encoder_path.exists():
             raise FileNotFoundError("Encoder tidak ditemukan — jalankan train.py dulu")
+
         encoder = joblib.load(encoder_path)
+
+        # Baca feature_meta untuk tahu fitur apa yang dipakai model aktif
+        if feature_meta_path.exists():
+            feature_meta  = joblib.load(feature_meta_path)
+            harvest_feats = feature_meta.get("harvest_features", FEATURES_BASE)
+            yield_feats   = feature_meta.get("yield_features",   FEATURES_BASE)
+            risk_feats    = feature_meta.get("risk_features",    FEATURES_BASE)
+            use_pest      = feature_meta.get("use_pest",    False)
+            use_variety   = feature_meta.get("use_variety", False)
+            yield_norm    = feature_meta.get("yield_normalized", False)
+        else:
+            # Fallback ke fitur base jika feature_meta belum ada
+            harvest_feats = yield_feats = risk_feats = FEATURES_BASE
+            use_pest = use_variety = yield_norm = False
 
         # 3. Gabungkan data synthetic + nyata
         df_synthetic = _load_synthetic_data(n=500)
@@ -141,36 +210,81 @@ def retrain(force: bool = False, db: Session = None) -> dict:
             df_combined = df_synthetic
 
         df_combined = _encode(df_combined, encoder)
-        df_combined = df_combined.dropna(subset=FEATURES + ["harvest_days", "yield_ton_per_ha", "risk_level"])
+        df_combined = df_combined.dropna(
+            subset=["ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
+                    "land_area_ha", "crop_encoded",
+                    "harvest_days", "yield_ton_per_ha", "risk_level"]
+        )
 
-        X  = df_combined[FEATURES]
+        # yield_ratio untuk yield & risk model
+        from model import BASE_YIELD
+        df_combined["yield_ratio"] = df_combined.apply(
+            lambda r: r["yield_ton_per_ha"] / max(BASE_YIELD.get(r["crop_type"], 5.0), 0.01),
+            axis=1,
+        ).clip(0.1, 2.0)
+
+        # Buat X per model — hanya kolom yang benar-benar ada di dataframe
+        def _safe_cols(wanted: list, df: pd.DataFrame) -> list:
+            return [c for c in wanted if c in df.columns]
+
+        X_harvest = df_combined[_safe_cols(harvest_feats, df_combined)]
+        X_yield   = df_combined[_safe_cols(yield_feats,   df_combined)]
+        X_risk    = df_combined[_safe_cols(risk_feats,    df_combined)]
         yh = df_combined["harvest_days"]
         yy = df_combined["yield_ton_per_ha"]
         yr = df_combined["risk_level"]
 
+        # yield_ratio sebagai target yield model (sama dengan train.py)
+        yy_ratio = df_combined["yield_ratio"]
+
         print(f"   Total training rows: {len(df_combined)}")
+        print(f"   Fitur harvest : {list(X_harvest.columns)}")
+        print(f"   Fitur yield   : {list(X_yield.columns)}")
+        print(f"   Fitur risk    : {list(X_risk.columns)}")
 
-        # 4. Split train/test
-        X_tr, X_te, yh_tr, yh_te, yy_tr, yy_te, yr_tr, yr_te = train_test_split(
-            X, yh, yy, yr, test_size=0.2, random_state=42
+        # 4. Split train/test (stratified by risk agar distribusi seimbang)
+        from sklearn.model_selection import StratifiedShuffleSplit
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+        train_idx, test_idx = next(sss.split(X_harvest, yr))
+
+        # 5. Train model baru — arsitektur sama dengan train.py
+        new_harvest = RandomForestRegressor(
+            n_estimators=200, random_state=42, n_jobs=-1
         )
+        new_harvest.fit(X_harvest.iloc[train_idx], yh.iloc[train_idx])
 
-        # 5. Train model baru
-        new_harvest = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
-        new_harvest.fit(X_tr, yh_tr)
+        new_yield = RandomForestRegressor(
+            n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1
+        )
+        # Train dengan yield_ratio agar lintas komoditas sebanding
+        new_yield.fit(X_yield.iloc[train_idx], yy_ratio.iloc[train_idx])
 
-        new_yield = RandomForestRegressor(n_estimators=150, random_state=42, n_jobs=-1)
-        new_yield.fit(X_tr, yy_tr)
-
-        new_risk = RandomForestClassifier(n_estimators=150, random_state=42, n_jobs=-1)
-        new_risk.fit(X_tr, yr_tr)
+        new_risk = RandomForestClassifier(
+            n_estimators=300, class_weight="balanced",
+            max_depth=12, min_samples_leaf=3,
+            random_state=42, n_jobs=-1
+        )
+        new_risk.fit(X_risk.iloc[train_idx], yr.iloc[train_idx])
 
         # 6. Evaluasi model baru
-        mae_h = mean_absolute_error(yh_te, new_harvest.predict(X_te))
-        mae_y = mean_absolute_error(yy_te, new_yield.predict(X_te))
-        acc_r = accuracy_score(yr_te, new_risk.predict(X_te))
+        mae_h = mean_absolute_error(
+            yh.iloc[test_idx],
+            new_harvest.predict(X_harvest.iloc[test_idx])
+        )
+        # Yield: prediksi ratio → rekonstruksi ton/ha untuk MAE bermakna
+        pred_ratio  = new_yield.predict(X_yield.iloc[test_idx])
+        test_crops  = df_combined["crop_type"].iloc[test_idx].values
+        pred_yield  = [pred_ratio[i] * BASE_YIELD.get(test_crops[i], 5.0)
+                       for i in range(len(pred_ratio))]
+        mae_y = mean_absolute_error(yy.iloc[test_idx].values, pred_yield)
 
-        print(f"   [Baru] MAE harvest: {mae_h:.2f} hari | MAE yield: {mae_y:.3f} ton | Acc risk: {acc_r:.1%}")
+        acc_r = accuracy_score(
+            yr.iloc[test_idx],
+            new_risk.predict(X_risk.iloc[test_idx])
+        )
+
+        print(f"   [Baru] MAE harvest: {mae_h:.2f} hari | "
+              f"MAE yield: {mae_y:.3f} ton/ha | Acc risk: {acc_r:.1%}")
 
         # 7. Bandingkan dengan model lama
         old_version = get_latest_model_version(db)
