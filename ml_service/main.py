@@ -45,6 +45,7 @@ from predictions_router import router as predictions_router
 from regions_router import router as regions_router
 from lahan_router import router as lahan_router
 from retrain_scheduler import start_scheduler, stop_scheduler, retrain
+from prewarm import start_background_prewarm
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -63,9 +64,12 @@ async def lifespan(app: FastAPI):
     if not loaded:
         print("Model belum ada - jalankan: python train.py (fallback rules aktif)")
     start_scheduler()
+    prewarm_task = start_background_prewarm()
     print("ML Service ready at http://localhost:8000\n")
     yield
     stop_scheduler()
+    if prewarm_task is not None and not prewarm_task.done():
+        prewarm_task.cancel()
     print("ML Service shutdown")
 
 

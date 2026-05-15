@@ -13,7 +13,7 @@ from schemas import PredictInput, PredictOutput
 
 
 # ── KONSTANTA PER KOMODITAS ─────────────────────────────────────────────────
-# base_yield      : rata-rata nasional (ton/ha) — sumber BPS/Kementan
+# base_yield      : rata-rata nasional (ton/ha) — sumber Kementan
 # base_harvest    : hari panen dari tanam
 # optimal_temp    : rentang suhu ideal (°C)
 # optimal_rainfall: curah hujan ideal (mm/bulan)
@@ -59,7 +59,7 @@ CROP_PROFILES = {
     # ── UMBI-UMBIAN ────────────────────────────────────────────────────────
     "ubi_jalar": {
         "base_harvest_days": 120,       # 4–5 bulan
-        "base_yield":        15.0,      # ton/ha umbi segar — BPS rata-rata nasional
+        "base_yield":        15.0,      # ton/ha umbi segar — Kementan rata-rata nasional
         "optimal_temp":      (21, 30),
         "optimal_rainfall":  (100, 200),
         "optimal_ndvi":      0.50,
@@ -69,7 +69,7 @@ CROP_PROFILES = {
     },
     "ubi_kayu": {
         "base_harvest_days": 270,       # 9–12 bulan
-        "base_yield":        20.0,      # ton/ha umbi segar — BPS rata-rata nasional
+        "base_yield":        20.0,      # ton/ha umbi segar — Kementan rata-rata nasional
         "optimal_temp":      (25, 32),
         "optimal_rainfall":  (100, 250),
         "optimal_ndvi":      0.50,
@@ -81,7 +81,7 @@ CROP_PROFILES = {
     # ── CABAI ──────────────────────────────────────────────────────────────
     "cabe_besar": {
         "base_harvest_days": 90,        # mulai panen 75–90 HST, berlanjut hingga 120 HST
-        "base_yield":        8.0,       # ton/ha buah segar — BPS rata-rata nasional ~7–9 ton
+        "base_yield":        8.0,       # ton/ha buah segar — Kementan rata-rata nasional ~7–9 ton
         "optimal_temp":      (24, 30),
         "optimal_rainfall":  (100, 200),
         "optimal_ndvi":      0.55,
@@ -105,7 +105,7 @@ CROP_PROFILES = {
     # ── BAWANG ────────────────────────────────────────────────────────────
     "bawang_merah": {
         "base_harvest_days": 65,        # 60–70 HST
-        "base_yield":        9.5,       # ton/ha umbi segar — BPS rata-rata nasional ~9–10 ton
+        "base_yield":        9.5,       # ton/ha umbi segar — Kementan rata-rata nasional ~9–10 ton
         "optimal_temp":      (25, 32),
         "optimal_rainfall":  (80, 150), # KRITIS: sangat sensitif hujan berlebih
         "optimal_ndvi":      0.50,
@@ -116,7 +116,7 @@ CROP_PROFILES = {
     },
     "bawang_putih": {
         "base_harvest_days": 100,       # 90–110 HST, lebih lama dari bawang merah
-        "base_yield":        7.0,       # ton/ha umbi segar — BPS rata-rata nasional
+        "base_yield":        7.0,       # ton/ha umbi segar — Kementan rata-rata nasional
         "optimal_temp":      (15, 25),  # BERBEDA: butuh suhu lebih dingin (dataran tinggi)
         "optimal_rainfall":  (60, 120), # LEBIH KERING dari bawang merah
         "optimal_ndvi":      0.48,

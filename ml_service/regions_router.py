@@ -56,7 +56,7 @@ def _province_features(provinces: list[provinces_data.Province]) -> list[dict]:
                 "id":         f"PROV_{p.code}",
                 "code":       p.code,
                 "name":       p.name,
-                "bps_name":   p.bps_name,
+                "kementan_name":   p.kementan_name,
                 "capital":    p.capital,
                 "region":     p.region,
                 "level":      "province",

@@ -1,9 +1,9 @@
 """
-bps_data.py
+kementan_data.py
 -----------
-Reader untuk data BPS produksi pangan (provinsi x crop x tahun).
+Reader untuk data Kementan produksi pangan (provinsi x crop x tahun).
 
-Source: ml_service/data/bps_produksi.csv — disusun dari publikasi BPS
+Source: ml_service/data/kementan_produksi.csv — disusun dari publikasi Kementan
 "Produksi Komoditas Tanaman Pangan & Hortikultura" 2021-2025, plus baris
 2020 sebagai baseline historis. Kolom relevan:
 
@@ -34,18 +34,18 @@ import pandas as pd
 
 
 DATA_DIR = Path(__file__).parent / "data"
-BPS_CSV  = DATA_DIR / "bps_produksi.csv"
+KEMENTAN_CSV  = DATA_DIR / "kementan_produksi.csv"
 
 
 @lru_cache(maxsize=1)
 def load() -> pd.DataFrame:
-    """Load BPS CSV ke DataFrame. Cached selama proses hidup."""
-    if not BPS_CSV.exists():
+    """Load Kementan CSV ke DataFrame. Cached selama proses hidup."""
+    if not KEMENTAN_CSV.exists():
         return pd.DataFrame(columns=[
             "crop_type", "provinsi", "tahun", "produksi_ton",
             "luas_panen_ha", "yield_ton_per_ha",
         ])
-    df = pd.read_csv(BPS_CSV)
+    df = pd.read_csv(KEMENTAN_CSV)
     df["provinsi"] = df["provinsi"].str.upper().str.strip()
     df["tahun"]    = df["tahun"].astype(int)
     return df
@@ -96,7 +96,7 @@ def summary(province: str, year: Optional[int] = None) -> dict:
     """
     Ringkasan produksi provinsi.
 
-    - `year` None -> ambil baris terbaru per-komoditas (karena BPS rilis
+    - `year` None -> ambil baris terbaru per-komoditas (karena Kementan rilis
                      padi lebih awal daripada hortikultura, kalau dipaksa
                      ke 1 tahun banyak komoditas akan kosong)
     - `year` diisi -> snapshot tepat di tahun itu

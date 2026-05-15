@@ -11,7 +11,7 @@ v2.4:
   - base_yield & base_harvest disesuaikan per komoditas
   - Synthetic data generator aware semua 9 crop
   - _load_real_data() membaca CSV per komoditas dari Data_Raw/
-    jika convert_bps_to_training.py sudah dijalankan
+    jika convert_kementan_to_training.py sudah dijalankan
 """
 
 import joblib
@@ -388,7 +388,7 @@ def _load_real_data(db=None) -> pd.DataFrame:
             logger.warning(f"Gagal load feedback petani: {e}")
 
     # ── Sumber 2: CSV gabungan di folder data/ ─────────
-    for csv_file in ["bps_produksi.csv", "kementan_lahan.csv", "bps_template.csv"]:
+    for csv_file in ["kementan_produksi.csv", "kementan_lahan.csv", "kementan_template.csv"]:
         csv_path = DATA_DIR / csv_file
         if not csv_path.exists():
             continue
@@ -402,7 +402,7 @@ def _load_real_data(db=None) -> pd.DataFrame:
                 logger.warning(f"{csv_file} kurang kolom: {missing} — skip")
                 continue
             df["data_source"]  = csv_file.replace(".csv", "")
-            if "ndvi_source"   not in df.columns: df["ndvi_source"]   = "bps_manual"
+            if "ndvi_source"   not in df.columns: df["ndvi_source"]   = "kementan_manual"
             if "pest_pressure" not in df.columns: df["pest_pressure"] = DEFAULT_PEST_PRESSURE
             if "variety"       not in df.columns: df["variety"]       = "Lokal"
             frames.append(df[REQUIRED + ["data_source", "ndvi_source", "pest_pressure", "variety"]])

@@ -36,7 +36,9 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# Path eksplisit — ml_service/.env. Tanpa ini, kalau uvicorn dijalankan dari
+# project root (lihat ml_service/run.ps1) python-dotenv tidak ketemu .env.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 logger = logging.getLogger(__name__)
 

@@ -56,6 +56,13 @@ def list_lahan(
         preds.sort(key=lambda p: p.created_at, reverse=True)
         last = preds[0]
 
+        # Koordinat lahan: ambil dari prediksi terbaru yang punya lat+lon
+        # (prediksi default/manual tidak punya GPS, jadi mungkin perlu mundur).
+        last_with_coords = next(
+            (p for p in preds if p.lat is not None and p.lon is not None),
+            None,
+        )
+
         fb_count = (
             db.query(func.count(TrainingFeedback.id))
             .filter(TrainingFeedback.lahan_id == lid)
@@ -70,6 +77,8 @@ def list_lahan(
             "last_harvest_days":      last.pred_harvest_days,
             "last_risk_level":        last.pred_risk_level,
             "last_land_area_ha":      last.land_area_ha,
+            "last_lat":               last_with_coords.lat if last_with_coords else None,
+            "last_lon":               last_with_coords.lon if last_with_coords else None,
             "last_predicted_at":      last.created_at.isoformat(),
             "total_predictions":      len(preds),
             "total_feedback":         fb_count,

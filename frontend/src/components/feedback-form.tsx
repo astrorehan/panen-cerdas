@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 interface FeedbackFormProps {
   predictionLogId: number;
   landAreaHa: number;
+  onSuccess?: (feedbackId: number) => void;
 }
 
 type Status =
@@ -18,7 +19,7 @@ type Status =
   | { kind: "ok"; feedbackId: number }
   | { kind: "error"; message: string };
 
-export function FeedbackForm({ predictionLogId, landAreaHa }: FeedbackFormProps) {
+export function FeedbackForm({ predictionLogId, landAreaHa, onSuccess }: FeedbackFormProps) {
   const [actualHarvestDays, setActualHarvestDays] = useState("");
   const [actualTotalYield, setActualTotalYield] = useState("");
   const [notes, setNotes] = useState("");
@@ -48,6 +49,7 @@ export function FeedbackForm({ predictionLogId, landAreaHa }: FeedbackFormProps)
         notes: notes.trim() || undefined,
       });
       setStatus({ kind: "ok", feedbackId: res.feedback_id });
+      onSuccess?.(res.feedback_id);
     } catch (err) {
       setStatus({
         kind: "error",

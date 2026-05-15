@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 from database import get_db, PredictionLog
 from data_cache import get_or_fetch_climate
 from model import is_model_loaded, predict as ml_predict, BASE_YIELD
-import bps_data
+import kementan_data
 import provinces_data
 from schemas import (
     CropType,
@@ -48,7 +48,7 @@ router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
 # DIY (Daerah Istimewa Yogyakarta) — pilot deployment region.
 # Centroid + luas per kecamatan. lat/lon dipakai untuk fetch iklim NASA POWER.
-# Luas baku ~ estimasi sawah/lahan sentra BPS DIY; bukan angka resmi.
+# Luas baku ~ estimasi sawah/lahan sentra Kementan DIY; bukan angka resmi.
 KECAMATAN_DATA: list[dict] = [
     # Sleman — sentra padi sawah DIY
     {"id": "3404130", "kabupaten": "Sleman",      "kecamatan": "Prambanan",
@@ -211,13 +211,13 @@ def _fallback_yield(commodity: str, region_id: str) -> float:
     return round(base * (1 + jitter), 2)
 
 
-def _bps_baseline_yield(province: str, commodity: str) -> float | None:
+def _kementan_baseline_yield(province: str, commodity: str) -> float | None:
     """
-    Rata-rata yield 3 tahun terakhir dari BPS untuk provinsi+komoditas.
+    Rata-rata yield 3 tahun terakhir dari Kementan untuk provinsi+komoditas.
     Dipakai sebagai baseline surplus_pct yang lebih akurat dibanding
     BASE_YIELD nasional generik.
     """
-    rows = bps_data.trend(province, commodity)
+    rows = kementan_data.trend(province, commodity)
     if not rows:
         return None
     last3 = rows[-3:] if len(rows) >= 3 else rows
@@ -236,7 +236,7 @@ async def _predict_one(
         {id, kabupaten, kecamatan, lat, lon, luas}
 
     `baseline_yield` overrides national baseline untuk hitung surplus_pct.
-    Dipakai mode provinsi dengan baseline yield BPS 3 tahun terakhir.
+    Dipakai mode provinsi dengan baseline yield Kementan 3 tahun terakhir.
     """
     base = baseline_yield if baseline_yield is not None else BASE_YIELD.get(commodity, 5.0)
     yield_pred: float
@@ -288,19 +288,19 @@ async def _predict_one(
 
 def _province_row(province: str, commodity: str) -> dict | None:
     """
-    Bangun 'row' provinsi dengan centroid + luas_panen BPS terbaru.
-    Return None kalau provinsi tidak dikenal atau tidak ada data BPS.
+    Bangun 'row' provinsi dengan centroid + luas_panen Kementan terbaru.
+    Return None kalau provinsi tidak dikenal atau tidak ada data Kementan.
     """
     prov = provinces_data.get(province)
     if not prov:
         return None
 
-    year = bps_data.latest_year_for(prov.bps_name, commodity)
+    year = kementan_data.latest_year_for(prov.kementan_name, commodity)
     if year is None:
         # Provinsi dikenal tapi tidak punya data komoditas itu — pakai luas default
         luas = 1000.0
     else:
-        trend = bps_data.trend(prov.bps_name, commodity)
+        trend = kementan_data.trend(prov.kementan_name, commodity)
         latest = next((t for t in trend if t["year"] == year), None)
         luas = latest["luas_panen_ha"] if latest else 1000.0
 
@@ -326,10 +326,10 @@ async def list_predictions(
 
     Mode:
       - DI Yogyakarta (pilot)  -> 7 kecamatan paralel
-      - Provinsi lain          -> 1 row provincial-level (centroid + BPS luas)
+      - Provinsi lain          -> 1 row provincial-level (centroid + Kementan luas)
       - 'ALL' / 'INDONESIA'    -> 37 provinsi (skip DIY kecamatan, pakai DIY-prov)
 
-    Surplus_pct dihitung vs rata-rata BPS 3 tahun terakhir untuk provinsi
+    Surplus_pct dihitung vs rata-rata Kementan 3 tahun terakhir untuk provinsi
     itu (baseline lebih akurat dibanding angka nasional generik).
     """
     use_model = is_model_loaded()
@@ -350,7 +350,7 @@ async def list_predictions(
             row = _province_row(prov.name, commodity)
             if not row:
                 continue
-            baseline = _bps_baseline_yield(prov.bps_name, commodity)
+            baseline = _kementan_baseline_yield(prov.kementan_name, commodity)
             items.append(await _predict_one(row, commodity, db, use_model, baseline))
         return PredictionsResponse(
             province="Indonesia",
@@ -361,7 +361,7 @@ async def list_predictions(
 
     # ── MODE 2: DIY pilot (7 kecamatan) ───────────────────
     if provinces_data.is_diy(province):
-        baseline = _bps_baseline_yield("DAERAH ISTIMEWA YOGYAKARTA", commodity)
+        baseline = _kementan_baseline_yield("DAERAH ISTIMEWA YOGYAKARTA", commodity)
         tasks = [
             _predict_one(row, commodity, db, use_model, baseline)
             for row in KECAMATAN_DATA
@@ -381,11 +381,11 @@ async def list_predictions(
             status_code=404,
             detail=(
                 f"Provinsi '{province}' tidak dikenal. "
-                f"Gunakan nama lengkap (e.g. 'Jawa Barat'), kode BPS (e.g. '32'), "
+                f"Gunakan nama lengkap (e.g. 'Jawa Barat'), kode Kementan (e.g. '32'), "
                 f"atau 'ALL' untuk semua provinsi."
             ),
         )
-    baseline = _bps_baseline_yield(province, commodity)
+    baseline = _kementan_baseline_yield(province, commodity)
     pred = await _predict_one(row, commodity, db, use_model, baseline)
     return PredictionsResponse(
         province=province,
@@ -451,20 +451,20 @@ def predictions_history(
 
 
 def _build_backtest(
-    bps_province_name: str,
+    kementan_province_name: str,
     commodity: str,
     predicted_yield: float,
 ) -> list[YieldPoint]:
     """
-    Backtest yield = data BPS real per tahun (aktual) + prediksi tahun depan.
+    Backtest yield = data Kementan real per tahun (aktual) + prediksi tahun depan.
 
-    - Aktual = yield BPS provinsi 5 tahun terakhir (kalau data lengkap).
+    - Aktual = yield Kementan provinsi 5 tahun terakhir (kalau data lengkap).
     - Prediksi = output model untuk tahun sesudahnya.
 
-    Kalau BPS tidak punya data, return list kosong supaya frontend bisa
+    Kalau Kementan tidak punya data, return list kosong supaya frontend bisa
     show empty state alih-alih grafik palsu.
     """
-    trend = bps_data.trend(bps_province_name, commodity)
+    trend = kementan_data.trend(kementan_province_name, commodity)
     if not trend:
         return []
 
@@ -491,9 +491,9 @@ async def get_detail(
 
     region_id format:
       - "34041xx"     -> kecamatan DIY (lookup KECAMATAN_DATA)
-      - "PROV_<code>" -> provinsi (lookup provinces_data by BPS code)
+      - "PROV_<code>" -> provinsi (lookup provinces_data by Kementan code)
     """
-    bps_province_name: str
+    kementan_province_name: str
     row: dict | None = None
 
     if region_id.startswith("PROV_"):
@@ -506,7 +506,7 @@ async def get_detail(
                 detail=f"Provinsi kode '{code}' tidak ditemukan",
             )
         row = _province_row(prov.name, commodity)
-        bps_province_name = prov.bps_name
+        kementan_province_name = prov.kementan_name
     else:
         # Mode kecamatan DIY
         row = next((r for r in KECAMATAN_DATA if r["id"] == region_id), None)
@@ -518,13 +518,13 @@ async def get_detail(
                     f"Gunakan ID kecamatan DIY atau format 'PROV_<kode>'."
                 ),
             )
-        # Kecamatan DIY → backtest pakai BPS provinsi DIY sebagai proxy
-        bps_province_name = "DAERAH ISTIMEWA YOGYAKARTA"
+        # Kecamatan DIY → backtest pakai Kementan provinsi DIY sebagai proxy
+        kementan_province_name = "DAERAH ISTIMEWA YOGYAKARTA"
 
     if row is None:
         raise HTTPException(status_code=404, detail=f"Tidak bisa load region {region_id}")
 
-    baseline = _bps_baseline_yield(bps_province_name, commodity)
+    baseline = _kementan_baseline_yield(kementan_province_name, commodity)
     pred = await _predict_one(row, commodity, db, is_model_loaded(), baseline)
 
     # NDVI series 7 tahun. Cache APPEEARS HIT -> real MODIS, MISS -> estimator.
@@ -539,7 +539,7 @@ async def get_detail(
     )
 
     backtest = _build_backtest(
-        bps_province_name=bps_province_name,
+        kementan_province_name=kementan_province_name,
         commodity=commodity,
         predicted_yield=pred.yield_pred_ton_per_ha,
     )

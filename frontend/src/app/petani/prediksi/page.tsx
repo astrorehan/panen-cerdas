@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Sparkles, MapPin, AlertCircle } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, MapPin, AlertCircle, History } from "lucide-react";
 import { api } from "@/lib/api";
 import { addLahanName, getLahanNames, getPetaniId } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ResultCard } from "@/components/result-card";
-import { FeedbackForm } from "@/components/feedback-form";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { cn } from "@/lib/utils";
 import type { CropType, PredictResponse } from "@/types";
@@ -474,10 +474,26 @@ export default function PrediksiPage() {
                 cropType={cropType}
                 landAreaHa={Number(landAreaHa)}
               />
-              <FeedbackForm
-                predictionLogId={status.result.prediction_log_id}
-                landAreaHa={Number(landAreaHa)}
-              />
+              <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <History className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <div className="text-sm font-semibold text-primary">
+                    Prediksi tersimpan #{status.result.prediction_log_id}
+                  </div>
+                  <p className="mt-0.5 text-sm leading-relaxed text-foreground">
+                    Beri umpan balik realisasi panen <strong>setelah panen
+                    aktual</strong> lewat halaman Riwayat Prediksi. Datanya
+                    dipakai untuk mengkalibrasi model.
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/petani/riwayat">
+                    Buka Riwayat
+                  </Link>
+                </Button>
+              </div>
             </>
           )}
         </div>

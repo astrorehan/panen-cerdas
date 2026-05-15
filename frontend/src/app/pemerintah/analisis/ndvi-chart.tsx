@@ -71,7 +71,7 @@ export function NdviChart({ series }: { series: NdviPoint[] }) {
         </AreaChart>
       </ResponsiveContainer>
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
-        <span>NDVI estimasi - mean per bulan</span>
+        <span>NDVI - mean per bulan</span>
         <span>Ambang sehat ~ 0.50</span>
       </div>
     </div>

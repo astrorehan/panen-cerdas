@@ -1,6 +1,6 @@
 # PanenCerdas
 
-Platform prediksi panen dua-peran (petani + pemerintah) berbasis NDVI satelit MODIS, data cuaca NASA POWER, data historis BPS produksi, dan tiga model RandomForest (scikit-learn). Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kecamatan/provinsi dan lembar peringatan defisit.
+Platform prediksi panen dua-peran (petani + pemerintah) berbasis NDVI satelit MODIS, data cuaca NASA POWER, data historis Kementan produksi, dan tiga model RandomForest (scikit-learn). Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kecamatan/provinsi dan lembar peringatan defisit.
 
 **UNITY Competition #14 UNY 2026 — Software Development**
 
@@ -14,7 +14,7 @@ Tiga layanan + Supabase auth (BaaS), dijalankan terpisah di lokal:
 Browser  ->  Next.js 14 (frontend, :3000)  ----> Supabase (auth + profiles)
               |
               v
-            Express gateway (:4400)         <- proxy + fallback layer
+            Express gateway (:4200)         <- proxy + fallback layer
               |
               v
             FastAPI ml_service (:8000)      <- ML, NASA POWER, APPEEARS NDVI
@@ -30,7 +30,7 @@ Browser  ->  Next.js 14 (frontend, :3000)  ----> Supabase (auth + profiles)
 | Auth | Supabase (email/password + `profiles` table dengan role check) | (BaaS) |
 | Gateway | Node 20 + Express 4 + axios | `backend-express/` |
 | ML service | FastAPI + Pydantic + scikit-learn + SQLAlchemy (Supabase Postgres, SQLite fallback) | `ml_service/` |
-| Data sources | NASA POWER (cuaca), NASA APPEEARS MOD13Q1 (NDVI 250m/16-hari), BPS 2020-2025 | `ml_service/data/` |
+| Data sources | NASA POWER (cuaca), NASA APPEEARS MOD13Q1 (NDVI 250m/16-hari), Kementan 2020-2025 | `ml_service/data/` |
 | Training | 3 model RandomForest (harvest_days, yield_ratio, risk) + online retrain | `ml_service/model.py`, `ml_service/retrain_scheduler.py` |
 
 ## Quick Start
@@ -89,7 +89,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
 .\ml_service\run.ps1
 # atau: uvicorn ml_service.main:app --reload --port 8000 --host 127.0.0.1
 
-# Terminal 2 - Express gateway (:4400)
+# Terminal 2 - Express gateway (:4200)
 .\backend-express\run.ps1
 # atau: cd backend-express; node index.js
 
@@ -100,7 +100,7 @@ npm run dev
 
 Buka **http://localhost:3000** — akan diarahkan ke `/login` (atau `/register` untuk akun baru).
 
-> Catatan port: Express memakai `:4400` karena Windows 11 sering memasukkan port range `3945-4044` ke excluded list. Cek dengan `netsh interface ipv4 show excludedportrange protocol=tcp`.
+> Catatan port: Express memakai `:4200` karena Windows 11 sering memasukkan port range `3945-4044` ke excluded list. Cek dengan `netsh interface ipv4 show excludedportrange protocol=tcp`.
 
 ## Rute Aplikasi
 
@@ -115,14 +115,14 @@ Buka **http://localhost:3000** — akan diarahkan ke `/login` (atau `/register` 
 | Petani | `/petani/prediksi` | **CORE** — formulir prediksi panen per-lahan (9 komoditas + hama + varietas) |
 | Petani | `/petani/lahan` | Daftar lahan petani (derive dari `prediction_log`) |
 | Petani | `/petani/cuaca` | Prakiraan 7 hari (NASA POWER live) |
-| Pemerintah | `/pemerintah/dashboard` | KPI strip + tren produksi historis (real BPS + DB) |
+| Pemerintah | `/pemerintah/dashboard` | KPI strip + tren produksi historis (real Kementan + DB) |
 | Pemerintah | `/pemerintah/produksi` | Choropleth status pangan per kecamatan/provinsi |
 | Pemerintah | `/pemerintah/analisis` | Deep-dive per kecamatan (NDVI series + backtest) |
 | Pemerintah | `/pemerintah/alert` | Daftar kecamatan defisit/waspada, terurut |
 
 ## API
 
-Express gateway pada `:4400` membungkus semua endpoint:
+Express gateway pada `:4200` membungkus semua endpoint:
 
 | Method | Path | Tujuan |
 |--------|------|--------|
@@ -131,14 +131,14 @@ Express gateway pada `:4400` membungkus semua endpoint:
 | POST | `/api/feedback` | Catat realisasi panen aktual untuk online retraining (503 kalau ML down) |
 | GET | `/api/feedback/stats` | Statistik feedback terkumpul + threshold retrain |
 | GET | `/api/feedback/history` | Riwayat feedback per petani |
-| GET | `/api/dashboard/summary` | KPI pemerintah (real BPS + DB) |
+| GET | `/api/dashboard/summary` | KPI pemerintah (real Kementan + DB) |
 | GET | `/api/dashboard/trend` | Tren produksi historis |
 | GET | `/api/predictions` | List prediksi (multi-provinsi) |
 | GET | `/api/predictions/:id` | Detail kecamatan (NDVI series + backtest) |
 | GET | `/api/predictions/history` | Riwayat prediksi per petani |
 | GET | `/api/lahan` | Daftar lahan petani (derive dari `prediction_log`) |
 | GET | `/api/regions/geojson` | Polygon kecamatan / provinsi untuk peta |
-| GET | `/api/regions/provinces` | Lookup 37 provinsi (kode BPS + centroid + alias) |
+| GET | `/api/regions/provinces` | Lookup 37 provinsi (kode Kementan + centroid + alias) |
 
 Swagger ML service: http://localhost:8000/docs
 
@@ -159,7 +159,7 @@ Setup detail (bikin project, disable email confirm, SQL `profiles` + RLS): [SUPA
   - Plus `crop_encoder.joblib`, `crop_group_encoder.joblib`, `feature_meta.joblib`.
 - **9 komoditas**: padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih.
 - Fitur **hama** + **varietas** sudah masuk schema dan training pipeline.
-- Sumber data training: CSV BPS produksi 2020-2025 (`ml_service/data/bps_produksi.csv`, 9 komoditas × 37 provinsi) + cache NASA POWER + cache APPEEARS NDVI + feedback realisasi petani dari `panencerdas_ml.db`, dilengkapi generator sintetik klimatologis bila baris kurang.
+- Sumber data training: CSV Kementan produksi 2020-2025 (`ml_service/data/kementan_produksi.csv`, 9 komoditas × 37 provinsi) + cache NASA POWER + cache APPEEARS NDVI + feedback realisasi petani dari `panencerdas_ml.db`, dilengkapi generator sintetik klimatologis bila baris kurang.
 - **NDVI real**: NASA APPEEARS MOD13Q1 (MODIS, 16-hari, 250m). Single point + time-series, di-cache di SQLite (`data_cache.py`). Fallback ke estimasi musiman bila APPEEARS gagal/tidak terkonfigurasi.
 - NASA POWER (`PRECTOTCORR`, `T2M`, `ALLSKY_SFC_SW_DWN`) di-fetch live untuk request GPS mode, di-cache 24h.
 - **Online retraining**: scheduler di `retrain_scheduler.py` retrain otomatis tiap `RETRAIN_FEEDBACK_THRESHOLD` feedback baru (default 10) + cron mingguan (Minggu 02.00).
@@ -178,8 +178,8 @@ panen-cerdas/
 │   ├── ndvi_fetcher.py               # NASA APPEEARS MOD13Q1 (single + time-series)
 │   ├── data_cache.py                 # cache POWER + APPEEARS (table climate_cache)
 │   ├── database.py                   # SQLAlchemy ORM + CRUD (Supabase Postgres)
-│   ├── bps_data.py                   # reader BPS produksi 2020-2025
-│   ├── provinces_data.py             # lookup 37 provinsi (kode BPS + centroid + alias)
+│   ├── kementan_data.py              # reader Kementan produksi 2020-2025
+│   ├── provinces_data.py             # lookup 37 provinsi (kode Kementan + centroid + alias)
 │   ├── feedback_router.py            # /api/feedback{,/stats,/history}
 │   ├── predictions_router.py         # /api/predictions{,/{id},/history}
 │   ├── dashboard_router.py           # /api/dashboard/{summary,trend}
@@ -187,15 +187,15 @@ panen-cerdas/
 │   ├── lahan_router.py               # /api/lahan
 │   ├── retrain_scheduler.py          # auto-retrain tiap N feedback / Minggu 02.00
 │   ├── scripts/                      # fetch_historical, prewarm_ndvi_cache, test_appeears_login
-│   ├── data/                         # bps_produksi.csv, nasa_power_cache.csv, yogyakarta_kecamatan.geojson
-│   ├── Data_Raw/                     # CSV mentah BPS per komoditas
+│   ├── data/                         # kementan_produksi.csv, nasa_power_cache.csv, yogyakarta_kecamatan.geojson
+│   ├── Data_Raw/                     # CSV mentah Kementan per komoditas
 │   ├── saved_models/                 # *.joblib artifacts (committed dari PanenPintar-V2)
 │   ├── .env                          # APPEEARS creds + Supabase DATABASE_URL (gitignored)
 │   └── README.md
-├── backend-express/                  # Node Express gateway (port 4400)
+├── backend-express/                  # Node Express gateway (port 4200)
 │   ├── index.js
 │   ├── routes/{predict,feedback,health,passthrough}.js
-│   └── .env (PORT=4400, ML_SERVICE_URL=http://localhost:8000)
+│   └── .env (PORT=4200, ML_SERVICE_URL=http://localhost:8000)
 ├── frontend/                         # Next.js 14 App Router
 │   └── src/
 │       ├── app/

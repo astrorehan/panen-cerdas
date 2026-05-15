@@ -1,21 +1,21 @@
 """
-scripts/parse_bps.py
+scripts/parse_kementan.py
 --------------------
-Parse data produksi + luas panen PADI BPS per provinsi,
+Parse data produksi + luas panen PADI Kementan per provinsi,
 gabungkan dengan data iklim NASA POWER,
-output ke data/bps_produksi.csv siap pakai oleh model.py
+output ke data/kementan_produksi.csv siap pakai oleh model.py
 
-Catatan: File ini khusus untuk komoditas PADI karena data BPS yang
+Catatan: File ini khusus untuk komoditas PADI karena data Kementan yang
 tersedia adalah produksi padi. Untuk komoditas lain (jagung, kedelai,
 ubi jalar, ubi kayu, cabe, bawang), data historis di-generate oleh
 fetch_historical.py berbasis lokasi sentra produksi nyata.
 
 Cara pakai:
     cd ml-service
-    python scripts/parse_bps.py
+    python scripts/parse_kementan.py
 
 Output:
-    data/bps_produksi.csv   (khusus padi, 38 provinsi × 5 tahun)
+    data/kementan_produksi.csv   (khusus padi, 38 provinsi × 5 tahun)
 """
 
 import asyncio
@@ -30,8 +30,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from data_fetcher import fetch_climate_data, estimate_ndvi_from_season
 
 
-# ── DATA BPS: PRODUKSI PADI (ton GKG) ─────────────────
-BPS_PRODUKSI_HTML = """
+# ── DATA Kementan: PRODUKSI PADI (ton GKG) ─────────────────
+KEMENTAN_PRODUKSI_HTML = """
 <table>
 <thead><tr>
   <td>No</td><td>Provinsi</td>
@@ -80,9 +80,9 @@ BPS_PRODUKSI_HTML = """
 </table>
 """
 
-# ── DATA BPS: LUAS PANEN PADI (ha) ────────────────────
-# Sumber: BPS — data nyata per provinsi per tahun
-BPS_LUAS_HTML = """
+# ── DATA Kementan: LUAS PANEN PADI (ha) ────────────────────
+# Sumber: Kementan — data nyata per provinsi per tahun
+KEMENTAN_LUAS_HTML = """
 <table>
 <thead><tr>
   <td>No</td><td>Provinsi</td>
@@ -177,13 +177,13 @@ PROVINSI_COORDS = {
 EL_NINO_YEARS = {2023}
 LA_NINA_YEARS = {2021, 2022}
 
-# Baseline yield nasional BPS (untuk hitung risk_level)
+# Baseline yield nasional Kementan (untuk hitung risk_level)
 NASIONAL_YIELD_BASELINE = 5.2
 
 
 # ── PARSE HTML ─────────────────────────────────────────
 def parse_table(html: str, col_prefix: str) -> pd.DataFrame:
-    """Parse HTML table BPS menjadi DataFrame long format."""
+    """Parse HTML table Kementan menjadi DataFrame long format."""
     df = pd.read_html(StringIO(html))[0]
     df.columns = ["no", "provinsi",
                   f"{col_prefix}_2021", f"{col_prefix}_2022",
@@ -209,7 +209,7 @@ def build_training_rows(df_prod: pd.DataFrame, df_luas: pd.DataFrame,
     Gabungkan produksi + luas panen nyata + iklim NASA POWER
     menjadi baris training yang realistis.
 
-    yield_ton_per_ha = produksi_ton / luas_panen_ha (data nyata BPS)
+    yield_ton_per_ha = produksi_ton / luas_panen_ha (data nyata Kementan)
     → Hasilnya realistis ~3.5–6.5 ton/ha sesuai kondisi lapangan
     """
     tahun_list = [2021, 2022, 2023, 2024, 2025]
@@ -238,7 +238,7 @@ def build_training_rows(df_prod: pd.DataFrame, df_luas: pd.DataFrame,
             if produksi <= 0 or luas_panen <= 0:
                 continue
 
-            # ── YIELD: langsung dari data BPS (bukan estimasi) ───
+            # ── YIELD: langsung dari data Kementan (bukan estimasi) ───
             yield_ton_per_ha = round(produksi / luas_panen, 2)
             # Clamp ke range realistis padi Indonesia: 2.5–7.5 ton/ha
             yield_ton_per_ha = round(max(2.5, min(7.5, yield_ton_per_ha)), 2)
@@ -307,8 +307,8 @@ def build_training_rows(df_prod: pd.DataFrame, df_luas: pd.DataFrame,
                 "provinsi":          provinsi,
                 "tahun":             tahun,
                 "produksi_ton":      produksi,
-                "luas_panen_ha":     luas_panen,   # data nyata BPS
-                "data_source":       "bps_kementan",
+                "luas_panen_ha":     luas_panen,   # data nyata Kementan
+                "data_source":       "kementan",
             })
 
     return rows
@@ -316,16 +316,16 @@ def build_training_rows(df_prod: pd.DataFrame, df_luas: pd.DataFrame,
 
 async def main():
     print("=" * 62)
-    print("  🌾 PanenCerdas — Parse BPS Produksi + Luas Panen Padi")
+    print("  🌾 PanenCerdas — Parse Kementan Produksi + Luas Panen Padi")
     print("=" * 62)
 
     data_dir = Path(__file__).parent.parent / "data"
     data_dir.mkdir(exist_ok=True)
 
-    # Step 1: Parse kedua tabel BPS
-    print("\n📋 Parsing tabel BPS...")
-    df_prod = parse_table(BPS_PRODUKSI_HTML, "prod")
-    df_luas = parse_table(BPS_LUAS_HTML,     "luas")
+    # Step 1: Parse kedua tabel Kementan
+    print("\n📋 Parsing tabel Kementan...")
+    df_prod = parse_table(KEMENTAN_PRODUKSI_HTML, "prod")
+    df_luas = parse_table(KEMENTAN_LUAS_HTML,     "luas")
     print(f"   Produksi : {len(df_prod)} provinsi")
     print(f"   Luas panen: {len(df_luas)} provinsi")
 
@@ -400,7 +400,7 @@ async def main():
         print(f"\n   ✅ Semua yield dalam range realistis (2.5–7.5 ton/ha)")
 
     # Step 5: Simpan
-    output_path = data_dir / "bps_produksi.csv"
+    output_path = data_dir / "kementan_produksi.csv"
     result_df.to_csv(output_path, index=False)
     print(f"\n✅ Tersimpan di: {output_path}")
     print("\n📋 Langkah selanjutnya:")

@@ -4,12 +4,12 @@ dashboard_router.py
 Endpoints untuk dashboard pemerintah (KPI tiles + tren produksi).
 
 Sumber data real (v3.0 - tidak lagi hardcoded):
-  - bps_data.py        : BPS produksi 2020-2025 untuk 38 provinsi x 9 komoditas
+  - kementan_data.py        : Kementan produksi 2020-2025 untuk 38 provinsi x 9 komoditas
   - database.py        : prediction_log + training_feedback + model_version
                          (signal pemakaian aplikasi & akurasi model aktif)
 
 Tile dibangun dari:
-  - "Prediksi Produksi <crop>"  : produksi BPS tahun terbaru utk provinsi
+  - "Prediksi Produksi <crop>"  : produksi Kementan tahun terbaru utk provinsi
                                   yang diminta + delta YoY
   - "Akurasi Model"             : MAE yield + risk_accuracy dari ModelVersion
                                   aktif (DB)
@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-import bps_data
+import kementan_data
 from database import (
     get_db,
     PredictionLog,
@@ -67,20 +67,20 @@ def summary(
     KPI dashboard pemerintah - SEMUA dari sumber real.
 
     Tile (berdasarkan provinsi + komoditas yang dipilih):
-      1. Produksi BPS terbaru (provinsi, komoditas)
+      1. Produksi Kementan terbaru (provinsi, komoditas)
       2. Delta YoY produksi total provinsi
       3. Akurasi model aktif (MAE yield + risk accuracy)
       4. Total prediksi aplikasi + feedback masuk
     """
-    bps_summary = bps_data.summary(province)
-    by_crop     = {row["crop_type"]: row for row in bps_summary["by_crop"]}
+    kementan_summary = kementan_data.summary(province)
+    by_crop     = {row["crop_type"]: row for row in kementan_summary["by_crop"]}
     crop_row    = by_crop.get(commodity)
     crop_label  = commodity.replace("_", " ").title()
 
     if crop_row:
         produksi_str = _fmt_ton(crop_row["produksi_ton"])
         produksi_delta = (
-            f"BPS {crop_row['year']} - yield {crop_row['yield_ton_per_ha']:.2f} t/ha"
+            f"Kementan {crop_row['year']} - yield {crop_row['yield_ton_per_ha']:.2f} t/ha"
         )
         produksi_positive = True
         crop_year = crop_row["year"]
@@ -88,10 +88,10 @@ def summary(
         produksi_str = "tidak ada data"
         produksi_delta = f"{province} - {commodity}"
         produksi_positive = False
-        crop_year = bps_summary["year_range"][1] or bps_data.latest_year()
+        crop_year = kementan_summary["year_range"][1] or kementan_data.latest_year()
 
     # YoY: gunakan delta khusus komoditas yang dipilih
-    delta_pct = bps_data.yoy_delta_pct(province, commodity)
+    delta_pct = kementan_data.yoy_delta_pct(province, commodity)
     yoy_str, yoy_positive = _fmt_delta(delta_pct)
 
     # Model accuracy dari DB
@@ -159,22 +159,22 @@ def trend(
     commodity: str = "padi",
 ) -> YieldTrend:
     """
-    Tren produksi+yield 2020-2025 dari BPS.
+    Tren produksi+yield 2020-2025 dari Kementan.
 
-    Tahun terakhir di data dianggap "prediksi" (data BPS sering revised
+    Tahun terakhir di data dianggap "prediksi" (data Kementan sering revised
     selama 6 bulan setelah rilis, jadi angka tahun berjalan masih
     sementara). Tahun-tahun sebelumnya = "aktual".
 
     Unit dipilih otomatis: kalau ada angka >= 1 jt ton -> "juta ton",
     kalau cuma puluhan/ratusan ribu -> "ribu ton".
     """
-    rows = bps_data.trend(province, commodity)
+    rows = kementan_data.trend(province, commodity)
 
     if not rows:
         raise HTTPException(
             status_code=404,
             detail=(
-                f"BPS tidak punya data untuk {commodity} di {province}. "
+                f"Kementan tidak punya data untuk {commodity} di {province}. "
                 f"Pilih komoditas/provinsi lain."
             ),
         )

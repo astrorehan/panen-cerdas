@@ -41,13 +41,13 @@ npm run dev
 
 Buka:
 - Frontend: http://localhost:3000
-- Express health: http://localhost:4400/api/health
+- Express health: http://localhost:4200/api/health
 - ML Swagger: http://localhost:8000/docs
 
 ## Branch Strategy
 
 - `main` - selalu jalan, demo-ready
-- `feat/<nama>` - feature branch per fitur. Contoh: `feat/real-bps-training`, `feat/gee-ndvi`
+- `feat/<nama>` - feature branch per fitur. Contoh: `feat/real-kementan-training`, `feat/gee-ndvi`
 
 ```bash
 git checkout main
@@ -76,7 +76,7 @@ Lihat:
 - `frontend/src/types/index.ts` (TypeScript mirror)
 - Swagger interaktif: http://localhost:8000/docs
 
-Endpoint yang sudah ada (lewat Express `:4400`):
+Endpoint yang sudah ada (lewat Express `:4200`):
 
 | Method | Path | Sumber |
 |--------|------|--------|
@@ -93,7 +93,7 @@ Endpoint yang sudah ada (lewat Express `:4400`):
 
 ```powershell
 # Backend smoke test (manual)
-curl -X POST http://localhost:4400/api/predict `
+curl -X POST http://localhost:4200/api/predict `
   -H "Content-Type: application/json" `
   -d '{\"crop_type\":\"padi\",\"land_area_ha\":1.5,\"pest_pressure\":0.3,\"variety\":\"Ciherang\",\"ndvi\":0.7}'
 

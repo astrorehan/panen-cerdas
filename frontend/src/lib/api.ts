@@ -15,7 +15,7 @@ import type {
   YieldTrend,
 } from "@/types";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4400";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4200";
 
 async function get<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

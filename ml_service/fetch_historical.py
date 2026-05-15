@@ -16,7 +16,7 @@ Cara pakai:
 
 Output:
   data/nasa_power_cache.csv   ← data iklim + NDVI per lokasi sample
-  data/bps_template.csv       ← template CSV untuk isi data BPS manual
+  data/kementan_template.csv       ← template CSV untuk isi data Kementan manual
 
 Estimasi waktu:
   Dengan NDVI real  : ~15–25 menit (APPEEARS perlu waktu proses)
@@ -187,34 +187,34 @@ async def main():
     print(f"   Sumber NDVI   : {ndvi_src_counts}")
     print(f"   Sumber iklim  : {climate_counts}")
 
-    _create_bps_template(data_dir)
+    _create_kementan_template(data_dir)
 
     print("\n📋 Langkah selanjutnya:")
-    print("   1. (Opsional) Isi data/bps_template.csv dengan data BPS nyata")
-    print("      lalu rename jadi bps_produksi.csv")
+    print("   1. (Opsional) Isi data/kementan_template.csv dengan data Kementan nyata")
+    print("      lalu rename jadi kementan_produksi.csv")
     print("   2. Jalankan: python train.py")
     print("   3. Jalankan: python main.py")
 
 
-def _create_bps_template(data_dir: Path):
-    template_path = data_dir / "bps_template.csv"
+def _create_kementan_template(data_dir: Path):
+    template_path = data_dir / "kementan_template.csv"
     headers = [
         "ndvi", "ndvi_source", "rainfall_mm", "temperature_c", "solar_radiation",
         "land_area_ha", "crop_type", "harvest_days", "yield_ton_per_ha",
         "risk_level", "provinsi", "tahun", "data_source"
     ]
     example_rows = [
-        [0.68, "bps_manual", 180, 27.5, 195, 1.5, "padi",    105, 5.3, "low",    "Jawa Timur",  2023, "bps"],
-        [0.55, "bps_manual",  95, 29.0, 210, 2.0, "jagung",   98, 5.1, "medium", "Jawa Tengah", 2023, "bps"],
-        [0.50, "bps_manual", 120, 28.0, 185, 0.8, "kedelai",  90, 1.4, "medium", "Jawa Barat",  2023, "bps"],
+        [0.68, "kementan_manual", 180, 27.5, 195, 1.5, "padi",    105, 5.3, "low",    "Jawa Timur",  2023, "kementan"],
+        [0.55, "kementan_manual",  95, 29.0, 210, 2.0, "jagung",   98, 5.1, "medium", "Jawa Tengah", 2023, "kementan"],
+        [0.50, "kementan_manual", 120, 28.0, 185, 0.8, "kedelai",  90, 1.4, "medium", "Jawa Barat",  2023, "kementan"],
     ]
     with open(template_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(headers)
         writer.writerows(example_rows)
 
-    print(f"\n📄 Template BPS tersimpan di: {template_path}")
-    print("   → Isi dengan data nyata dari bps.go.id lalu rename ke bps_produksi.csv")
+    print(f"\n📄 Template Kementan tersimpan di: {template_path}")
+    print("   → Isi dengan data nyata dari kementan.go.id lalu rename ke kementan_produksi.csv")
 
 
 if __name__ == "__main__":

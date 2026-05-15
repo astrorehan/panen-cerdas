@@ -9,7 +9,7 @@ if str(ML_SERVICE) not in sys.path:
 
 
 def test_import_pipeline() -> None:
-    from pipeline import sentinel, weather, bps, features  # noqa: F401
+    from pipeline import sentinel, weather, kementan, features  # noqa: F401
 
 
 def test_import_ml_service_model() -> None:

@@ -19,8 +19,9 @@ type AppNavItem = { href: string; label: string };
 const PETANI_ITEMS: AppNavItem[] = [
   { href: "/petani/dashboard", label: "Dashboard" },
   { href: "/petani/prediksi", label: "Prediksi" },
-  { href: "/petani/lahan", label: "Lahan" },
-  { href: "/petani/cuaca", label: "Cuaca" },
+  { href: "/petani/riwayat",  label: "Riwayat" },
+  { href: "/petani/lahan",    label: "Lahan" },
+  { href: "/petani/cuaca",    label: "Cuaca" },
 ];
 
 const PEMERINTAH_ITEMS: AppNavItem[] = [

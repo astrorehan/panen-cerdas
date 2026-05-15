@@ -18,7 +18,7 @@ Set-Location backend-express
 
 if (-not (Test-Path .env)) {
     Copy-Item .env.example .env
-    Write-Host "Created .env from example (PORT=4400)" -ForegroundColor Yellow
+    Write-Host "Created .env from example (PORT=4200)" -ForegroundColor Yellow
 }
 
 Write-Host "Installing npm deps (~1 min) ..." -ForegroundColor Cyan
@@ -31,4 +31,4 @@ Write-Host "Gateway ready. Start it with:" -ForegroundColor Green
 Write-Host "   cd backend-express" -ForegroundColor White
 Write-Host "   node index.js" -ForegroundColor White
 Write-Host ""
-Write-Host "Gateway listens on http://127.0.0.1:4400 and forwards /api/* to ml_service on :8000." -ForegroundColor Yellow
+Write-Host "Gateway listens on http://127.0.0.1:4200 and forwards /api/* to ml_service on :8000." -ForegroundColor Yellow

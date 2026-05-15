@@ -47,11 +47,11 @@ if __name__ == "__main__":
     # Cek apakah ada data real di folder data/
     data_dir = Path(__file__).parent / "data"
     has_nasa  = (data_dir / "nasa_power_cache.csv").exists()
-    has_bps   = (data_dir / "bps_produksi.csv").exists()
+    has_kementan = (data_dir / "kementan_produksi.csv").exists()
 
     print("\n📂 Sumber data yang tersedia:")
     print(f"   NASA POWER cache  : {'✅ ada' if has_nasa else '❌ belum ada (jalankan scripts/fetch_historical.py)'}")
-    print(f"   BPS produksi CSV  : {'✅ ada' if has_bps  else '⚠️  tidak ada (opsional, isi manual dari bps.go.id)'}")
+    print(f"   Kementan produksi CSV  : {'✅ ada' if has_kementan  else '⚠️  tidak ada (opsional, isi manual dari kementan.go.id)'}")
 
     db = None
     if args.with_db:

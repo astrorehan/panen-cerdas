@@ -1,7 +1,7 @@
-"""Parsing data BPS produksi padi historis.
+"""Parsing data Kementan produksi padi historis.
 
 Sumber:
-- bps.go.id → Statistik Pertanian → Produksi Padi per Kabupaten / Kecamatan
+- kementan.go.id → Statistik Pertanian → Produksi Padi per Kabupaten / Kecamatan
 - File biasanya .xlsx dengan multi-header, merged cells, footnote di bawah
 
 Output (target):
@@ -16,16 +16,16 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
-def parse_bps_excel(path: str | Path) -> "pd.DataFrame":
-    """Parse satu file Excel BPS jadi long-format DataFrame.
+def parse_kementan_excel(path: str | Path) -> "pd.DataFrame":
+    """Parse satu file Excel Kementan jadi long-format DataFrame.
 
-    Tips parsing Excel BPS yang berantakan:
+    Tips parsing Excel Kementan yang berantakan:
     - `pd.read_excel(path, header=[2, 3])` untuk multi-header
     - Drop baris footnote: filter dropna pada kolom kabupaten
     - Bersihkan nama kabupaten: hapus "Kab.", trim spasi, uppercase untuk join
     - Konversi tipe data: kadang ada karakter "*" atau "-" di angka
     """
-    raise NotImplementedError("TODO Day 2: implementasi parsing Excel BPS")
+    raise NotImplementedError("TODO Day 2: implementasi parsing Excel Kementan")
 
 
 def standardize_names(df: "pd.DataFrame", col: str = "kabupaten") -> "pd.DataFrame":
@@ -39,6 +39,6 @@ def standardize_names(df: "pd.DataFrame", col: str = "kabupaten") -> "pd.DataFra
     raise NotImplementedError("TODO Day 2: mapping + cleaning nama")
 
 
-def load_all_bps(raw_dir: str | Path) -> "pd.DataFrame":
-    """Load semua file BPS di direktori, concat jadi satu DataFrame panjang."""
+def load_all_kementan(raw_dir: str | Path) -> "pd.DataFrame":
+    """Load semua file Kementan di direktori, concat jadi satu DataFrame panjang."""
     raise NotImplementedError("TODO Day 2")

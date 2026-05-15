@@ -102,7 +102,7 @@ export function TrendChart({ trend }: Props) {
       <div className="mt-4 flex items-center gap-5 border-t border-border pt-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="h-0.5 w-5 rounded-full" style={{ background: PRIMARY }} />
-          Aktual BPS
+          Aktual Kementan
         </span>
         <span className="flex items-center gap-1.5">
           <span

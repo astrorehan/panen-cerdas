@@ -44,7 +44,7 @@ const COLLAB = [
   {
     icon: Handshake,
     title: "Kolaborasi institusi",
-    body: "Dinas Pertanian, Bulog, BPS, BMKG, atau perguruan tinggi yang ingin uji coba prediksi di wilayah lain - kami terbuka untuk pilot project.",
+    body: "Dinas Pertanian, Bulog, Kementan, BMKG, atau perguruan tinggi yang ingin uji coba prediksi di wilayah lain - kami terbuka untuk pilot project.",
   },
   {
     icon: Lightbulb,

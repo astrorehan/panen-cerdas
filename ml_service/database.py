@@ -18,7 +18,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Session
 from dotenv import load_dotenv
 
-load_dotenv()
+# Path eksplisit — ml_service/.env. Tanpa ini, kalau uvicorn dijalankan dari
+# project root (lihat ml_service/run.ps1) python-dotenv tidak ketemu .env
+# (default search = cwd + walk up, bukan walk down ke ml_service/).
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # ── CONFIG ─────────────────────────────────────────────
 # Default        : Supabase Postgres (multi-device).
@@ -90,6 +93,10 @@ class PredictionLog(Base):
         index=True,
     )
     lahan_id         = Column(String(50), nullable=True, index=True)
+    # Koordinat lahan saat prediksi (kalau user pakai GPS mode). Dipakai
+    # /api/lahan supaya halaman cuaca bisa fetch NASA POWER per-lahan.
+    lat              = Column(Float, nullable=True)
+    lon              = Column(Float, nullable=True)
     created_at       = Column(DateTime, default=datetime.utcnow)
     # Feedback (diisi nanti setelah panen)
     feedback_given   = Column(Boolean, default=False)
@@ -154,11 +161,40 @@ class ModelVersion(Base):
 
 # ── INIT DB ────────────────────────────────────────────
 def init_db():
-    """Buat semua tabel jika belum ada. Exclude tabel di schema 'auth'
-    karena itu di-manage oleh Supabase (auth.users)."""
+    """Buat semua tabel jika belum ada + migrasi kolom inkremental.
+
+    Exclude tabel di schema 'auth' karena di-manage oleh Supabase (auth.users
+    sudah ada di Supabase project — jangan coba CREATE).
+    """
     owned = [t for t in Base.metadata.sorted_tables if t.schema != "auth"]
     Base.metadata.create_all(bind=engine, tables=owned)
-    print("[OK] Database & tabel siap")
+    _migrate_prediction_log_lat_lon()
+
+    if DATABASE_URL.startswith("sqlite"):
+        print(
+            "⚠️  Pakai SQLite lokal — lahan TIDAK sinkron antar device.\n"
+            "   Untuk shared DB lintas device, set DATABASE_URL ke Supabase Postgres:\n"
+            "   postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
+        )
+    else:
+        host = DATABASE_URL.split("@")[-1].split("/")[0]
+        print(f"✅ Database & tabel siap ({host})")
+
+
+def _migrate_prediction_log_lat_lon():
+    """Tambah kolom lat/lon ke prediction_log kalau belum ada.
+
+    SQLAlchemy `create_all` hanya bikin tabel baru — tidak menambah kolom ke
+    tabel lama. Untuk DB lama (pre-v2.6) yang sudah punya prediction_log,
+    perlu ALTER TABLE. SQLite 3.35+ dan Postgres 9.6+ keduanya support
+    `ADD COLUMN` via try/except (kolom sudah ada → exception → abaikan).
+    """
+    for col in ("lat", "lon"):
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE prediction_log ADD COLUMN {col} FLOAT"))
+        except Exception:
+            pass
 
 
 # ── SESSION HELPER ─────────────────────────────────────
@@ -202,6 +238,8 @@ def save_prediction_log(db: Session, input_data: dict, output_data: dict) -> Pre
         model_source=output_data["model_source"],
         petani_id=normalize_petani_id(input_data.get("petani_id")),
         lahan_id=input_data.get("lahan_id"),
+        lat=input_data.get("lat"),
+        lon=input_data.get("lon"),
     )
     db.add(log)
     db.commit()

@@ -9,6 +9,7 @@ import {
   Layers,
   Sparkles,
   TrendingUp,
+  History,
   Bot,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -25,6 +26,14 @@ const QUICK_LINKS = [
       "Isi kondisi lahan dan terima prediksi panen + rekomendasi tindakan dari model ML.",
     cta: "Buka formulir",
     primary: true,
+  },
+  {
+    href: "/petani/riwayat",
+    icon: History,
+    title: "Riwayat Prediksi",
+    blurb:
+      "Daftar prediksi panen Anda. Beri umpan balik realisasi panen di sini setelah panen aktual.",
+    cta: "Lihat riwayat",
   },
   {
     href: "/petani/lahan",
@@ -149,7 +158,7 @@ export default function PetaniDashboardPage() {
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">Pintasan</h2>
             <span className="text-xs text-muted-foreground">
-              3 menu utama
+              4 menu utama
             </span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

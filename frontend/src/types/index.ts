@@ -69,7 +69,7 @@ export type GeoFeature =
         id: string;
         code: string;
         name: string;
-        bps_name: string;
+        kementan_name: string;
         capital: string;
         region: string;
         level: "province";
@@ -85,7 +85,7 @@ export type GeoJsonFC = {
 
 export type Province = {
   id: string;          // "PROV_<code>"
-  code: string;        // BPS 2-digit code
+  code: string;        // Kementan 2-digit code
   name: string;        // Display name
   capital: string;
   region: string;      // "Jawa" | "Sumatera" | ...
@@ -101,6 +101,8 @@ export type LahanItem = {
   last_harvest_days: number | null;
   last_risk_level: RiskLevel | null;
   last_land_area_ha: number | null;
+  last_lat: number | null;
+  last_lon: number | null;
   last_predicted_at: string;
   total_predictions: number;
   total_feedback: number;

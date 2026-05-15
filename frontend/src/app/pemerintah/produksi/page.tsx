@@ -107,7 +107,7 @@ export default function PetaPage() {
   const isNational = provinceKey === "ALL";
 
   // Pan map ke provinsi yang dipilih. DIY pakai centroid kecamatan, nasional
-  // pakai centroid Indonesia, provinsi lain pakai lat/lon dari BPS.
+  // pakai centroid Indonesia, provinsi lain pakai lat/lon dari Kementan.
   const mapView = useMemo<{ center: [number, number]; zoom: number }>(() => {
     if (isNational) return { center: [-2.5, 117.5], zoom: 5 };
     if (provinceKey === "DI Yogyakarta") return { center: [-7.855, 110.42], zoom: 10 };
@@ -261,7 +261,7 @@ export default function PetaPage() {
                 <p>Surplus &gt; +10% - Defisit &lt; -10%</p>
                 <p>
                   {isNational
-                    ? "Mode nasional menampilkan 37 provinsi sebagai bubble di centroid administratif. Surplus dihitung vs rata-rata yield BPS 3 tahun terakhir per provinsi."
+                    ? "Mode nasional menampilkan 37 provinsi sebagai bubble di centroid administratif. Surplus dihitung vs rata-rata yield Kementan 3 tahun terakhir per provinsi."
                     : "Mode DI Yogyakarta menampilkan 7 kecamatan pilot dengan polygon real. Provinsi lain belum punya batas kecamatan, pilih 'Indonesia' untuk view nasional."}
                 </p>
               </CardContent>

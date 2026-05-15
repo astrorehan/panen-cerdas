@@ -9,7 +9,7 @@ Cara pakai:
 
 Output:
   data/nasa_power_cache.csv   ← data iklim per lokasi sample
-  data/bps_template.csv       ← template CSV untuk isi data BPS manual
+  data/kementan_template.csv       ← template CSV untuk isi data Kementan manual
 
 Estimasi waktu: ~2–5 menit (tergantung koneksi internet)
 """
@@ -56,7 +56,7 @@ SAMPLE_LOCATIONS = [
     {"lat": -10.17, "lon": 123.61, "provinsi": "NTT",  "crop_type": "jagung", "land_area_ha": 1.2},
 ]
 
-# Estimasi harvest_days & yield per komoditas (dari data BPS historis)
+# Estimasi harvest_days & yield per komoditas (dari data Kementan historis)
 # Ini dipakai sebagai ground truth untuk data tanpa feedback petani
 HISTORICAL_STATS = {
     "padi":     {"harvest_days": 110, "yield_ton_per_ha": 5.2, "std_days": 15, "std_yield": 0.8},
@@ -124,19 +124,19 @@ async def main():
     print(f"\n✅ {len(rows)} baris data tersimpan di: {output_path}")
     print(f"   Sumber data: {df['data_source'].value_counts().to_dict()}")
 
-    # Buat template BPS (diisi manual)
-    _create_bps_template(data_dir)
+    # Buat template Kementan (diisi manual)
+    _create_kementan_template(data_dir)
 
     print("\n📋 Langkah selanjutnya:")
-    print("   1. (Opsional) Isi data/bps_template.csv dengan data BPS nyata")
-    print("      lalu rename jadi bps_produksi.csv")
+    print("   1. (Opsional) Isi data/kementan_template.csv dengan data Kementan nyata")
+    print("      lalu rename jadi kementan_produksi.csv")
     print("   2. Jalankan: python train.py")
     print("   3. Jalankan: python main.py")
 
 
-def _create_bps_template(data_dir: Path):
-    """Buat template CSV untuk data BPS (diisi manual dari website BPS)."""
-    template_path = data_dir / "bps_template.csv"
+def _create_kementan_template(data_dir: Path):
+    """Buat template CSV untuk data Kementan (diisi manual dari website Kementan)."""
+    template_path = data_dir / "kementan_template.csv"
 
     headers = [
         "ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
@@ -145,9 +145,9 @@ def _create_bps_template(data_dir: Path):
     ]
 
     example_rows = [
-        [0.68, 180, 27.5, 195, 1.5, "padi",   105, 5.3, "low",    "Jawa Timur", 2023, "bps"],
-        [0.55, 95,  29.0, 210, 2.0, "jagung", 98,  5.1, "medium", "Jawa Tengah",2023, "bps"],
-        [0.50, 120, 28.0, 185, 0.8, "kedelai",90,  1.4, "medium", "Jawa Barat", 2023, "bps"],
+        [0.68, 180, 27.5, 195, 1.5, "padi",   105, 5.3, "low",    "Jawa Timur", 2023, "kementan"],
+        [0.55, 95,  29.0, 210, 2.0, "jagung", 98,  5.1, "medium", "Jawa Tengah",2023, "kementan"],
+        [0.50, 120, 28.0, 185, 0.8, "kedelai",90,  1.4, "medium", "Jawa Barat", 2023, "kementan"],
     ]
 
     with open(template_path, "w", newline="") as f:
@@ -155,8 +155,8 @@ def _create_bps_template(data_dir: Path):
         writer.writerow(headers)
         writer.writerows(example_rows)
 
-    print(f"\n📄 Template BPS tersimpan di: {template_path}")
-    print("   → Isi dengan data nyata dari bps.go.id lalu rename ke bps_produksi.csv")
+    print(f"\n📄 Template Kementan tersimpan di: {template_path}")
+    print("   → Isi dengan data nyata dari kementan.go.id lalu rename ke kementan_produksi.csv")
 
 
 if __name__ == "__main__":

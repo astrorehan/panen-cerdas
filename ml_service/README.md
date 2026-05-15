@@ -26,12 +26,12 @@ ml_service/
 ├── ndvi_fetcher.py               ← Fetch NDVI dari NASA APPEEARS (single + time-series)
 │
 ├── database.py                   ← ORM + CRUD (SQLAlchemy + SQLite)
-├── bps_data.py                   ← Reader CSV BPS produksi 2021-2025
-├── provinces_data.py             ← Lookup 37 provinsi (kode BPS + centroid + alias)
+├── kementan_data.py                   ← Reader CSV Kementan produksi 2021-2025
+├── provinces_data.py             ← Lookup 37 provinsi (kode Kementan + centroid + alias)
 │
 ├── feedback_router.py            ← /api/feedback{,/stats,/history}
 ├── predictions_router.py         ← /api/predictions{,/{id},/history}  ← multi-provinsi
-├── dashboard_router.py           ← /api/dashboard/{summary,trend}     ← real BPS + DB
+├── dashboard_router.py           ← /api/dashboard/{summary,trend}     ← real Kementan + DB
 ├── regions_router.py             ← /api/regions/{geojson,provinces}
 ├── lahan_router.py               ← /api/lahan (derive dari prediction_log)
 │
@@ -47,17 +47,17 @@ ml_service/
 │
 ├── data/
 │   ├── nasa_power_cache.csv      ← ✅ Iklim historis NASA POWER
-│   ├── bps_produksi.csv          ← ✅ BPS 9 komoditas × 37 provinsi × 2020-2025
-│   ├── bps_template.csv          ← ⚠️ Template lama (dummy 3 baris)
+│   ├── kementan_produksi.csv          ← ✅ Kementan 9 komoditas × 37 provinsi × 2020-2025
+│   ├── kementan_template.csv          ← ⚠️ Template lama (dummy 3 baris)
 │   ├── pest_data.csv             ← 🔶 Referensi dummy untuk synthetic
 │   ├── variety_data.csv          ← 🔶 Referensi dummy untuk synthetic
 │   └── yogyakarta_kecamatan.geojson ← 7 kecamatan DIY (Sleman, Bantul, KP, GK)
 │
-├── Data_Raw/                     ← CSV mentah BPS per komoditas (sebelum convert)
+├── Data_Raw/                     ← CSV mentah Kementan per komoditas (sebelum convert)
 │   ├── produksi_*.csv
 │   ├── lahan_*.csv
 │   ├── temp_*.csv
-│   └── convert_bps_to_training.py
+│   └── convert_kementan_to_training.py
 │
 └── saved_models/                 ← Auto-dibuat saat train
     ├── harvest_days_model.joblib   ← RandomForestRegressor
@@ -145,7 +145,7 @@ Default `True` untuk keduanya. Schema `PredictInput` (`schemas.py`) sudah punya 
 ### Step 6 — Latih model
 
 ```bash
-# Pakai data yang ada (BPS + NASA cache + synthetic):
+# Pakai data yang ada (Kementan + NASA cache + synthetic):
 python train.py
 
 # + sertakan feedback petani dari database:
@@ -160,7 +160,7 @@ Output yang diharapkan:
                      'jagung', 'kedelai', 'padi', 'ubi_jalar', 'ubi_kayu']
    Fitur hama     : ✅
    Fitur varietas : ✅
-   Total data     : ~2000 baris (real BPS + synthetic)
+   Total data     : ~2000 baris (real Kementan + synthetic)
 🤖 Training harvest_days model (RandomForest)...
    MAE harvest_days : ±6.8 hari
 🌾 Training yield model (RandomForest, normalized ratio)...
@@ -205,7 +205,7 @@ Swagger UI: **http://localhost:8000/docs**
 
 ## 🔗 Endpoint Lengkap
 
-Semua endpoint pakai prefix `/api/`. Diakses lewat Express gateway (`:4400/api/*`) atau langsung ke FastAPI (`:8000/api/*`).
+Semua endpoint pakai prefix `/api/`. Diakses lewat Express gateway (`:4200/api/*`) atau langsung ke FastAPI (`:8000/api/*`).
 
 ### Petani
 | Method | URL | Keterangan |
@@ -222,10 +222,10 @@ Semua endpoint pakai prefix `/api/`. Diakses lewat Express gateway (`:4400/api/*
 ### Pemerintah
 | Method | URL | Keterangan |
 |--------|-----|------------|
-| GET | `/api/dashboard/summary?province=&commodity=` | 4 tile KPI (BPS terbaru + DB activity) |
-| GET | `/api/dashboard/trend?province=&commodity=` | Tren produksi 2020-2025 (real BPS) |
+| GET | `/api/dashboard/summary?province=&commodity=` | 4 tile KPI (Kementan terbaru + DB activity) |
+| GET | `/api/dashboard/trend?province=&commodity=` | Tren produksi 2020-2025 (real Kementan) |
 | GET | `/api/predictions?province=&commodity=` | Prediksi per region (3 mode — lihat below) |
-| GET | `/api/predictions/{region_id}?commodity=` | Detail region (NDVI series + backtest real BPS) |
+| GET | `/api/predictions/{region_id}?commodity=` | Detail region (NDVI series + backtest real Kementan) |
 | GET | `/api/regions/geojson?province=` | Polygon DIY ATAU Point centroid 37 provinsi |
 | GET | `/api/regions/provinces` | Daftar 37 provinsi (untuk dropdown) |
 
@@ -240,11 +240,11 @@ Semua endpoint pakai prefix `/api/`. Diakses lewat Express gateway (`:4400/api/*
 ### Mode `/api/predictions?province=`:
 - `province=DI Yogyakarta` → **7 kecamatan DIY** (kecamatan-level)
 - `province=ALL` (alias: `Indonesia`, `Nasional`) → **37 provinsi** sekaligus (provincial-level)
-- `province=Jawa Barat` (atau nama provinsi lain) → **1 row provincial** (centroid + BPS luas)
+- `province=Jawa Barat` (atau nama provinsi lain) → **1 row provincial** (centroid + Kementan luas)
 
 ### Mode `/api/predictions/{region_id}`:
 - `region_id="3404130"` → kecamatan DIY (lookup `KECAMATAN_DATA`)
-- `region_id="PROV_32"` → provinsi (lookup BPS code)
+- `region_id="PROV_32"` → provinsi (lookup Kementan code)
 
 ---
 
@@ -303,7 +303,7 @@ curl -X POST "http://localhost:8000/api/predict?petani_id=petani_abc&lahan_id=Pe
 
 | Sumber | Status | Lokasi | Kontribusi |
 |--------|--------|--------|------------|
-| BPS produksi 2020-2025 | ✅ Real | `data/bps_produksi.csv` | 37 provinsi × 9 komoditas, ~1.500 baris training |
+| Kementan produksi 2020-2025 | ✅ Real | `data/kementan_produksi.csv` | 37 provinsi × 9 komoditas, ~1.500 baris training |
 | NASA POWER cache | ✅ Real | `data/nasa_power_cache.csv` | Iklim 20+ lokasi Indonesia |
 | Feedback petani | 🔄 Akumulasi | DB (`training_feedback`) | Bertambah seiring pemakaian |
 | MODIS NDVI APPEEARS | ✅ Real (kalau prewarm) | DB cache | Per-koordinat, TTL 24 jam |
@@ -317,7 +317,7 @@ curl -X POST "http://localhost:8000/api/predict?petani_id=petani_abc&lahan_id=Pe
 
 ```
 Data Real:
-  bps_produksi.csv      → 37 provinsi × 9 crop × 5 tahun        [~1.500 baris]
+  kementan_produksi.csv      → 37 provinsi × 9 crop × 5 tahun        [~1.500 baris]
   nasa_power_cache.csv  → iklim 20+ lokasi                       [~20 baris]
   Feedback petani (DB)  → hasil panen aktual                     [akumulasi]
   APPEEARS NDVI cache   → NDVI MODIS per-koordinat               [on-demand]
@@ -398,11 +398,11 @@ Lengkapnya di `model.PEST_PRESSURE_MAP`.
 
 ## 🖥️ Integrasi dengan Express Gateway
 
-ML service dipanggil **lewat Express** di `localhost:4400`, bukan langsung. Express handle CORS + fallback:
+ML service dipanggil **lewat Express** di `localhost:4200`, bukan langsung. Express handle CORS + fallback:
 
 ```javascript
 // frontend/src/lib/api.ts
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4400";
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4200";
 
 // Predict — terima query opsional petani_id + lahan_id
 api.ml.predict(body, { petani_id: "petani_abc", lahan_id: "Petak Utara" });
@@ -443,7 +443,7 @@ app.use("/api/model",       passthroughRoute);
 Env backend:
 ```env
 ML_SERVICE_URL=http://localhost:8000     # development
-PORT=4400
+PORT=4200
 FRONTEND_URL=http://localhost:3000
 ```
 
@@ -518,7 +518,7 @@ Pilot kecamatan-level cuma untuk DIY (7 kecamatan punya centroid lat/lon + GeoJS
 
 **Q: Backtest 5 tahun di `/api/predictions/{id}` aktualnya dari mana?**
 
-Real dari `bps_produksi.csv` (yield = produksi/luas_panen per provinsi per tahun). Untuk kecamatan DIY, backtest pakai data provinsi DIY sebagai proxy karena BPS tidak rilis yield kecamatan-level.
+Real dari `kementan_produksi.csv` (yield = produksi/luas_panen per provinsi per tahun). Untuk kecamatan DIY, backtest pakai data provinsi DIY sebagai proxy karena Kementan tidak rilis yield kecamatan-level.
 
 **Q: Apakah bisa pakai model tanpa hama/varietas?**
 

@@ -191,7 +191,7 @@ def estimate_ndvi_from_season(lat: float, lon: float, crop_type: str) -> float:
       - Musim hujan (Okt–Mar): vegetasi lebih hijau → NDVI lebih tinggi
       - Musim kemarau (Apr–Sep): vegetasi lebih kering → NDVI lebih rendah
 
-    Nilai sinkron dengan convert_bps_to_training.NDVI_BASE dan
+    Nilai sinkron dengan convert_kementan_to_training.NDVI_BASE dan
     predictions_router._BASE_NDVI — update ketiganya jika ada perubahan.
     """
     month = datetime.today().month

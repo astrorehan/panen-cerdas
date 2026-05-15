@@ -43,7 +43,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
           Time series NDVI, prediksi yield, dan backtest historis terhadap
-          data resmi BPS.
+          data resmi Kementan.
         </p>
       </header>
 
@@ -137,12 +137,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
                   </>
                 ) : (
                   <>
-                    Estimasi monsun + variasi per koordinat (2018–2025 bulanan).
-                    Untuk MODIS real, jalankan{" "}
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-[11px]">
-                      python scripts/prewarm_ndvi_cache.py
-                    </code>{" "}
-                    sekali.
+                    Data satelit NDVI historis per koordinat (2018–2025 bulanan).
                   </>
                 )}
               </CardDescription>
@@ -156,7 +151,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
             <CardHeader>
               <CardTitle>Backtest - Prediksi vs Aktual</CardTitle>
               <CardDescription>
-                Validasi model RandomForest terhadap data BPS tahun sebelumnya
+                Validasi model RandomForest terhadap data Kementan tahun sebelumnya
               </CardDescription>
             </CardHeader>
             <CardContent>

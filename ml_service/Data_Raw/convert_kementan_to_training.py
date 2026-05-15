@@ -1,11 +1,11 @@
 """
-convert_bps_to_training.py
+convert_kementan_to_training.py
 --------------------------
-Konversi data BPS/Kementan ke format training PanenCerdas.
+Konversi data Kementan ke format training PanenCerdas.
 
 Mendukung DUA format input sekaligus:
 
-FORMAT 1 — WIDE (format asli dari website Kementan/BPS):
+FORMAT 1 — WIDE (format asli dari website Kementan):
   Kolom tahun tersebar horizontal, nilai adalah PRODUKSI (ton).
   Contoh:
     No, Provinsi, 2021, 2022, 2023, 2024, 2025, Pertumbuhan (%)
@@ -17,11 +17,11 @@ FORMAT 2 — LONG (format standar dengan satu baris per data):
     Jawa Timur, 2023, 9647658, 1788518
 
 Cara pakai:
-  python convert_bps_to_training.py --input padi_kementan.csv --crop padi
-  python convert_bps_to_training.py --input padi.csv jagung.csv kedelai.csv
-  python convert_bps_to_training.py --input padi_prod.csv --luas padi_luas.csv --crop padi
-  python convert_bps_to_training.py --input data.csv --no-nasa
-  python convert_bps_to_training.py --input data.csv --crop padi --dry-run
+  python convert_kementan_to_training.py --input padi_kementan.csv --crop padi
+  python convert_kementan_to_training.py --input padi.csv jagung.csv kedelai.csv
+  python convert_kementan_to_training.py --input padi_prod.csv --luas padi_luas.csv --crop padi
+  python convert_kementan_to_training.py --input data.csv --no-nasa
+  python convert_kementan_to_training.py --input data.csv --crop padi --dry-run
 
 Perbaikan v2.7 (fix bug merge --luas WIDE):
   BUG-A: parse_number() tidak dipanggil pada luas_panen_ha setelah melt WIDE,
@@ -771,7 +771,7 @@ def compute_risk(yield_val, crop_type):
     return "low" if ratio >= 0.85 else ("medium" if ratio >= 0.65 else "high")
 
 
-def estimate_ndvi_bps(crop_type: str, provinsi: str) -> float:
+def estimate_ndvi_kementan(crop_type: str, provinsi: str) -> float:
     month  = CROP_PEAK_MONTH.get(crop_type, 6)
     is_wet = month in (10, 11, 12, 1, 2, 3)
     wet_ndvi, dry_ndvi = NDVI_BASE.get(crop_type, NDVI_FALLBACK)
@@ -795,11 +795,11 @@ def enrich_with_static_values(df):
         lambda r: compute_risk(r["yield_ton_per_ha"], r["crop_type"]), axis=1
     )
     df["ndvi"]         = df.apply(
-        lambda r: estimate_ndvi_bps(r["crop_type"], r["provinsi"]), axis=1
+        lambda r: estimate_ndvi_kementan(r["crop_type"], r["provinsi"]), axis=1
     )
     df["ndvi_source"]  = "seasonal_estimate"
     df["land_area_ha"] = 2.0
-    df["data_source"]  = "bps_kementan"
+    df["data_source"]  = "kementan"
     return df
 
 
@@ -896,33 +896,33 @@ def enrich_with_nasa(df):
 # ── MAIN ───────────────────────────────────────────────
 def main():
     parser = argparse.ArgumentParser(
-        description="Konversi data BPS/Kementan ke format training PanenCerdas",
+        description="Konversi data Kementan ke format training PanenCerdas",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 Komoditas yang didukung: {', '.join(VALID_CROPS)}
 
 Contoh:
   # Produksi + luas panen dari file terpisah (paling akurat)
-  python convert_bps_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung
+  python convert_kementan_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung
 
   # Semua 9 komoditas sekaligus (crop ditebak dari nama file)
-  python convert_bps_to_training.py \\
+  python convert_kementan_to_training.py \\
     --input produksi_padi.csv produksi_jagung.csv produksi_kedelai.csv \\
             produksi_ubi_kayu.csv produksi_ubi_jalar.csv \\
             produksi_cabe_besar.csv produksi_cabe_rawit.csv \\
             produksi_bawang_merah.csv produksi_bawang_putih.csv
 
   # Tanpa fetch NASA (pakai nilai iklim default)
-  python convert_bps_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung --no-nasa
+  python convert_kementan_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung --no-nasa
 
   # Preview saja tanpa simpan
-  python convert_bps_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung --dry-run
+  python convert_kementan_to_training.py --input produksi_jagung.csv --luas lahan_jagung.csv --crop jagung --dry-run
         """
     )
     parser.add_argument("--input", "-i", nargs="+", required=True)
     parser.add_argument("--crop",  "-c", default=None, choices=VALID_CROPS)
     parser.add_argument("--luas",  "-l", default=None)
-    parser.add_argument("--output","-o", default="data/bps_produksi.csv")
+    parser.add_argument("--output","-o", default="data/kementan_produksi.csv")
     parser.add_argument("--no-nasa",    action="store_true")
     parser.add_argument("--dry-run",    action="store_true")
     args = parser.parse_args()

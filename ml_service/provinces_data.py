@@ -1,18 +1,18 @@
 """
 provinces_data.py
 -----------------
-Lookup tabel 37 provinsi Indonesia: kode BPS + nama display + nama di
-CSV BPS + centroid lat/lon administratif + ibukota.
+Lookup tabel 37 provinsi Indonesia: kode Kementan + nama display + nama di
+CSV Kementan + centroid lat/lon administratif + ibukota.
 
 Centroid lat/lon = titik tengah area administratif provinsi (referensi
 publik: Wikipedia "List of provinces of Indonesia", Google Maps). Dipakai
 oleh predictions_router untuk fetch iklim NASA POWER ketika request
 mode provinsi (non-DIY).
 
-Provinsi Papua Barat Daya (kode 96, dibentuk 2022) belum punya data BPS
+Provinsi Papua Barat Daya (kode 96, dibentuk 2022) belum punya data Kementan
 produksi terpisah; sementara digabung dengan Papua Barat di CSV.
 
-`bps_name` = string persis di kolom `provinsi` CSV `bps_produksi.csv`.
+`kementan_name` = string persis di kolom `provinsi` CSV `kementan_produksi.csv`.
 """
 
 from dataclasses import dataclass
@@ -21,9 +21,9 @@ from typing import Optional
 
 @dataclass(frozen=True)
 class Province:
-    code:        str   # BPS 2-digit code
+    code:        str   # Kementan 2-digit code
     name:        str   # Display name (Title Case)
-    bps_name:    str   # UPPERCASE persis di CSV BPS
+    kementan_name:    str   # UPPERCASE persis di CSV Kementan
     lat:         float
     lon:         float
     capital:     str
@@ -78,7 +78,7 @@ PROVINCES: list[Province] = [
 
 
 # Index untuk lookup cepat
-_BY_BPS_NAME: dict[str, Province] = {p.bps_name: p for p in PROVINCES}
+_BY_KEMENTAN_NAME: dict[str, Province] = {p.kementan_name: p for p in PROVINCES}
 _BY_NAME:     dict[str, Province] = {p.name.upper(): p for p in PROVINCES}
 _BY_CODE:     dict[str, Province] = {p.code: p for p in PROVINCES}
 
@@ -115,8 +115,8 @@ def get(province: str) -> Optional[Province]:
         return None
     key = province.strip().upper()
 
-    if key in _BY_BPS_NAME:
-        return _BY_BPS_NAME[key]
+    if key in _BY_KEMENTAN_NAME:
+        return _BY_KEMENTAN_NAME[key]
     if key in _BY_NAME:
         return _BY_NAME[key]
     if key in _BY_CODE:

@@ -49,7 +49,7 @@ export default async function PemerintahDashboardPage() {
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Buletin ini meringkas prediksi hasil panen padi {summary.province} untuk{" "}
               {summary.season}, dihitung dari citra Sentinel-2, agregasi cuaca harian,
-              dan data historis BPS - tiga bulan sebelum panen aktual.
+              dan data historis Kementan - tiga bulan sebelum panen aktual.
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-surface p-5">
@@ -77,7 +77,7 @@ export default async function PemerintahDashboardPage() {
                   <Database className="h-3.5 w-3.5" />
                   Validasi
                 </dt>
-                <dd className="text-right font-medium">BPS MT 2023</dd>
+                <dd className="text-right font-medium">Kementan MT 2023</dd>
               </div>
             </dl>
           </div>
@@ -111,7 +111,7 @@ export default async function PemerintahDashboardPage() {
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Tren Produksi</h2>
           <span className="text-xs text-muted-foreground">
-            Sumber BPS - aktual 2020-2024, proyeksi tahun berjalan
+            Sumber Kementan - aktual 2020-2024, proyeksi tahun berjalan
           </span>
         </div>
         <Card>
