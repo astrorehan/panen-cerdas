@@ -4,7 +4,7 @@ const axios = require("axios");
 const router = express.Router({ mergeParams: true });
 
 const ML_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
-const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
+const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 20000;
 
 router.all(/.*/, async (req, res) => {
   const upstreamPath = req.baseUrl + (req.path === "/" ? "" : req.path);

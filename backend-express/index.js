@@ -20,10 +20,14 @@ app.use("/api/feedback", feedbackRoute);
 app.use("/api/health", healthRoute);
 
 // Pemerintah dashboard endpoints — forward to FastAPI unchanged so frontend
-// keeps a single base URL on :4400.
+// keeps a single base URL on :4200.
 app.use("/api/dashboard", passthroughRoute);
 app.use("/api/predictions", passthroughRoute);
 app.use("/api/regions", passthroughRoute);
+app.use("/api/weather", passthroughRoute);
+app.use("/api/lahan", passthroughRoute);
+app.use("/api/varieties", passthroughRoute);
+app.use("/api/model", passthroughRoute);
 
 app.get("/", (_req, res) => {
   res.json({
@@ -34,7 +38,7 @@ app.get("/", (_req, res) => {
   });
 });
 
-app.listen(PORT, HOST, () => {
-  console.log(`[express] listening on http://${HOST}:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`[express] listening on port ${PORT}`);
   console.log(`[express] proxying ML at ${process.env.ML_SERVICE_URL || "http://localhost:8000"}`);
 });

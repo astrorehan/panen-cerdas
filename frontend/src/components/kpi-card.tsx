@@ -1,3 +1,4 @@
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -8,13 +9,7 @@ type Props = {
   index?: number;
 };
 
-/**
- * KPI as a typographic composition, not a card.
- * The number is the page furniture — big Fraunces italic.
- */
 export function KpiCard({ label, value, delta, positive = true, index = 0 }: Props) {
-  // Split into a leading numeral + trailing unit/suffix when the value contains a space.
-  // e.g. "1.42 jt ton" -> numeral "1.42", unit "jt ton"
   const idx = value.indexOf(" ");
   const numeral = idx === -1 ? value : value.slice(0, idx);
   const unit = idx === -1 ? "" : value.slice(idx + 1);
@@ -22,40 +17,36 @@ export function KpiCard({ label, value, delta, positive = true, index = 0 }: Pro
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-2 py-5 pl-5 pr-3 animate-ink-rise",
-        `stagger-${Math.min(index + 1, 7)}`,
+        "group relative flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-elevated animate-fade-in-up",
+        `stagger-${Math.min(index + 1, 6)}`,
       )}
     >
-      {/* hairline on top-left like an L-bracket */}
-      <span className="absolute left-0 top-0 h-6 w-px bg-ink" aria-hidden />
-      <span className="absolute left-0 top-0 h-px w-6 bg-ink" aria-hidden />
-
-      <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
+      <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
 
-      <div className="flex items-baseline gap-2">
-        <span
-          className="font-display italic text-ink leading-none"
-          style={{ fontSize: "clamp(2.4rem, 2.5vw + 1.6rem, 3.6rem)", fontVariationSettings: '"opsz" 144, "SOFT" 30, "WONK" 0' }}
-        >
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-4xl font-semibold tracking-tight text-foreground">
           {numeral}
         </span>
         {unit && (
-          <span className="font-mono text-[11px] uppercase tracking-smallcaps text-ink-soft">
-            {unit}
-          </span>
+          <span className="text-sm font-medium text-muted-foreground">{unit}</span>
         )}
       </div>
 
       {delta && (
         <div
           className={cn(
-            "font-display text-[13px] italic",
-            positive ? "text-moss" : "text-clay",
+            "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+            positive ? "bg-primary-soft text-primary" : "bg-destructive/12 text-destructive",
           )}
         >
-          {positive ? "↗" : "↘"} {delta}
+          {positive ? (
+            <TrendingUp className="h-3 w-3" />
+          ) : (
+            <TrendingDown className="h-3 w-3" />
+          )}
+          {delta}
         </div>
       )}
     </div>

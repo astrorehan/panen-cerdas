@@ -4,7 +4,7 @@ const axios = require("axios");
 const router = express.Router();
 
 const ML_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
-const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 5000;
+const TIMEOUT_MS = Number(process.env.ML_TIMEOUT_MS) || 20000;
 
 function buildFallback(body) {
   const landArea = Number(body?.land_area_ha) || 1;
@@ -26,7 +26,8 @@ function buildFallback(body) {
 
 router.post("/", async (req, res) => {
   try {
-    const { data } = await axios.post(`${ML_URL}/predict`, req.body, {
+    const { data } = await axios.post(`${ML_URL}/api/predict`, req.body, {
+      params: req.query,
       timeout: TIMEOUT_MS,
       headers: { "Content-Type": "application/json" },
     });

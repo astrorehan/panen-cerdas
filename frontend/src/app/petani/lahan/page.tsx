@@ -1,162 +1,244 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ArrowRight, Layers, MapPin, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { SkeletonLoader } from "@/components/skeleton-loader";
+import { api } from "@/lib/api";
+import { getPetaniId } from "@/lib/auth";
+import type { LahanItem, LahanResponse } from "@/types";
 
-type LahanStatus = "tumbuh" | "panen-segera" | "kosong";
-
-const LAHAN: Array<{
-  id: string;
-  nama: string;
-  lokasi: string;
-  luas_ha: number;
-  komoditas: "padi" | "jagung" | "kedelai" | "singkong" | null;
-  varietas: string | null;
-  status: LahanStatus;
-  catatan: string;
-}> = [
-  {
-    id: "L01",
-    nama: "Petak Utara",
-    lokasi: "Cikajang, Bandung",
-    luas_ha: 1.5,
-    komoditas: "padi",
-    varietas: "Ciherang",
-    status: "tumbuh",
-    catatan: "Tanam 24 Feb 2026, perkiraan panen awal Juni.",
-  },
-  {
-    id: "L02",
-    nama: "Petak Tepi Sungai",
-    lokasi: "Cikajang, Bandung",
-    luas_ha: 0.6,
-    komoditas: "jagung",
-    varietas: "NK7328",
-    status: "panen-segera",
-    catatan: "Sudah 92 hari, NDVI menurun — siap dipanen pekan depan.",
-  },
-  {
-    id: "L03",
-    nama: "Petak Belakang Rumah",
-    lokasi: "Cikajang, Bandung",
-    luas_ha: 0.3,
-    komoditas: null,
-    varietas: null,
-    status: "kosong",
-    catatan: "Belum ditanam musim ini. Lihat /prediksi untuk simulasi.",
-  },
-];
-
-const STATUS_STYLE: Record<LahanStatus, { label: string; dot: string; bg: string }> = {
-  tumbuh: { label: "Sedang Tumbuh", dot: "bg-[#87A07D]", bg: "bg-[#87A07D]/15" },
-  "panen-segera": {
-    label: "Panen Segera",
-    dot: "bg-[#D4933A]",
-    bg: "bg-[#D4933A]/15",
-  },
-  kosong: { label: "Kosong", dot: "bg-ink/40", bg: "bg-paper-edge" },
+const STATUS_STYLE: Record<
+  LahanItem["status"],
+  { label: string; chip: string }
+> = {
+  tumbuh:         { label: "Sedang Tumbuh", chip: "bg-primary-soft text-primary" },
+  "panen-segera": { label: "Panen Segera",  chip: "bg-amber/15 text-amber" },
+  kosong:         { label: "Kosong",        chip: "bg-muted text-muted-foreground" },
 };
 
+const RISK_LABEL: Record<string, { label: string; tone: string }> = {
+  low:    { label: "Rendah",  tone: "text-primary" },
+  medium: { label: "Sedang",  tone: "text-amber" },
+  high:   { label: "Tinggi",  tone: "text-destructive" },
+};
+
+function formatCrop(c: string | null): string {
+  if (!c) return "-";
+  return c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("id-ID", {
+      day:   "2-digit",
+      month: "short",
+      year:  "numeric",
+    });
+  } catch {
+    return iso;
+  }
+}
+
 export default function LahanPage() {
-  const totalHa = LAHAN.reduce((acc, l) => acc + l.luas_ha, 0);
-  const aktif = LAHAN.filter((l) => l.status !== "kosong").length;
+  const [data, setData] = useState<LahanResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const petaniId = getPetaniId();
+    api.lahan
+      .list(petaniId)
+      .then((res) => {
+        if (cancelled) return;
+        setData(res);
+        setError(null);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setError(err.message || "Gagal memuat lahan");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="space-y-10">
-      <section>
-        <div className="meta-row">
-          <span className="h-px w-12 bg-ink" />
-          <span>§ Pasal III — Lahan Saya</span>
+    <div className="container space-y-8 py-8 md:py-12">
+      <header>
+        <div className="eyebrow">
+          <Layers className="h-3 w-3" />
+          Lahan Saya
         </div>
-        <h1
-          className="mt-5 font-display leading-[0.9] text-ink"
-          style={{
-            fontSize: "clamp(2.2rem, 5vw + 0.4rem, 4.5rem)",
-            fontVariationSettings: '"opsz" 144, "SOFT" 30',
-          }}
-        >
-          Catatan lahan
-          <br />
-          <span className="italic text-moss">yang Anda kelola.</span>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+          Catatan lahan yang Anda kelola
         </h1>
-        <p className="mt-5 max-w-prose font-display text-[16px] leading-relaxed text-ink-soft">
-          Setiap petak terdaftar memiliki komoditas, luas, status, dan
-          catatan terakhir. Data ini akan tersinkron dengan pengiriman
-          formulir prediksi pada Phase 7.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          Lahan tercatat otomatis setiap kali Anda kirim formulir prediksi
+          dengan nama lahan terisi. Data ini dibaca langsung dari log prediksi
+          di server, bukan mock.
         </p>
-      </section>
+      </header>
 
-      <section className="grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        <Stat label="Total Lahan" value={`${LAHAN.length}`} unit="petak" />
-        <Stat label="Total Luas" value={totalHa.toFixed(2)} unit="hektar" />
-        <Stat label="Aktif Bertanam" value={`${aktif}`} unit="petak" accent />
-      </section>
+      {loading && <SkeletonLoader label="Memuat lahan..." />}
 
-      <section className="space-y-4">
-        <div className="meta-row">
-          <span>§ III.1 — Daftar Petak</span>
+      {error && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/8 p-5 text-sm text-destructive">
+          {error}
         </div>
-        <div className="grid gap-4">
-          {LAHAN.map((l) => {
-            const s = STATUS_STYLE[l.status];
-            return (
-              <article
-                key={l.id}
-                className="border border-ink/20 bg-paper-deep/40"
-              >
-                <header className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule px-5 py-3">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-                      Lahan № {l.id} — {l.lokasi}
-                    </div>
-                    <h2
-                      className="mt-1 font-display text-xl italic text-ink"
-                      style={{ fontVariationSettings: '"opsz" 36, "SOFT" 50' }}
-                    >
-                      {l.nama}
-                    </h2>
-                  </div>
-                  <div
-                    className={`flex items-center gap-2 border border-ink/15 px-3 py-1 ${s.bg}`}
-                  >
-                    <span className={`h-2 w-2 rounded-full ${s.dot}`} />
-                    <span className="font-mono text-[10px] uppercase tracking-smallcaps text-ink">
-                      {s.label}
-                    </span>
-                  </div>
-                </header>
-                <div className="grid divide-y divide-rule sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                  <Cell
-                    label="Komoditas"
-                    value={l.komoditas ? l.komoditas : "—"}
-                  />
-                  <Cell
-                    label="Varietas"
-                    value={l.varietas ?? "—"}
-                  />
-                  <Cell label="Luas" value={`${l.luas_ha.toFixed(2)} ha`} />
-                </div>
-                <p className="border-t border-rule px-5 py-3 font-display text-[14px] italic leading-relaxed text-ink-soft">
-                  {l.catatan}
-                </p>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+      )}
 
-      <section className="flex flex-wrap items-center justify-between gap-4 border-t border-rule pt-6">
-        <p className="max-w-prose font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-          Lahan baru akan otomatis tercatat setelah simulasi prediksi pertama
-          dikirim — fitur final Phase 7.
-        </p>
-        <Button asChild>
-          <Link href="/petani/prediksi">Simulasi lahan baru →</Link>
-        </Button>
-      </section>
+      {data && !loading && (
+        <>
+          <section className="grid gap-3 sm:grid-cols-3">
+            <StatCard
+              label="Total Lahan"
+              value={`${data.total}`}
+              unit="petak"
+            />
+            <StatCard
+              label="Total Luas"
+              value={data.total_ha.toFixed(2)}
+              unit="hektar"
+            />
+            <StatCard
+              label="Aktif Bertanam"
+              value={`${data.aktif}`}
+              unit="petak"
+              accent
+            />
+          </section>
+
+          {data.items.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Daftar petak
+                </h2>
+                <span className="text-xs text-muted-foreground">
+                  {data.total} lahan
+                </span>
+              </div>
+              <div className="grid gap-3">
+                {data.items.map((l) => (
+                  <LahanCard key={l.lahan_id} item={l} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-muted/40 p-5">
+            <p className="max-w-md text-sm text-muted-foreground">
+              Lahan baru otomatis tercatat saat Anda kirim simulasi prediksi
+              dengan nama lahan terisi.
+            </p>
+            <Button asChild>
+              <Link href="/petani/prediksi">
+                Simulasi lahan baru
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </section>
+        </>
+      )}
     </div>
   );
 }
 
-function Stat({
+function LahanCard({ item }: { item: LahanItem }) {
+  const s = STATUS_STYLE[item.status];
+  const risk = item.last_risk_level
+    ? RISK_LABEL[item.last_risk_level]
+    : undefined;
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
+        <div>
+          <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <MapPin className="h-3 w-3" />
+            Lahan #{item.lahan_id}
+          </div>
+          <h3 className="mt-1.5 text-xl font-semibold tracking-tight">
+            {item.lahan_id}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Prediksi terakhir {formatDate(item.last_predicted_at)} -{" "}
+            {item.total_predictions}x prediksi
+            {item.total_feedback > 0
+              ? ` - ${item.total_feedback} feedback`
+              : ""}
+          </p>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.chip}`}
+        >
+          <Sprout className="h-3 w-3" />
+          {s.label}
+        </span>
+      </header>
+      <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-4">
+        <Cell label="Komoditas" value={formatCrop(item.last_crop_type)} />
+        <Cell
+          label="Luas"
+          value={
+            item.last_land_area_ha != null
+              ? `${item.last_land_area_ha.toFixed(2)} ha`
+              : "-"
+          }
+        />
+        <Cell
+          label="Yield prediksi"
+          value={
+            item.last_yield_ton_per_ha != null
+              ? `${item.last_yield_ton_per_ha.toFixed(2)} t/ha`
+              : "-"
+          }
+        />
+        <Cell
+          label="Risiko"
+          value={risk ? risk.label : "-"}
+          tone={risk?.tone}
+        />
+      </div>
+    </article>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="rounded-3xl border border-dashed border-border bg-muted/30 p-10 text-center">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+        <Layers className="h-6 w-6" />
+      </div>
+      <h3 className="mt-4 text-lg font-semibold tracking-tight">
+        Belum ada lahan terdaftar
+      </h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+        Setiap kali Anda kirim formulir prediksi dengan kolom &quot;Nama
+        lahan&quot; terisi, lahan tersebut akan otomatis muncul di sini.
+      </p>
+      <Button asChild className="mt-5">
+        <Link href="/petani/prediksi">
+          Buka formulir prediksi
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function StatCard({
   label,
   value,
   unit,
@@ -168,44 +250,41 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div className={`px-5 py-5 ${accent ? "bg-ink text-paper" : ""}`}>
+    <Card
+      className={`p-5 ${accent ? "border-primary/25 bg-gradient-to-br from-primary to-primary-deep text-primary-foreground" : ""}`}
+    >
       <div
-        className={`font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
-        }`}
+        className={`text-xs font-medium uppercase tracking-wider ${accent ? "text-primary-foreground/80" : "text-muted-foreground"}`}
       >
         {label}
       </div>
-      <div
-        className={`mt-1 font-display leading-none ${accent ? "text-paper" : "text-ink"}`}
-        style={{
-          fontSize: "clamp(1.8rem, 2.5vw + 0.6rem, 2.6rem)",
-          fontVariationSettings: '"opsz" 96, "SOFT" 30',
-        }}
-      >
-        {value}
+      <div className="mt-2 flex items-baseline gap-1.5">
+        <span className="text-3xl font-semibold tracking-tight">{value}</span>
+        <span
+          className={`text-sm ${accent ? "text-primary-foreground/80" : "text-muted-foreground"}`}
+        >
+          {unit}
+        </span>
       </div>
-      <div
-        className={`mt-1 font-mono text-[10px] uppercase tracking-smallcaps ${
-          accent ? "text-paper/60" : "text-ink-faint"
-        }`}
-      >
-        {unit}
-      </div>
-    </div>
+    </Card>
   );
 }
 
-function Cell({ label, value }: { label: string; value: string }) {
+function Cell({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
   return (
-    <div className="px-5 py-3">
-      <div className="font-mono text-[9px] uppercase tracking-smallcaps text-ink-faint">
+    <div className="px-5 py-4">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
-      <div
-        className="mt-1 font-display text-base italic text-ink"
-        style={{ fontVariationSettings: '"opsz" 36, "SOFT" 40' }}
-      >
+      <div className={`mt-1 text-sm font-semibold tracking-tight ${tone || ""}`}>
         {value}
       </div>
     </div>

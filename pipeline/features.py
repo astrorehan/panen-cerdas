@@ -1,4 +1,4 @@
-"""Feature engineering — join NDVI + cuaca + BPS, buat lag features.
+"""Feature engineering — join NDVI + cuaca + Kementan, buat lag features.
 
 Output target: tabel siap-training dengan kolom
     [kecamatan, kabupaten, tahun, musim_tanam,
@@ -23,7 +23,7 @@ GROWING_SEASON_MONTHS_PADI = {
 def build_feature_table(
     ndvi_df: "pd.DataFrame",
     weather_df: "pd.DataFrame",
-    bps_df: "pd.DataFrame",
+    kementan_df: "pd.DataFrame",
 ) -> "pd.DataFrame":
     """Join semua sumber data ke satu tabel siap-training.
 

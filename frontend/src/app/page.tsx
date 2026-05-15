@@ -1,16 +1,15 @@
-"use client";
+import { Hero } from "@/components/landing/hero";
+import { Features } from "@/components/landing/features";
+import { DashboardPreview } from "@/components/landing/dashboard-preview";
+import { CtaBanner } from "@/components/landing/cta-banner";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { getRole } from "@/lib/auth";
-import { SkeletonLoader } from "@/components/skeleton-loader";
-
-export default function RootRouter() {
-  const router = useRouter();
-  useEffect(() => {
-    const role = getRole();
-    if (!role) router.replace("/login");
-    else router.replace(`/${role}/dashboard`);
-  }, [router]);
-  return <SkeletonLoader label="Mengarahkan..." />;
+export default function LandingPage() {
+  return (
+    <>
+      <Hero />
+      <Features />
+      <DashboardPreview />
+      <CtaBanner />
+    </>
+  );
 }

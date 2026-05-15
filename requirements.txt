@@ -22,14 +22,16 @@ geemap>=0.35
 
 # ML
 scikit-learn>=1.5
-xgboost>=2.1
-lightgbm>=4.5
 joblib>=1.4
 
 # Utils
 python-dotenv>=1.0
 requests>=2.32
 tqdm>=4.66
+
+# Database
+sqlalchemy>=2.0
+psycopg2-binary>=2.9     # PostgreSQL driver (untuk shared DB lintas device via Supabase Postgres)
 
 # Dev
 pytest>=8.3

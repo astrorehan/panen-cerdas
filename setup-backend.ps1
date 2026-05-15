@@ -33,13 +33,14 @@ Write-Host "Activating venv ..." -ForegroundColor Cyan
 Write-Host "Upgrading pip ..." -ForegroundColor Cyan
 & python -m pip install --upgrade pip wheel setuptools
 
-Write-Host "Installing Python deps (3-5 min) ..." -ForegroundColor Cyan
-& pip install -r requirements.txt
+Write-Host "Installing ML service deps (1-2 min) ..." -ForegroundColor Cyan
+& pip install -r ml_service\requirements.txt
 
 Write-Host ""
 Write-Host "Backend ready. Start it with:" -ForegroundColor Green
 Write-Host "   .\.venv\Scripts\Activate.ps1" -ForegroundColor White
-Write-Host "   uvicorn ml_service.main:app --reload --port 8000" -ForegroundColor White
+Write-Host "   .\ml_service\run.ps1" -ForegroundColor White
+Write-Host "   # atau manual: uvicorn main:app --reload --port 8000 --app-dir ml_service" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Then visit:" -ForegroundColor Yellow
 Write-Host "   http://localhost:8000/docs  (Swagger UI)" -ForegroundColor White

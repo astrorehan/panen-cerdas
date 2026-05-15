@@ -1,9 +1,10 @@
 "use client";
 
 import {
+  Area,
   CartesianGrid,
   Line,
-  LineChart,
+  ComposedChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -13,10 +14,10 @@ import type { YieldTrend } from "@/types";
 
 type Props = { trend: YieldTrend };
 
-const INK = "#1A1D1B";
-const MOSS = "#2A3D2F";
-const SAFFRON = "#C97B1A";
-const RULE = "#C8C0A8";
+const PRIMARY = "#1F5132";
+const AMBER = "#C97B1A";
+const MUTED = "#6B7568";
+const BORDER = "#E7E2D6";
 
 export function TrendChart({ trend }: Props) {
   const data = trend.points.map((p) => ({
@@ -25,7 +26,6 @@ export function TrendChart({ trend }: Props) {
     prediksi: p.kind === "prediksi" ? p.value : null,
   }));
 
-  // Bridge the discontinuity so the line stays connected
   let last: number | null = null;
   for (const r of data) {
     if (r.aktual != null) last = r.aktual;
@@ -35,73 +35,83 @@ export function TrendChart({ trend }: Props) {
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 18, right: 16, bottom: 6, left: -6 }}>
-          <CartesianGrid stroke={RULE} strokeDasharray="0" vertical={false} />
+        <ComposedChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: -10 }}>
+          <defs>
+            <linearGradient id="aktualGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={PRIMARY} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={PRIMARY} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke={BORDER} strokeDasharray="2 4" vertical={false} />
           <XAxis
             dataKey="year"
-            stroke={INK}
-            strokeWidth={1}
-            tick={{ fill: INK, fontSize: 11, fontFamily: "var(--font-mono)" }}
-            tickMargin={10}
-            axisLine={{ stroke: INK, strokeWidth: 1 }}
-            tickLine={{ stroke: INK }}
-          />
-          <YAxis
-            stroke={INK}
-            tick={{ fill: INK, fontSize: 11, fontFamily: "var(--font-mono)" }}
-            tickMargin={6}
+            tick={{ fill: MUTED, fontSize: 11 }}
+            tickMargin={8}
             axisLine={false}
             tickLine={false}
-            width={42}
+          />
+          <YAxis
+            tick={{ fill: MUTED, fontSize: 11 }}
+            tickMargin={4}
+            axisLine={false}
+            tickLine={false}
+            width={36}
           />
           <Tooltip
-            cursor={{ stroke: INK, strokeDasharray: "2 4", strokeWidth: 1 }}
+            cursor={{ stroke: PRIMARY, strokeDasharray: "2 4", strokeWidth: 1 }}
             contentStyle={{
-              background: "#F4EFE6",
-              border: `1px solid ${INK}`,
-              borderRadius: 0,
-              fontFamily: "var(--font-mono)",
-              fontSize: 11,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              boxShadow: "3px 3px 0 rgba(26,29,27,0.12)",
+              background: "#FFFFFF",
+              border: `1px solid ${BORDER}`,
+              borderRadius: 12,
+              fontSize: 12,
+              padding: 10,
+              boxShadow: "0 4px 12px rgba(15,31,24,0.08)",
             }}
-            labelStyle={{ color: INK, fontWeight: 600 }}
-            formatter={(v: number | null) => (v == null ? "—" : `${v.toFixed(2)} ${trend.unit}`)}
+            labelStyle={{ color: "#0F1F18", fontWeight: 600, marginBottom: 4 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="aktual"
+            stroke="transparent"
+            fill="url(#aktualGrad)"
+            isAnimationActive={false}
           />
           <Line
             type="monotone"
             dataKey="aktual"
-            stroke={MOSS}
-            strokeWidth={2}
-            dot={{ r: 4, fill: MOSS, stroke: "#F4EFE6", strokeWidth: 2 }}
-            activeDot={{ r: 6, fill: MOSS, stroke: "#F4EFE6", strokeWidth: 2 }}
+            stroke={PRIMARY}
+            strokeWidth={2.2}
+            dot={{ r: 3.5, fill: PRIMARY, stroke: "#FFFFFF", strokeWidth: 2 }}
+            activeDot={{ r: 5.5, fill: PRIMARY, stroke: "#FFFFFF", strokeWidth: 2 }}
             name="Aktual"
             connectNulls
           />
           <Line
             type="monotone"
             dataKey="prediksi"
-            stroke={SAFFRON}
-            strokeWidth={2}
+            stroke={AMBER}
+            strokeWidth={2.2}
             strokeDasharray="5 4"
-            dot={{ r: 5, fill: "#F4EFE6", stroke: SAFFRON, strokeWidth: 2 }}
-            activeDot={{ r: 7, fill: SAFFRON, stroke: "#F4EFE6", strokeWidth: 2 }}
+            dot={{ r: 4, fill: "#FFFFFF", stroke: AMBER, strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: AMBER, stroke: "#FFFFFF", strokeWidth: 2 }}
             name="Prediksi"
             connectNulls
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
-      <div className="mt-3 flex items-center gap-5 border-t border-rule pt-3 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
+      <div className="mt-4 flex items-center gap-5 border-t border-border pt-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="h-[2px] w-5" style={{ background: MOSS }} /> Aktual BPS
+          <span className="h-0.5 w-5 rounded-full" style={{ background: PRIMARY }} />
+          Aktual Kementan
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="h-[2px] w-5"
-            style={{ background: `repeating-linear-gradient(to right, ${SAFFRON} 0, ${SAFFRON} 4px, transparent 4px, transparent 7px)` }}
+            className="h-0.5 w-5 rounded-full"
+            style={{
+              background: `repeating-linear-gradient(to right, ${AMBER} 0, ${AMBER} 4px, transparent 4px, transparent 7px)`,
+            }}
           />
-          Prediksi PanenCerdas
+          Prediksi Panen Cerdas
         </span>
       </div>
     </div>

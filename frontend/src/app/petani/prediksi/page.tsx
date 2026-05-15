@@ -1,27 +1,40 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Sparkles, MapPin, AlertCircle, History } from "lucide-react";
 import { api } from "@/lib/api";
+import { addLahanName, getLahanNames, getPetaniId } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ResultCard } from "@/components/result-card";
-import { FeedbackForm } from "@/components/feedback-form";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { cn } from "@/lib/utils";
 import type { CropType, PredictResponse } from "@/types";
 
 const CROPS: Array<{ id: CropType; label: string; subtitle: string }> = [
-  { id: "padi", label: "Padi", subtitle: "± 105 hari" },
+  { id: "padi", label: "Padi", subtitle: "± 110 hari" },
   { id: "jagung", label: "Jagung", subtitle: "± 100 hari" },
   { id: "kedelai", label: "Kedelai", subtitle: "± 85 hari" },
-  { id: "singkong", label: "Singkong", subtitle: "± 240 hari" },
+  { id: "ubi_jalar", label: "Ubi Jalar", subtitle: "± 120 hari" },
+  { id: "ubi_kayu", label: "Singkong", subtitle: "± 270 hari" },
+  { id: "cabe_besar", label: "Cabe Besar", subtitle: "± 90 hari" },
+  { id: "cabe_rawit", label: "Cabe Rawit", subtitle: "± 75 hari" },
+  { id: "bawang_merah", label: "Bawang Merah", subtitle: "± 65 hari" },
+  { id: "bawang_putih", label: "Bawang Putih", subtitle: "± 100 hari" },
 ];
 
-// Aligned with IMPROVED_VARIETIES in ml_service/api/ml.py.
 const VARIETIES: Record<CropType, string[]> = {
   padi: ["Lokal", "IR64", "Ciherang", "Inpari32", "Memberamo"],
   jagung: ["Lokal", "NK7328", "Pioneer36", "Bisi18"],
   kedelai: ["Lokal", "Anjasmoro", "Dena1", "Grobogan"],
-  singkong: ["Lokal", "UJ3", "Adira1", "Malang6"],
+  ubi_jalar: ["Lokal", "Cilembu", "Papua Solossa", "Sukuh"],
+  ubi_kayu: ["Lokal", "UJ5", "Adira1", "Malang6"],
+  cabe_besar: ["Lokal", "Lado", "Tit Super", "Gada"],
+  cabe_rawit: ["Lokal", "Pelita", "Dewata", "Ori"],
+  bawang_merah: ["Lokal", "Bima Brebes", "Tajuk", "Katumi"],
+  bawang_putih: ["Lokal", "Lumbu Hijau", "Tawangmangu", "Kesuma"],
 };
 
 const PESTS: Array<{ value: number; label: string; hint: string }> = [
@@ -40,10 +53,16 @@ type Status =
   | { kind: "error"; message: string };
 
 export default function PrediksiPage() {
+  const [lahanName, setLahanName] = useState("");
+  const [lahanSuggestions, setLahanSuggestions] = useState<string[]>([]);
   const [cropType, setCropType] = useState<CropType>("padi");
   const [landAreaHa, setLandAreaHa] = useState("1.0");
   const [variety, setVariety] = useState<string>("Ciherang");
   const [pestPressure, setPestPressure] = useState<number>(0.0);
+
+  useEffect(() => {
+    setLahanSuggestions(getLahanNames());
+  }, []);
 
   const [climateMode, setClimateMode] = useState<ClimateMode>("default");
   const [lat, setLat] = useState("");
@@ -57,7 +76,6 @@ export default function PrediksiPage() {
 
   const varietyOptions = useMemo(() => VARIETIES[cropType], [cropType]);
 
-  // Keep variety valid when crop changes
   function pickCrop(c: CropType) {
     setCropType(c);
     if (!VARIETIES[c].includes(variety)) {
@@ -101,7 +119,12 @@ export default function PrediksiPage() {
           : {}),
         ...(ndvi ? { ndvi: Number(ndvi) } : {}),
       };
-      const result = await api.ml.predict(body);
+      const lahanId = lahanName.trim() || undefined;
+      const result = await api.ml.predict(body, {
+        petani_id: getPetaniId(),
+        lahan_id: lahanId,
+      });
+      if (lahanId) addLahanName(lahanId);
       setStatus({ kind: "ok", result });
       if (typeof window !== "undefined") {
         window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
@@ -115,388 +138,393 @@ export default function PrediksiPage() {
   }
 
   return (
-    <div className="space-y-10">
-      {/* Hero */}
-      <section>
-        <div className="meta-row">
-          <span className="h-px w-12 bg-ink" />
-          <span>§ Pasal II — Prediksi Panen per Lahan</span>
-        </div>
-        <h1
-          className="mt-5 font-display leading-[0.9] text-ink"
-          style={{
-            fontSize: "clamp(2.2rem, 5vw + 0.4rem, 5rem)",
-            fontVariationSettings: '"opsz" 144, "SOFT" 30',
-          }}
-        >
-          Isi kondisi lahan,
-          <br />
-          <span className="italic text-moss">model menjawab.</span>
-        </h1>
-        <p className="mt-5 max-w-prose font-display text-[16px] leading-relaxed text-ink-soft">
-          Formulir di bawah dikirim ke ML service untuk menghitung perkiraan
-          hari ke panen, hasil per hektar, total produksi, dan rekomendasi
-          tindakan. Hasil tersimpan agar dapat diumpan-balikkan setelah panen
-          aktual.
-        </p>
-      </section>
+    <div className="container py-8 md:py-12">
+      <div className="mx-auto max-w-4xl">
+        {/* Header */}
+        <header className="mb-10">
+          <div className="eyebrow">
+            <Sparkles className="h-3 w-3" />
+            Prediksi Panen
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+            Isi kondisi lahan, biarkan AI menjawab
+          </h1>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Formulir di bawah dikirim ke model RandomForest untuk menghitung
+            perkiraan hari panen, hasil per hektar, total produksi, dan
+            rekomendasi tindakan.
+          </p>
+        </header>
 
-      <div className="rule-h" />
+        <form onSubmit={submit} className="space-y-6">
+          {/* Step 1 — crop + land */}
+          <FormCard
+            step={1}
+            title="Komoditas dan lahan"
+            description="Pilih jenis tanaman dan luas lahan Anda."
+          >
+            <div className="mb-5 space-y-2">
+              <Label htmlFor="lahan-name">
+                Nama lahan{" "}
+                <span className="text-muted-foreground">(opsional, untuk halaman Lahan)</span>
+              </Label>
+              <Input
+                id="lahan-name"
+                type="text"
+                list="lahan-suggestions"
+                value={lahanName}
+                onChange={(e) => setLahanName(e.target.value)}
+                placeholder="Misal: Petak Utara, Sawah Belakang Rumah"
+                maxLength={50}
+              />
+              {lahanSuggestions.length > 0 && (
+                <datalist id="lahan-suggestions">
+                  {lahanSuggestions.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Diisi sekali, lahan akan otomatis tercatat dan muncul di halaman
+                Lahan. Kosongkan kalau hanya simulasi sekali pakai.
+              </p>
+            </div>
 
-      {/* Form */}
-      <form onSubmit={submit} className="space-y-10">
-        {/* §1 Komoditas + Lahan */}
-        <Section
-          numeral="II.1"
-          eyebrow="Komoditas + Lahan"
-          title="Pilih tanaman."
-        >
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {CROPS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => pickCrop(c.id)}
-                className={cn(
-                  "flex flex-col items-start gap-1 border px-4 py-3 text-left transition-colors",
-                  cropType === c.id
-                    ? "border-ink bg-ink text-paper"
-                    : "border-ink/20 bg-paper hover:border-ink",
-                )}
-              >
-                <span
+            <div className="grid gap-2.5 sm:grid-cols-2 md:grid-cols-3">
+              {CROPS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => pickCrop(c.id)}
                   className={cn(
-                    "font-mono text-[9px] uppercase tracking-smallcaps",
-                    cropType === c.id ? "text-paper/60" : "text-ink-faint",
+                    "flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition-all",
+                    cropType === c.id
+                      ? "border-primary bg-primary-soft shadow-card"
+                      : "border-border bg-surface hover:border-primary/30 hover:bg-primary-soft/40",
                   )}
                 >
-                  {c.subtitle}
-                </span>
-                <span
-                  className={cn(
-                    "font-display text-xl italic",
-                    cropType === c.id ? "text-paper" : "text-ink",
-                  )}
-                  style={{ fontVariationSettings: '"opsz" 48, "SOFT" 40' }}
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {c.subtitle}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-lg font-semibold tracking-tight",
+                      cropType === c.id ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {c.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="land-area">
+                  Luas lahan <span className="text-muted-foreground">(hektar)</span>
+                </Label>
+                <Input
+                  id="land-area"
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={landAreaHa}
+                  onChange={(e) => setLandAreaHa(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="variety">
+                  Varietas{" "}
+                  <span className="text-muted-foreground">({varietyOptions.length} opsi)</span>
+                </Label>
+                <select
+                  id="variety"
+                  value={variety}
+                  onChange={(e) => setVariety(e.target.value)}
+                  className="flex h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                 >
-                  {c.label}
-                </span>
-              </button>
-            ))}
-          </div>
+                  {varietyOptions.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                      {v === "Lokal" ? " - varietas lokal" : " - unggul"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </FormCard>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <Field
-              label="Luas lahan"
-              unit="hektar"
-              inputProps={{
-                type: "number",
-                min: 0.01,
-                step: 0.01,
-                value: landAreaHa,
-                onChange: (e) => setLandAreaHa(e.target.value),
-                required: true,
-              }}
-            />
-            <label className="flex flex-col gap-1.5">
-              <span className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-                <span>Varietas</span>
-                <span>{varietyOptions.length} opsi</span>
-              </span>
-              <select
-                value={variety}
-                onChange={(e) => setVariety(e.target.value)}
-                className="border border-ink/20 bg-paper px-3 py-2 font-sans text-[14px] text-ink focus:border-ink focus:outline-none"
-              >
-                {varietyOptions.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                    {v === "Lokal" ? " · varietas lokal" : " · unggul"}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </Section>
-
-        {/* §2 Hama */}
-        <Section
-          numeral="II.2"
-          eyebrow="Tekanan Hama"
-          title="Seberapa parah serangannya?"
-        >
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {PESTS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPestPressure(p.value)}
-                className={cn(
-                  "flex flex-col items-start gap-1 border px-4 py-3 text-left transition-colors",
-                  pestPressure === p.value
-                    ? "border-ink bg-ink text-paper"
-                    : "border-ink/20 bg-paper hover:border-ink",
-                )}
-              >
-                <span
+          {/* Step 2 — pests */}
+          <FormCard
+            step={2}
+            title="Tekanan hama"
+            description="Seberapa parah serangan hama saat ini?"
+          >
+            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+              {PESTS.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPestPressure(p.value)}
                   className={cn(
-                    "font-mono text-[9px] uppercase tracking-smallcaps",
+                    "flex flex-col items-start gap-1 rounded-2xl border p-4 text-left transition-all",
                     pestPressure === p.value
-                      ? "text-paper/60"
-                      : "text-ink-faint",
+                      ? "border-primary bg-primary-soft shadow-card"
+                      : "border-border bg-surface hover:border-primary/30 hover:bg-primary-soft/40",
                   )}
                 >
-                  pest_pressure = {p.value.toFixed(1)}
-                </span>
-                <span
-                  className={cn(
-                    "font-display text-lg italic leading-tight",
-                    pestPressure === p.value ? "text-paper" : "text-ink",
-                  )}
-                  style={{ fontVariationSettings: '"opsz" 36, "SOFT" 40' }}
-                >
-                  {p.label}
-                </span>
-                <span
-                  className={cn(
-                    "text-[12px] leading-snug",
-                    pestPressure === p.value ? "text-paper/70" : "text-ink-soft",
-                  )}
-                >
-                  {p.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-        </Section>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {p.value.toFixed(1)}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-base font-semibold tracking-tight",
+                      pestPressure === p.value ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {p.label}
+                  </span>
+                  <span className="text-xs leading-snug text-muted-foreground">
+                    {p.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </FormCard>
 
-        {/* §3 Iklim */}
-        <Section
-          numeral="II.3"
-          eyebrow="Sumber Iklim + Vegetasi"
-          title="Bagaimana kami mendapatkan data cuaca?"
-        >
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                { id: "default", label: "Asumsi Default" },
-                { id: "gps", label: "GPS — Estimasi NASA POWER" },
-                { id: "manual", label: "Manual — Saya Punya Data" },
-              ] as Array<{ id: ClimateMode; label: string }>
-            ).map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setClimateMode(m.id)}
-                className={cn(
-                  "border px-4 py-2 font-mono text-[10px] uppercase tracking-smallcaps transition-colors",
-                  climateMode === m.id
-                    ? "border-ink bg-ink text-paper"
-                    : "border-ink/20 bg-paper text-ink hover:border-ink",
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
+          {/* Step 3 — climate */}
+          <FormCard
+            step={3}
+            title="Sumber iklim dan vegetasi"
+            description="Bagaimana kami mendapatkan data cuaca?"
+          >
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  { id: "default", label: "Asumsi default" },
+                  { id: "gps", label: "GPS - NASA POWER" },
+                  { id: "manual", label: "Manual" },
+                ] as Array<{ id: ClimateMode; label: string }>
+              ).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setClimateMode(m.id)}
+                  className={cn(
+                    "rounded-full border px-4 py-2 text-sm font-medium transition-all",
+                    climateMode === m.id
+                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                      : "border-border bg-surface text-foreground hover:border-primary/30",
+                  )}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
-          {climateMode === "default" && (
-            <p className="mt-4 max-w-prose border-l border-rule pl-4 font-display text-[14px] italic leading-relaxed text-ink-soft">
-              Tanpa data tambahan, model memakai asumsi tropis Jawa Barat —
-              curah hujan 150 mm, suhu 27 °C, radiasi 200 W/m². Keyakinan
-              akan lebih rendah dibanding mode lain.
+            {climateMode === "default" && (
+              <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+                Tanpa data tambahan, model memakai asumsi tropis Yogyakarta -
+                curah hujan 150 mm, suhu 27 C, radiasi 200 W/m. Keyakinan akan
+                lebih rendah dibanding mode lain.
+              </div>
+            )}
+
+            {climateMode === "gps" && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="lat">Lintang (lat)</Label>
+                  <Input
+                    id="lat"
+                    type="number"
+                    step="any"
+                    value={lat}
+                    onChange={(e) => setLat(e.target.value)}
+                    placeholder="-6.95"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lon">Bujur (lon)</Label>
+                  <Input
+                    id="lon"
+                    type="number"
+                    step="any"
+                    value={lon}
+                    onChange={(e) => setLon(e.target.value)}
+                    placeholder="107.55"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={useGeolocation}
+                  className="sm:col-span-2"
+                >
+                  <MapPin className="h-4 w-4" />
+                  Gunakan lokasi peramban
+                </Button>
+              </div>
+            )}
+
+            {climateMode === "manual" && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="rain">
+                    Curah hujan{" "}
+                    <span className="text-muted-foreground">(mm/minggu)</span>
+                  </Label>
+                  <Input
+                    id="rain"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={rainfall}
+                    onChange={(e) => setRainfall(e.target.value)}
+                    placeholder="150"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="temp">
+                    Suhu rata-rata <span className="text-muted-foreground">(C)</span>
+                  </Label>
+                  <Input
+                    id="temp"
+                    type="number"
+                    step={0.1}
+                    value={temperature}
+                    onChange={(e) => setTemperature(e.target.value)}
+                    placeholder="27.0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="solar">
+                    Radiasi <span className="text-muted-foreground">(W/m)</span>
+                  </Label>
+                  <Input
+                    id="solar"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={solar}
+                    onChange={(e) => setSolar(e.target.value)}
+                    placeholder="200"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="mt-5 space-y-2">
+              <Label htmlFor="ndvi">
+                NDVI manual <span className="text-muted-foreground">(opsional, 0-1)</span>
+              </Label>
+              <Input
+                id="ndvi"
+                type="number"
+                min={0}
+                max={1}
+                step={0.01}
+                value={ndvi}
+                onChange={(e) => setNdvi(e.target.value)}
+                placeholder="0.65"
+              />
+              <p className="text-xs text-muted-foreground">
+                Kosongkan untuk memakai estimasi GEE atau asumsi default.
+              </p>
+            </div>
+          </FormCard>
+
+          {/* Submit */}
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-surface p-5 shadow-card">
+            <p className="max-w-md text-xs text-muted-foreground">
+              Setelah dikirim, data lahan dan hasil prediksi akan tersimpan di
+              akun Anda untuk memantau riwayat panen.
             </p>
+            <Button type="submit" size="lg" disabled={status.kind === "loading"}>
+              {status.kind === "loading" ? "Menghitung..." : "Kirim ke Model"}
+            </Button>
+          </div>
+        </form>
+
+        {/* Result */}
+        <div className="mt-10 space-y-6">
+          {status.kind === "loading" && (
+            <SkeletonLoader label="Memanggil ML service..." />
           )}
 
-          {climateMode === "gps" && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Lintang (lat)"
-                unit="°S"
-                inputProps={{
-                  type: "number",
-                  step: "any",
-                  value: lat,
-                  onChange: (e) => setLat(e.target.value),
-                  placeholder: "-6.95",
-                }}
-              />
-              <Field
-                label="Bujur (lon)"
-                unit="°E"
-                inputProps={{
-                  type: "number",
-                  step: "any",
-                  value: lon,
-                  onChange: (e) => setLon(e.target.value),
-                  placeholder: "107.55",
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={useGeolocation}
-                className="sm:col-span-2 self-start"
-              >
-                Gunakan lokasi peramban
-              </Button>
+          {status.kind === "error" && (
+            <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/8 p-5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-destructive">
+                  Gagal memprediksi
+                </div>
+                <p className="mt-0.5 text-sm text-foreground">{status.message}</p>
+              </div>
             </div>
           )}
 
-          {climateMode === "manual" && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <Field
-                label="Curah hujan"
-                unit="mm / minggu"
-                inputProps={{
-                  type: "number",
-                  min: 0,
-                  step: 1,
-                  value: rainfall,
-                  onChange: (e) => setRainfall(e.target.value),
-                  placeholder: "150",
-                }}
+          {status.kind === "ok" && (
+            <>
+              <ResultCard
+                result={status.result}
+                cropType={cropType}
+                landAreaHa={Number(landAreaHa)}
               />
-              <Field
-                label="Suhu rata-rata"
-                unit="°C"
-                inputProps={{
-                  type: "number",
-                  step: 0.1,
-                  value: temperature,
-                  onChange: (e) => setTemperature(e.target.value),
-                  placeholder: "27.0",
-                }}
-              />
-              <Field
-                label="Radiasi matahari"
-                unit="W / m²"
-                inputProps={{
-                  type: "number",
-                  min: 0,
-                  step: 1,
-                  value: solar,
-                  onChange: (e) => setSolar(e.target.value),
-                  placeholder: "200",
-                }}
-              />
-            </div>
+              <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft p-5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <History className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <div className="text-sm font-semibold text-primary">
+                    Prediksi tersimpan #{status.result.prediction_log_id}
+                  </div>
+                  <p className="mt-0.5 text-sm leading-relaxed text-foreground">
+                    Beri umpan balik realisasi panen <strong>setelah panen
+                    aktual</strong> lewat halaman Riwayat Prediksi. Datanya
+                    dipakai untuk mengkalibrasi model.
+                  </p>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/petani/riwayat">
+                    Buka Riwayat
+                  </Link>
+                </Button>
+              </div>
+            </>
           )}
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-[1fr_auto]">
-            <Field
-              label="NDVI manual (opsional)"
-              unit="0.0 — 1.0"
-              inputProps={{
-                type: "number",
-                min: 0,
-                max: 1,
-                step: 0.01,
-                value: ndvi,
-                onChange: (e) => setNdvi(e.target.value),
-                placeholder: "0.65",
-              }}
-            />
-            <p className="self-end max-w-xs border-l border-rule pl-3 font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-              Kosongkan untuk memakai estimasi GEE / asumsi default.
-            </p>
-          </div>
-        </Section>
-
-        <div className="rule-h" />
-
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="max-w-prose font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-            Pengiriman akan memanggil POST /api/predict via Express → ml_service.
-            Hasil dicatat ke data/predictions.jsonl.
-          </p>
-          <Button type="submit" size="lg" disabled={status.kind === "loading"}>
-            {status.kind === "loading" ? "Menghitung..." : "Kirim ke Model"}
-          </Button>
         </div>
-      </form>
-
-      {/* Result */}
-      {status.kind === "loading" && (
-        <SkeletonLoader label="Memanggil ML service..." />
-      )}
-
-      {status.kind === "error" && (
-        <div className="border-l-4 border-[#A8442C] bg-[#A8442C]/10 px-5 py-4">
-          <div className="font-mono text-[10px] uppercase tracking-smallcaps text-[#A8442C]">
-            Gagal memprediksi
-          </div>
-          <p className="mt-1 font-display text-[15px] italic leading-snug text-ink">
-            {status.message}
-          </p>
-        </div>
-      )}
-
-      {status.kind === "ok" && (
-        <div className="space-y-6">
-          <ResultCard
-            result={status.result}
-            cropType={cropType}
-            landAreaHa={Number(landAreaHa)}
-          />
-          <FeedbackForm predictionLogId={status.result.prediction_log_id} />
-        </div>
-      )}
+      </div>
     </div>
   );
 }
 
-function Section({
-  numeral,
-  eyebrow,
+function FormCard({
+  step,
   title,
+  description,
   children,
 }: {
-  numeral: string;
-  eyebrow: string;
+  step: number;
   title: string;
+  description: string;
   children: React.ReactNode;
 }) {
   return (
-    <section>
-      <div className="meta-row">
-        <span>§ {numeral} — {eyebrow}</span>
-      </div>
-      <h2
-        className="mt-2 font-display italic text-ink"
-        style={{
-          fontSize: "clamp(1.6rem, 2.4vw + 0.4rem, 2.4rem)",
-          fontVariationSettings: '"opsz" 48, "SOFT" 40',
-          lineHeight: 1.05,
-        }}
-      >
-        {title}
-      </h2>
-      <div className="mt-5">{children}</div>
+    <section className="rounded-3xl border border-border bg-surface p-6 shadow-card md:p-8">
+      <header className="mb-5 flex items-start gap-4">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
+          {step}
+        </div>
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+      </header>
+      {children}
     </section>
-  );
-}
-
-function Field({
-  label,
-  unit,
-  inputProps,
-}: {
-  label: string;
-  unit?: string;
-  inputProps: React.InputHTMLAttributes<HTMLInputElement>;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="flex items-baseline justify-between font-mono text-[10px] uppercase tracking-smallcaps text-ink-faint">
-        <span>{label}</span>
-        {unit && <span>{unit}</span>}
-      </span>
-      <input
-        {...inputProps}
-        className="border border-ink/20 bg-paper px-3 py-2 font-sans text-[14px] text-ink placeholder:text-ink-faint focus:border-ink focus:outline-none"
-      />
-    </label>
   );
 }
