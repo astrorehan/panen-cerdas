@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, Suspense } from "react";
 import { ArrowLeft, Building2, Loader2, Sprout, Wheat } from "lucide-react";
 import { signUp, type Role } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ const ROLES: Array<{
   },
 ];
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [name, setName] = useState("");
@@ -210,5 +210,19 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }
