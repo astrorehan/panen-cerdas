@@ -23,9 +23,6 @@ services:
     plan: free
     envVars:
       - key: ML_SERVICE_URL
-        fromService:
-          type: web
-          name: panen-cerdas-ml
-          envVar: RENDER_EXTERNAL_URL
+        sync: false # Diisi manual dengan URL dari panen-cerdas-ml (contoh: https://panen-cerdas-ml-xxx.onrender.com)
       - key: FRONTEND_URL
         sync: false # Diisi manual di dashboard Render dengan URL Vercel (contoh: https://panen-cerdas.vercel.app)
