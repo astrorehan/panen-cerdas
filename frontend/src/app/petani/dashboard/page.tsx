@@ -10,7 +10,6 @@ import {
   Sparkles,
   TrendingUp,
   History,
-  Bot,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { api } from "@/lib/api";
@@ -101,34 +100,29 @@ export default function PetaniDashboardPage() {
       <div className="grid gap-8">
         {/* Welcome */}
         <section className="rounded-3xl border border-border bg-gradient-to-br from-primary-soft via-surface to-amber/10 p-7 md:p-10">
-          <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="max-w-xl">
-              <div className="eyebrow">Dashboard Petani</div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-                Selamat datang, mari rencanakan panen.
-              </h1>
-              <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-                Pantau lahan, terima prediksi panen, dan rekomendasi AI - semua
-                dalam satu dashboard.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  href="/petani/prediksi"
-                  className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-all hover:bg-primary-deep hover:shadow-elevated"
-                >
-                  Buka prediksi
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href="/petani/cuaca"
-                  className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground transition-all hover:border-primary/30 hover:text-primary"
-                >
-                  Cek cuaca
-                </Link>
-              </div>
-            </div>
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-elevated md:h-24 md:w-24">
-              <Bot className="h-10 w-10 md:h-12 md:w-12" />
+          <div className="max-w-xl">
+            <div className="eyebrow">Dashboard Petani</div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+              Selamat datang, mari rencanakan panen.
+            </h1>
+            <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+              Pantau lahan, terima prediksi panen, dan rekomendasi AI - semua
+              dalam satu dashboard.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/petani/prediksi"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-card transition-all hover:bg-primary-deep hover:shadow-elevated"
+              >
+                Buka prediksi
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/petani/cuaca"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2.5 text-sm font-medium text-foreground transition-all hover:border-primary/30 hover:text-primary"
+              >
+                Cek cuaca
+              </Link>
             </div>
           </div>
         </section>
