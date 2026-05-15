@@ -1,0 +1,31 @@
+services:
+  # 1. ML Service (Python FastAPI)
+  - type: web
+    name: panen-cerdas-ml
+    env: python
+    rootDir: ml_service
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false # Diisi manual di dashboard Render dengan URL Supabase
+      - key: PYTHON_VERSION
+        value: 3.10.0
+
+  # 2. Backend Express (Node.js)
+  - type: web
+    name: panen-cerdas-express
+    env: node
+    rootDir: backend-express
+    buildCommand: npm install
+    startCommand: npm start
+    plan: free
+    envVars:
+      - key: ML_SERVICE_URL
+        fromService:
+          type: web
+          name: panen-cerdas-ml
+          envVar: RENDER_EXTERNAL_URL
+      - key: FRONTEND_URL
+        sync: false # Diisi manual di dashboard Render dengan URL Vercel (contoh: https://panen-cerdas.vercel.app)
