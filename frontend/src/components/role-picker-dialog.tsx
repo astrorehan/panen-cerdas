@@ -30,7 +30,7 @@ const ROLES: Array<{
     title: "Petani",
     description: "Prediksi panen, cek cuaca, dan rekomendasi AI untuk lahan Anda.",
     icon: Wheat,
-    highlights: ["Prediksi panen padi", "Cuaca 7 hari", "Asisten AI"],
+    highlights: ["Prediksi panen padi", "Cuaca 7 hari", "Manajemen irigasi"],
   },
   {
     role: "pemerintah",

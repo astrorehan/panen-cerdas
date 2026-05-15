@@ -1,10 +1,7 @@
 import {
   CloudRain,
   BarChart3,
-  Bot,
-  Droplets,
   Leaf,
-  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -30,30 +27,11 @@ const FEATURES: Feature[] = [
     accent: "primary",
   },
   {
-    icon: Bot,
-    title: "Asisten AI",
-    description:
-      "Chatbot AI menjawab pertanyaan agronomi dalam Bahasa Indonesia: pupuk, hama, irigasi, dan pasca-panen.",
-  },
-  {
-    icon: Droplets,
-    title: "Monitoring Irigasi",
-    description:
-      "Pantau kelembaban tanah dan kebutuhan air per lahan. Hemat air, optimalkan jadwal pengairan.",
-    accent: "amber",
-  },
-  {
     icon: Leaf,
-    title: "Deteksi Penyakit",
+    title: "Manajemen Lahan",
     description:
-      "Identifikasi gejala hama wereng, blast, dan penyakit padi lainnya dari foto - rekomendasi tindakan instan.",
-  },
-  {
-    icon: Wallet,
-    title: "Pelacakan Finansial",
-    description:
-      "Catat biaya benih, pupuk, dan tenaga kerja. Bandingkan dengan proyeksi pendapatan panen.",
-    accent: "clay",
+      "Catatan lahan yang didaftarkan petani, lengkap dengan status terkini dan histori prediksi masing-masing lahan.",
+    accent: "amber",
   },
 ];
 

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, Building2, Loader2, Sprout, Wheat } from "lucide-react";
 import { signUp, type Role } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -30,9 +30,8 @@ const ROLES: Array<{
   },
 ];
 
-function RegisterContent() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,9 +40,13 @@ function RegisterContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const r = searchParams.get("role");
-    if (r === "petani" || r === "pemerintah") setRole(r);
-  }, [searchParams]);
+    // Avoid useSearchParams() to prevent Next.js static generation bailout
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get("role");
+      if (r === "petani" || r === "pemerintah") setRole(r);
+    }
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -210,19 +213,5 @@ function RegisterContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function RegisterPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-        </div>
-      }
-    >
-      <RegisterContent />
-    </Suspense>
   );
 }

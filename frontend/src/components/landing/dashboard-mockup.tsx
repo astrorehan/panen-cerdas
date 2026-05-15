@@ -40,7 +40,7 @@ export function DashboardMockup() {
             <span className="h-2.5 w-2.5 rounded-full bg-primary/40" />
           </div>
           <div className="rounded-md bg-surface px-3 py-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-            app.panencerdas.id/dashboard
+            app.panencerdas.id/petani/dashboard
           </div>
           <div className="h-2.5 w-12" />
         </div>
@@ -53,7 +53,6 @@ export function DashboardMockup() {
               { icon: Sprout, label: "Lahan", active: true },
               { icon: CloudRain, label: "Cuaca" },
               { icon: TrendingUp, label: "Prediksi" },
-              { icon: Bot, label: "Asisten AI" },
             ].map(({ icon: Icon, label, active }) => (
               <div
                 key={label}
@@ -136,20 +135,6 @@ export function DashboardMockup() {
               </div>
             </div>
 
-            {/* AI assistant snippet */}
-            <div className="col-span-2 flex gap-2.5 rounded-xl border border-primary/15 bg-primary-soft p-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                <Bot className="h-3.5 w-3.5" />
-              </div>
-              <div className="text-xs leading-relaxed text-foreground">
-                <span className="font-semibold">Asisten AI:</span> Cuaca cerah
-                7 hari ke depan dengan NDVI 0.68. Saya rekomendasikan pemupukan
-                susulan dalam 3 hari.
-                <span className="ml-1 inline-flex items-center gap-1 text-primary">
-                  <Sun className="h-3 w-3" /> Lihat detail
-                </span>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -5,9 +5,7 @@ import {
   TrendingUp,
   Sprout,
   CloudRain,
-  Bell,
   MapPin,
-  Sparkles,
 } from "lucide-react";
 import {
   Line,
@@ -27,12 +25,6 @@ const TREND_DATA = [
   { tahun: "2022", prediksi: 6.2, aktual: 6.0 },
   { tahun: "2023", prediksi: 6.3, aktual: 6.4 },
   { tahun: "2024", prediksi: 6.4, aktual: 6.4 },
-];
-
-const RECOMMENDATIONS = [
-  { icon: CloudRain, color: "text-primary", title: "Cuaca cerah 3 hari", desc: "Waktu ideal panen padi Subang Utara" },
-  { icon: Sprout, color: "text-amber", title: "Pemupukan susulan", desc: "Lahan 02 - umur tanaman 45 hari" },
-  { icon: Bell, color: "text-clay", title: "Alert wereng coklat", desc: "Cianjur - tingkatkan pemantauan" },
 ];
 
 const SIDEBAR = [
@@ -122,7 +114,7 @@ export function DashboardPreview() {
 
                 {/* Chart + recommendation */}
                 <div className="grid gap-3 lg:grid-cols-3">
-                  <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-2">
+                  <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-semibold tracking-tight">Tren prediksi vs aktual</div>
@@ -176,24 +168,6 @@ export function DashboardPreview() {
                           />
                         </LineChart>
                       </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-border bg-surface p-5">
-                    <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      Rekomendasi AI
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {RECOMMENDATIONS.map(({ icon: Icon, color, title, desc }) => (
-                        <div key={title} className="flex gap-2.5 rounded-xl bg-background p-3">
-                          <Icon className={`h-4 w-4 shrink-0 ${color}`} />
-                          <div className="text-xs">
-                            <div className="font-semibold text-foreground">{title}</div>
-                            <div className="text-muted-foreground">{desc}</div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 </div>
