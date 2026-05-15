@@ -19,7 +19,7 @@ const ROLES: Array<{
   {
     role: "petani",
     title: "Petani",
-    description: "Catat lahan, prediksi panen, asisten AI.",
+    description: "Catat lahan, prediksi panen, saran tindakan.",
     icon: Wheat,
   },
   {
