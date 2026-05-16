@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle, Map as MapIcon } from "lucide-react";
 import {
   Card,
@@ -11,16 +11,11 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { SkeletonLoader } from "@/components/skeleton-loader";
-import { api } from "@/lib/api";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import { MapPanel } from "./map-panel";
-import type {
-  CropType,
-  GeoJsonFC,
-  PredictionsResponse,
-  Province,
-  StatusPangan,
-} from "@/types";
+import type { CropType, Province, StatusPangan } from "@/types";
 
 const COMMODITIES: Array<{ id: CropType; label: string }> = [
   { id: "padi",         label: "Padi" },
@@ -45,52 +40,40 @@ const NATIONAL: Province = {
 };
 
 export default function PetaPage() {
-  const [provinces, setProvinces] = useState<Province[]>([]);
   const [provinceKey, setProvinceKey] = useState<string>("DI Yogyakarta");
   const [commodity, setCommodity]     = useState<CropType>("padi");
 
-  const [predictions, setPredictions] = useState<PredictionsResponse | null>(null);
-  const [geojson, setGeojson]         = useState<GeoJsonFC | null>(null);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
+  const { data: provincesRes } = useApi(
+    apiPath.regionsProvinces(),
+    () => api.regions.provinces(),
+  );
+  const provinces = useMemo<Province[]>(
+    () => [NATIONAL, ...(provincesRes?.items ?? [])],
+    [provincesRes],
+  );
 
-  // Load provinces list sekali di mount
-  useEffect(() => {
-    api.regions.provinces()
-      .then((r) => setProvinces([NATIONAL, ...r.items]))
-      .catch(() => setProvinces([NATIONAL]));
-  }, []);
+  const province = provinceKey === "ALL" ? "ALL" : provinceKey;
 
-  // Load predictions + geojson tiap provinceKey/commodity berubah
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+  const {
+    data: predictions,
+    loading: loadingPreds,
+    error: errPreds,
+  } = useApi(
+    apiPath.predictionsList(province, commodity),
+    () => api.predictions.list(province, commodity),
+  );
 
-    const province = provinceKey === "ALL" ? "ALL" : provinceKey;
+  const {
+    data: geojson,
+    loading: loadingGeo,
+    error: errGeo,
+  } = useApi(
+    apiPath.regionsGeojson(province),
+    () => api.regions.geojson(province),
+  );
 
-    Promise.all([
-      api.predictions.list(province, commodity),
-      api.regions.geojson(province),
-    ])
-      .then(([preds, geo]) => {
-        if (cancelled) return;
-        setPredictions(preds);
-        setGeojson(geo);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message || "Gagal memuat data");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [provinceKey, commodity]);
+  const loading = loadingPreds || loadingGeo;
+  const error = errPreds ?? errGeo;
 
   const counts = useMemo(() => {
     const c: Record<StatusPangan, number> = {
@@ -171,9 +154,11 @@ export default function PetaPage() {
         </div>
       </section>
 
-      {loading && <SkeletonLoader label="Memuat peta..." />}
+      {loading && (!predictions || !geojson) && (
+        <SkeletonLoader label="Memuat peta..." />
+      )}
 
-      {error && !loading && (
+      {error && (!predictions || !geojson) && (
         <div className="mx-auto max-w-md rounded-3xl border border-destructive/30 bg-destructive/8 p-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
             <AlertCircle className="h-6 w-6" />
@@ -185,7 +170,7 @@ export default function PetaPage() {
         </div>
       )}
 
-      {predictions && geojson && !loading && (
+      {predictions && geojson && (
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-start justify-between gap-3">

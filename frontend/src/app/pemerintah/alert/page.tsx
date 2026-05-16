@@ -1,13 +1,46 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
 import { AlertCircle, AlertTriangle, ArrowRight, Bell, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { SkeletonLoader } from "@/components/skeleton-loader";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 
-export const dynamic = "force-dynamic";
+export default function AlertPage() {
+  const { data: list, loading } = useApi(
+    apiPath.predictionsList(),
+    () => api.predictions.list(),
+  );
 
-export default async function AlertPage() {
-  const list = await api.predictions.list().catch(() => null);
+  const flagged = useMemo(
+    () =>
+      (list?.items ?? [])
+        .filter((it) => it.status === "waspada" || it.status === "defisit")
+        .sort((a, b) => a.surplus_pct - b.surplus_pct),
+    [list],
+  );
+
+  const counts = useMemo(() => {
+    const items = list?.items ?? [];
+    return {
+      defisit: items.filter((it) => it.status === "defisit").length,
+      waspada: items.filter((it) => it.status === "waspada").length,
+      aman: items.filter((it) => it.status === "surplus" || it.status === "cukup")
+        .length,
+    };
+  }, [list]);
+
+  if (loading && !list) {
+    return (
+      <div className="container py-12">
+        <SkeletonLoader label="Memuat alert pangan..." />
+      </div>
+    );
+  }
+
   if (!list) {
     return (
       <div className="container py-12">
@@ -25,18 +58,6 @@ export default async function AlertPage() {
       </div>
     );
   }
-
-  const flagged = list.items
-    .filter((it) => it.status === "waspada" || it.status === "defisit")
-    .sort((a, b) => a.surplus_pct - b.surplus_pct);
-
-  const counts = {
-    defisit: list.items.filter((it) => it.status === "defisit").length,
-    waspada: list.items.filter((it) => it.status === "waspada").length,
-    aman: list.items.filter(
-      (it) => it.status === "surplus" || it.status === "cukup",
-    ).length,
-  };
 
   return (
     <div className="container space-y-8 py-8 md:py-12">

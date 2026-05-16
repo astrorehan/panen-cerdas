@@ -1,16 +1,32 @@
+"use client";
+
 import { AlertCircle, Database, Satellite, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { KpiCard } from "@/components/kpi-card";
 import { TrendChart } from "@/components/trend-chart";
-import { api } from "@/lib/api";
+import { SkeletonLoader } from "@/components/skeleton-loader";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 
-export const dynamic = "force-dynamic";
+export default function PemerintahDashboardPage() {
+  const { data: summary, loading: loadingSummary } = useApi(
+    apiPath.dashboardSummary(),
+    () => api.dashboard.summary(),
+  );
+  const { data: trend, loading: loadingTrend } = useApi(
+    apiPath.dashboardTrend(),
+    () => api.dashboard.trend(),
+  );
 
-export default async function PemerintahDashboardPage() {
-  const [summary, trend] = await Promise.all([
-    api.dashboard.summary().catch(() => null),
-    api.dashboard.trend().catch(() => null),
-  ]);
+  const loading = loadingSummary || loadingTrend;
+
+  if (loading && (!summary || !trend)) {
+    return (
+      <div className="container py-12">
+        <SkeletonLoader label="Memuat dashboard..." />
+      </div>
+    );
+  }
 
   if (!summary || !trend) {
     return (

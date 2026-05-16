@@ -1,18 +1,55 @@
+"use client";
+
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AlertCircle, BarChart3, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { SkeletonLoader } from "@/components/skeleton-loader";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { formatNumber, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import { NdviChart } from "./ndvi-chart";
 import { BacktestChart } from "./backtest-chart";
 import { KecamatanSelect } from "./select";
 
-export const dynamic = "force-dynamic";
+export default function DetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container py-12">
+          <SkeletonLoader label="Memuat data kecamatan..." />
+        </div>
+      }
+    >
+      <DetailPageInner />
+    </Suspense>
+  );
+}
 
-type SearchParams = { id?: string };
+function DetailPageInner() {
+  const searchParams = useSearchParams();
+  const queryId = searchParams.get("id") ?? undefined;
 
-export default async function DetailPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const { id } = await searchParams;
-  const list = await api.predictions.list().catch(() => null);
+  const { data: list, loading: loadingList } = useApi(
+    apiPath.predictionsList(),
+    () => api.predictions.list(),
+  );
+
+  const selectedId = queryId ?? list?.items[0]?.id;
+
+  const { data: detail } = useApi(
+    selectedId ? apiPath.predictionsDetail(selectedId) : null,
+    () => api.predictions.detail(selectedId as string),
+  );
+
+  if (loadingList && !list) {
+    return (
+      <div className="container py-12">
+        <SkeletonLoader label="Memuat data kecamatan..." />
+      </div>
+    );
+  }
+
   if (!list) {
     return (
       <div className="container py-12">
@@ -27,8 +64,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
       </div>
     );
   }
-  const selectedId = id ?? list.items[0]?.id;
-  const detail = selectedId ? await api.predictions.detail(selectedId).catch(() => null) : null;
+
   const selectedPred = list.items.find((it) => it.id === selectedId);
 
   return (
@@ -65,7 +101,7 @@ export default async function DetailPage({ searchParams }: { searchParams: Promi
 
       {!detail ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
-          Pilih kecamatan untuk memuat detail.
+          Memuat detail kecamatan...
         </Card>
       ) : (
         <>
