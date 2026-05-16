@@ -14,10 +14,22 @@ export function useApi<T>(
   key: string | null,
   fetcher: () => Promise<T>,
 ): State<T> {
-  const cached = key ? peek<T>(key) : null;
-  const [data, setData] = useState<T | null>(cached);
-  const [loading, setLoading] = useState(cached == null && key != null);
+  const [data, setData] = useState<T | null>(() => (key ? peek<T>(key) : null));
+  const [loading, setLoading] = useState(() => key != null && peek<T>(key) == null);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset state synchronously when key changes. Without this, callers see one
+  // render with stale data tied to the previous key (the useEffect below runs
+  // after commit), which manifests as the wrong subject being displayed during
+  // route transitions.
+  const [trackedKey, setTrackedKey] = useState(key);
+  if (trackedKey !== key) {
+    setTrackedKey(key);
+    const next = key ? peek<T>(key) : null;
+    setData(next);
+    setLoading(key != null && next == null);
+    setError(null);
+  }
 
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
@@ -45,20 +57,7 @@ export function useApi<T>(
   }, [key]);
 
   useEffect(() => {
-    setError(null);
-    if (!key) {
-      setData(null);
-      setLoading(false);
-      return;
-    }
-    const next = peek<T>(key);
-    if (next != null) {
-      setData(next);
-      setLoading(false);
-    } else {
-      setData(null);
-      setLoading(true);
-    }
+    if (!key) return;
     return run();
   }, [key, run]);
 
