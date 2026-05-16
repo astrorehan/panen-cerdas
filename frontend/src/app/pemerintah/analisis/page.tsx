@@ -29,10 +29,12 @@ export default function DetailPage() {
 function DetailPageInner() {
   const searchParams = useSearchParams();
   const queryId = searchParams.get("id") ?? undefined;
+  const isProvinceLevel = (queryId ?? "").startsWith("PROV_");
+  const listProvince = isProvinceLevel ? "ALL" : "DI Yogyakarta";
 
   const { data: list, loading: loadingList } = useApi(
-    apiPath.predictionsList(),
-    () => api.predictions.list(),
+    apiPath.predictionsList(listProvince),
+    () => api.predictions.list(listProvince),
   );
 
   const selectedId = queryId ?? list?.items[0]?.id;
@@ -89,14 +91,31 @@ function DetailPageInner() {
             <MapPin className="h-3 w-3" />
             Subjek analisis
           </div>
-          <div className="mt-1 text-2xl font-semibold tracking-tight">
-            {detail?.kecamatan ?? "-"}
-          </div>
-          <div className="mt-0.5 text-sm text-muted-foreground">
-            Kab. {detail?.kabupaten ?? "-"} - {list.province}
-          </div>
+          {isProvinceLevel ? (
+            <>
+              <div className="mt-1 text-2xl font-semibold tracking-tight">
+                {detail?.kabupaten ?? "-"}
+              </div>
+              <div className="mt-0.5 text-sm text-muted-foreground">
+                Provinsi · agregat nasional
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-1 text-2xl font-semibold tracking-tight">
+                {detail?.kecamatan ?? "-"}
+              </div>
+              <div className="mt-0.5 text-sm text-muted-foreground">
+                Kab. {detail?.kabupaten ?? "-"} - {list.province}
+              </div>
+            </>
+          )}
         </div>
-        <KecamatanSelect options={list.items} currentId={selectedId} />
+        <KecamatanSelect
+          options={list.items}
+          currentId={selectedId}
+          mode={isProvinceLevel ? "province" : "kecamatan"}
+        />
       </Card>
 
       {!detail ? (

@@ -45,12 +45,18 @@ export function useApi<T>(
   }, [key]);
 
   useEffect(() => {
-    if (!key) return;
+    setError(null);
+    if (!key) {
+      setData(null);
+      setLoading(false);
+      return;
+    }
     const next = peek<T>(key);
     if (next != null) {
       setData(next);
       setLoading(false);
     } else {
+      setData(null);
       setLoading(true);
     }
     return run();
