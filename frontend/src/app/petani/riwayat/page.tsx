@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -13,13 +13,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { FeedbackForm } from "@/components/feedback-form";
-import { api } from "@/lib/api";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { getPetaniId } from "@/lib/auth";
-import type {
-  PredictionHistoryItem,
-  PredictionHistoryResponse,
-  RiskLevel,
-} from "@/types";
+import type { PredictionHistoryItem, RiskLevel } from "@/types";
 
 const RISK_STYLE: Record<RiskLevel, { label: string; chip: string }> = {
   low:    { label: "Risiko Rendah", chip: "bg-primary-soft text-primary" },
@@ -59,29 +56,12 @@ function estimatedHarvestDate(createdIso: string, days: number): string {
 }
 
 export default function RiwayatPrediksiPage() {
-  const [data, setData] = useState<PredictionHistoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const petaniId = useMemo(() => getPetaniId(), []);
+  const { data, loading, error, refresh } = useApi(
+    apiPath.predictionsHistory(petaniId, undefined, 100),
+    () => api.predictions.history(petaniId, undefined, 100),
+  );
   const [openFeedbackId, setOpenFeedbackId] = useState<number | null>(null);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    const petaniId = getPetaniId();
-    api.predictions
-      .history(petaniId, undefined, 100)
-      .then((res) => {
-        setData(res);
-        setError(null);
-      })
-      .catch((err: Error) => {
-        setError(err.message || "Gagal memuat riwayat prediksi");
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const items = data?.items ?? [];
   const totalFeedback = items.filter((i) => i.feedback_given).length;
@@ -104,15 +84,15 @@ export default function RiwayatPrediksiPage() {
         </p>
       </header>
 
-      {loading && <SkeletonLoader label="Memuat riwayat prediksi..." />}
+      {loading && !data && <SkeletonLoader label="Memuat riwayat prediksi..." />}
 
-      {error && (
+      {error && !data && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/8 p-5 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {data && !loading && (
+      {data && (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
             <StatCard label="Total Prediksi"   value={`${items.length}`} unit="entry" />
@@ -134,7 +114,7 @@ export default function RiwayatPrediksiPage() {
                   }
                   onSubmitted={() => {
                     setOpenFeedbackId(null);
-                    load();
+                    refresh();
                   }}
                 />
               ))}

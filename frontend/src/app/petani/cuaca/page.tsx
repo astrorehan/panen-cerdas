@@ -17,33 +17,12 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { SkeletonLoader } from "@/components/skeleton-loader";
-import { api } from "@/lib/api";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { getPetaniId } from "@/lib/auth";
-import type { LahanItem } from "@/types";
+import type { LahanItem, WeatherCuaca, WeatherResponse } from "@/types";
 
-type Cuaca = "cerah" | "berawan" | "hujan-ringan" | "hujan-lebat";
-
-type WeatherItem = {
-  date: string;
-  hari: string;
-  tanggal: string;
-  cuaca: Cuaca;
-  suhu_min: number | null;
-  suhu_max: number | null;
-  suhu_mean: number | null;
-  hujan_mm: number;
-  radiasi_w_m2: number | null;
-  catatan: string;
-};
-
-type WeatherResponse = {
-  lat: number;
-  lon: number;
-  source: string;
-  items: WeatherItem[];
-};
-
-const CUACA_META: Record<Cuaca, { label: string; icon: LucideIcon; tint: string }> = {
+const CUACA_META: Record<WeatherCuaca, { label: string; icon: LucideIcon; tint: string }> = {
   cerah: { label: "Cerah", icon: Sun, tint: "bg-amber/15 text-amber" },
   berawan: { label: "Berawan", icon: Cloud, tint: "bg-muted text-muted-foreground" },
   "hujan-ringan": {
@@ -60,39 +39,15 @@ const FALLBACK_LAT = -7.855;
 const FALLBACK_LON = 110.42;
 const FALLBACK_LABEL = "DI Yogyakarta (default)";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4200";
-
 type LahanWithCoords = LahanItem & { last_lat: number; last_lon: number };
 
 export default function CuacaPage() {
-  const [lahanList, setLahanList] = useState<LahanItem[] | null>(null);
-  const [selectedLahanId, setSelectedLahanId] = useState<string>(""); // "" = fallback
-  const [data, setData] = useState<WeatherResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load lahan sekali di mount, pre-select lahan terbaru yang punya koordinat
-  useEffect(() => {
-    let cancelled = false;
-    const petaniId = getPetaniId();
-    api.lahan
-      .list(petaniId)
-      .then((res) => {
-        if (cancelled) return;
-        setLahanList(res.items);
-        const firstWithCoords = res.items.find(
-          (l) => l.last_lat != null && l.last_lon != null,
-        );
-        if (firstWithCoords) setSelectedLahanId(firstWithCoords.lahan_id);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setLahanList([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const petaniId = useMemo(() => getPetaniId(), []);
+  const { data: lahanRes } = useApi(
+    apiPath.lahanList(petaniId),
+    () => api.lahan.list(petaniId),
+  );
+  const lahanList = lahanRes?.items ?? null;
 
   const lahanWithCoords = useMemo<LahanWithCoords[]>(
     () =>
@@ -101,6 +56,14 @@ export default function CuacaPage() {
       ),
     [lahanList],
   );
+
+  const defaultLahanId = lahanWithCoords[0]?.lahan_id ?? "";
+  const [selectedLahanId, setSelectedLahanId] = useState<string>("");
+
+  // Pre-select lahan terbaru yang punya koordinat, sekali saja ketika data lahan masuk
+  useEffect(() => {
+    if (!selectedLahanId && defaultLahanId) setSelectedLahanId(defaultLahanId);
+  }, [defaultLahanId, selectedLahanId]);
 
   const selectedLahan = useMemo<LahanWithCoords | null>(
     () => lahanWithCoords.find((l) => l.lahan_id === selectedLahanId) ?? null,
@@ -111,28 +74,10 @@ export default function CuacaPage() {
     ? { lat: selectedLahan.last_lat, lon: selectedLahan.last_lon, label: selectedLahan.lahan_id }
     : { lat: FALLBACK_LAT, lon: FALLBACK_LON, label: FALLBACK_LABEL };
 
-  // Fetch cuaca tiap target berubah
-  useEffect(() => {
-    const ac = new AbortController();
-    setLoading(true);
-    setError(null);
-    const url = `${BASE}/api/weather/recent?lat=${target.lat}&lon=${target.lon}&days=7`;
-    fetch(url, { signal: ac.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return (await res.json()) as WeatherResponse;
-      })
-      .then((d) => {
-        setData(d);
-        setLoading(false);
-      })
-      .catch((e) => {
-        if (e.name === "AbortError") return;
-        setError(e instanceof Error ? e.message : "Gagal mengambil cuaca");
-        setLoading(false);
-      });
-    return () => ac.abort();
-  }, [target.lat, target.lon]);
+  const { data, loading, error } = useApi<WeatherResponse>(
+    apiPath.weatherRecent(target.lat, target.lon, 7),
+    () => api.weather.recent(target.lat, target.lon, 7),
+  );
 
   return (
     <div className="container space-y-8 py-8 md:py-12">
@@ -161,9 +106,9 @@ export default function CuacaPage() {
         />
       )}
 
-      {loading && <SkeletonLoader label="Mengambil data NASA POWER..." />}
+      {loading && !data && <SkeletonLoader label="Mengambil data NASA POWER..." />}
 
-      {error && (
+      {error && !data && (
         <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/8 p-5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-destructive/15 text-destructive">
             <AlertCircle className="h-4 w-4" />

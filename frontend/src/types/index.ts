@@ -215,3 +215,25 @@ export type FeedbackResponse = {
   status: "received";
   feedback_id: number;
 };
+
+export type WeatherCuaca = "cerah" | "berawan" | "hujan-ringan" | "hujan-lebat";
+
+export type WeatherItem = {
+  date: string;
+  hari: string;
+  tanggal: string;
+  cuaca: WeatherCuaca;
+  suhu_min: number | null;
+  suhu_max: number | null;
+  suhu_mean: number | null;
+  hujan_mm: number;
+  radiasi_w_m2: number | null;
+  catatan: string;
+};
+
+export type WeatherResponse = {
+  lat: number;
+  lon: number;
+  source: string;
+  items: WeatherItem[];
+};

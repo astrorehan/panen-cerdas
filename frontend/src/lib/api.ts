@@ -12,6 +12,7 @@ import type {
   PredictResponse,
   Province,
   VarietiesResponse,
+  WeatherResponse,
   YieldTrend,
 } from "@/types";
 
@@ -21,6 +22,35 @@ const TTL_MS = 5 * 60 * 1000;
 type CacheEntry = { data: unknown; expiresAt: number; inflight?: Promise<unknown> };
 const cache = new Map<string, CacheEntry>();
 
+function qs(obj: Record<string, string | number | undefined>) {
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== "") params.set(k, String(v));
+  }
+  const s = params.toString();
+  return s ? `?${s}` : "";
+}
+
+export const apiPath = {
+  dashboardSummary: (province = "DI Yogyakarta", commodity = "padi") =>
+    `/api/dashboard/summary${qs({ province, commodity })}`,
+  dashboardTrend: (province = "DI Yogyakarta", commodity = "padi") =>
+    `/api/dashboard/trend${qs({ province, commodity })}`,
+  predictionsList: (province = "DI Yogyakarta", commodity = "padi", season = "MT 2024-1") =>
+    `/api/predictions${qs({ province, commodity, season })}`,
+  predictionsDetail: (id: string, commodity = "padi") =>
+    `/api/predictions/${id}${qs({ commodity })}`,
+  predictionsHistory: (petani_id?: string, lahan_id?: string, limit = 50) =>
+    `/api/predictions/history${qs({ petani_id, lahan_id, limit })}`,
+  regionsGeojson: (province = "DI Yogyakarta") =>
+    `/api/regions/geojson${qs({ province })}`,
+  regionsProvinces: () => `/api/regions/provinces`,
+  lahanList: (petani_id?: string) => `/api/lahan${qs({ petani_id })}`,
+  varietiesList: (crop_type: CropType) => `/api/varieties${qs({ crop_type })}`,
+  weatherRecent: (lat: number, lon: number, days = 7) =>
+    `/api/weather/recent${qs({ lat, lon, days })}`,
+};
+
 function invalidate(prefix?: string) {
   if (!prefix) {
     cache.clear();
@@ -29,6 +59,12 @@ function invalidate(prefix?: string) {
   for (const key of cache.keys()) {
     if (key.startsWith(prefix)) cache.delete(key);
   }
+}
+
+export function peek<T>(path: string): T | null {
+  const hit = cache.get(path);
+  if (hit && hit.expiresAt > Date.now()) return hit.data as T;
+  return null;
 }
 
 async function get<T>(path: string, init?: RequestInit): Promise<T> {
@@ -76,50 +112,34 @@ async function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
 export const api = {
   dashboard: {
     summary: (province = "DI Yogyakarta", commodity = "padi") =>
-      get<DashboardSummary>(
-        `/api/dashboard/summary?province=${encodeURIComponent(province)}&commodity=${encodeURIComponent(commodity)}`,
-      ),
+      get<DashboardSummary>(apiPath.dashboardSummary(province, commodity)),
     trend: (province = "DI Yogyakarta", commodity = "padi") =>
-      get<YieldTrend>(
-        `/api/dashboard/trend?province=${encodeURIComponent(province)}&commodity=${encodeURIComponent(commodity)}`,
-      ),
+      get<YieldTrend>(apiPath.dashboardTrend(province, commodity)),
   },
   predictions: {
     list: (province = "DI Yogyakarta", commodity = "padi", season = "MT 2024-1") =>
-      get<PredictionsResponse>(
-        `/api/predictions?province=${encodeURIComponent(province)}&commodity=${encodeURIComponent(commodity)}&season=${encodeURIComponent(season)}`,
-      ),
+      get<PredictionsResponse>(apiPath.predictionsList(province, commodity, season)),
     detail: (id: string, commodity = "padi") =>
-      get<KecamatanDetail>(
-        `/api/predictions/${id}?commodity=${encodeURIComponent(commodity)}`,
-      ),
-    history: (petani_id?: string, lahan_id?: string, limit = 50) => {
-      const params = new URLSearchParams();
-      if (petani_id) params.set("petani_id", petani_id);
-      if (lahan_id)  params.set("lahan_id", lahan_id);
-      params.set("limit", String(limit));
-      return get<PredictionHistoryResponse>(
-        `/api/predictions/history?${params.toString()}`,
-      );
-    },
+      get<KecamatanDetail>(apiPath.predictionsDetail(id, commodity)),
+    history: (petani_id?: string, lahan_id?: string, limit = 50) =>
+      get<PredictionHistoryResponse>(apiPath.predictionsHistory(petani_id, lahan_id, limit)),
   },
   regions: {
     geojson: (province = "DI Yogyakarta") =>
-      get<GeoJsonFC>(`/api/regions/geojson?province=${encodeURIComponent(province)}`),
+      get<GeoJsonFC>(apiPath.regionsGeojson(province)),
     provinces: () =>
-      get<{ count: number; items: Province[] }>(`/api/regions/provinces`),
+      get<{ count: number; items: Province[] }>(apiPath.regionsProvinces()),
   },
   lahan: {
-    list: (petani_id?: string) => {
-      const q = petani_id ? `?petani_id=${encodeURIComponent(petani_id)}` : "";
-      return get<LahanResponse>(`/api/lahan${q}`);
-    },
+    list: (petani_id?: string) => get<LahanResponse>(apiPath.lahanList(petani_id)),
   },
   varieties: {
     list: (crop_type: CropType) =>
-      get<VarietiesResponse>(
-        `/api/varieties?crop_type=${encodeURIComponent(crop_type)}`,
-      ),
+      get<VarietiesResponse>(apiPath.varietiesList(crop_type)),
+  },
+  weather: {
+    recent: (lat: number, lon: number, days = 7) =>
+      get<WeatherResponse>(apiPath.weatherRecent(lat, lon, days)),
   },
   ml: {
     predict: async (
@@ -129,8 +149,8 @@ export const api = {
       const params = new URLSearchParams();
       if (opts?.petani_id) params.set("petani_id", opts.petani_id);
       if (opts?.lahan_id)  params.set("lahan_id", opts.lahan_id);
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      const result = await post<PredictRequest, PredictResponse>(`/api/predict${qs}`, req);
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const result = await post<PredictRequest, PredictResponse>(`/api/predict${query}`, req);
       invalidate("/api/lahan");
       invalidate("/api/predictions");
       invalidate("/api/dashboard");
@@ -143,4 +163,5 @@ export const api = {
     },
   },
   invalidate,
+  peek,
 };

@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { ArrowRight, Layers, MapPin, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { SkeletonLoader } from "@/components/skeleton-loader";
-import { api } from "@/lib/api";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { getPetaniId } from "@/lib/auth";
-import type { LahanItem, LahanResponse } from "@/types";
+import type { LahanItem } from "@/types";
 
 const STATUS_STYLE: Record<
   LahanItem["status"],
@@ -44,32 +45,11 @@ function formatDate(iso: string): string {
 }
 
 export default function LahanPage() {
-  const [data, setData] = useState<LahanResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const petaniId = getPetaniId();
-    api.lahan
-      .list(petaniId)
-      .then((res) => {
-        if (cancelled) return;
-        setData(res);
-        setError(null);
-      })
-      .catch((err: Error) => {
-        if (cancelled) return;
-        setError(err.message || "Gagal memuat lahan");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const petaniId = useMemo(() => getPetaniId(), []);
+  const { data, loading, error } = useApi(
+    apiPath.lahanList(petaniId),
+    () => api.lahan.list(petaniId),
+  );
 
   return (
     <div className="container space-y-8 py-8 md:py-12">
@@ -88,15 +68,15 @@ export default function LahanPage() {
         </p>
       </header>
 
-      {loading && <SkeletonLoader label="Memuat lahan..." />}
+      {loading && !data && <SkeletonLoader label="Memuat lahan..." />}
 
-      {error && (
+      {error && !data && (
         <div className="rounded-2xl border border-destructive/30 bg-destructive/8 p-5 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {data && !loading && (
+      {data && (
         <>
           <section className="grid gap-3 sm:grid-cols-3">
             <StatCard
