@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import {
   ArrowRight,
   Sprout,
@@ -12,7 +12,8 @@ import {
   History,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { api } from "@/lib/api";
+import { api, apiPath } from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { getPetaniId } from "@/lib/auth";
 import type { LahanResponse } from "@/types";
 
@@ -53,22 +54,11 @@ const QUICK_LINKS = [
 ];
 
 export default function PetaniDashboardPage() {
-  const [lahan, setLahan] = useState<LahanResponse | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    api.lahan
-      .list(getPetaniId())
-      .then((res) => {
-        if (!cancelled) setLahan(res);
-      })
-      .catch(() => {
-        if (!cancelled) setLahan(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const petaniId = useMemo(() => getPetaniId(), []);
+  const { data: lahan } = useApi(
+    apiPath.lahanList(petaniId),
+    () => api.lahan.list(petaniId)
+  );
 
   const lastYield = lahan?.items.find(
     (l) => l.last_yield_ton_per_ha != null,
