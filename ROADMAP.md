@@ -60,9 +60,9 @@
 - [ ] Empty/error state untuk halaman petani sekunder (saat ini mock selalu ada).
 
 ### C. ML real (Phase 8+, beyond hackathon)
-- [ ] Pipeline `pipeline/sentinel.py` - NDVI bulanan Sentinel-2 via GEE.
-- [ ] Pipeline `pipeline/weather.py` - ERA5 / BMKG aggregation.
-- [ ] Pipeline `pipeline/kementan.py` - parser Excel Kementan yield padi 2018-2024.
+- [ ] Pipeline NDVI bulanan Sentinel-2 via GEE.
+- [ ] Pipeline cuaca ERA5 / BMKG aggregation.
+- [ ] Parser Excel Kementan yield padi 2018-2024.
 - [ ] Re-train RandomForest dengan label Kementan asli penuh (kurangi porsi sintetik).
 - [ ] GEE Sentinel-2 NDVI live di `ml_service/predictor.py` (saat ini di-skip karena auth + kuota berat).
 - [ ] Retraining loop yang baca `data/feedback.jsonl` periodik.

@@ -68,6 +68,7 @@ Thumbs.db
 
 # Claude Code local state (not shared across team)
 .claude/
+.mcp.json
 SESSION_HANDOFF.md
 
 # OS
