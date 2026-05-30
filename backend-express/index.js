@@ -24,13 +24,19 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: [FRONTEND_URL, "http://127.0.0.1:3000"], credentials: true }));
 app.use(express.json());
 
-// Generous limit — protects against abuse without ever tripping a live demo.
+// Abuse protection only — set high so normal dashboard use (many reads per page,
+// doubled by React StrictMode in dev) never trips it. Loopback (local demo) is
+// skipped entirely so a live demo on localhost is never rate-limited.
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 120,
+  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Terlalu banyak permintaan. Coba lagi sebentar." },
+  skip: (req) => {
+    const ip = req.ip || "";
+    return ip === "::1" || ip === "127.0.0.1" || ip.endsWith("127.0.0.1");
+  },
 });
 app.use("/api", apiLimiter);
 
