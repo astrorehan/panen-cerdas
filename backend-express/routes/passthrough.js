@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const log = require("../logger");
 
 const router = express.Router({ mergeParams: true });
 
@@ -21,9 +22,7 @@ router.all(/.*/, async (req, res) => {
     });
     res.status(upstream.status).json(upstream.data);
   } catch (err) {
-    console.warn(
-      `[passthrough] ${req.method} ${url} -> ${err.code || err.message}`,
-    );
+    log.warn("passthrough", `${req.method} ${url} -> ${err.code || err.message}`);
     res.status(502).json({
       error: "ML service unreachable",
       code: err.code || null,

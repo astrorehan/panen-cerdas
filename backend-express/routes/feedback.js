@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const log = require("../logger");
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ router.post("/", async (req, res) => {
     res.json(data);
   } catch (err) {
     if (!err.response) {
-      console.warn(`[feedback] ML unreachable (${err.code || "no response"})`);
+      log.warn("feedback", `ML unreachable (${err.code || "no response"})`);
       return res.status(503).json({
         status: "error",
         message: "Feedback tidak tersimpan - ML service tidak tersedia. Coba lagi nanti.",

@@ -1,5 +1,6 @@
 const express = require("express");
 const axios = require("axios");
+const log = require("../logger");
 
 const router = express.Router();
 
@@ -40,13 +41,13 @@ router.post("/", async (req, res) => {
       !err.response;
 
     if (isNetworkError) {
-      console.warn(`[predict] ML unreachable (${err.code || "no response"}) - returning fallback`);
+      log.warn("predict", `ML unreachable (${err.code || "no response"}) - returning fallback`);
       return res.json(buildFallback(req.body));
     }
 
     // ML returned an error (e.g., 422 validation). Surface upstream status + body.
     const status = err.response.status;
-    console.warn(`[predict] ML returned ${status}`);
+    log.warn("predict", `ML returned ${status}`);
     res.status(status).json(err.response.data);
   }
 });
