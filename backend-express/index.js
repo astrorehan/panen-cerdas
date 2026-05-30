@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const rateLimit = require("express-rate-limit");
 
 const log = require("./logger");
 const predictRoute = require("./routes/predict");
@@ -15,7 +14,7 @@ const PORT = Number(process.env.PORT) || 4000;
 const HOST = process.env.HOST || "127.0.0.1";
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
-// Behind a proxy/host (Render, etc.) so rate-limit reads the real client IP.
+// Behind a proxy/host (Render, etc.) so req.ip reflects the real client.
 app.set("trust proxy", 1);
 
 // Security headers. crossOriginResourcePolicy relaxed so the frontend on a
@@ -23,22 +22,6 @@ app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors({ origin: [FRONTEND_URL, "http://127.0.0.1:3000"], credentials: true }));
 app.use(express.json());
-
-// Abuse protection only — set high so normal dashboard use (many reads per page,
-// doubled by React StrictMode in dev) never trips it. Loopback (local demo) is
-// skipped entirely so a live demo on localhost is never rate-limited.
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: Number(process.env.RATE_LIMIT_MAX) || 1000,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Terlalu banyak permintaan. Coba lagi sebentar." },
-  skip: (req) => {
-    const ip = req.ip || "";
-    return ip === "::1" || ip === "127.0.0.1" || ip.endsWith("127.0.0.1");
-  },
-});
-app.use("/api", apiLimiter);
 
 app.use("/api/predict", predictRoute);
 app.use("/api/feedback", feedbackRoute);

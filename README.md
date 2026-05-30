@@ -360,7 +360,7 @@ RETRAIN_FEEDBACK_THRESHOLD=10
 ## Keamanan & Secrets
 
 - **Tidak ada secret di repo.** Semua kredensial dibaca dari environment variable. File `.env` / `.env.local` ada di `.gitignore` dan tidak pernah ter-commit (cek: `git ls-files | grep .env` hanya menampilkan `*.example`). Template lengkap ada di tiap `*.env.example`.
-- **Gateway Express** dilindungi [`helmet`](https://helmetjs.github.io/) (security headers: CSP, X-Frame-Options, X-Content-Type-Options, dll), `express-rate-limit` (default 120 req/menit/IP, override via `RATE_LIMIT_MAX`), CORS whitelist (`FRONTEND_URL`), dan central error handler yang tidak pernah membocorkan stack trace ke client.
+- **Gateway Express** dilindungi [`helmet`](https://helmetjs.github.io/) (security headers: CSP, X-Frame-Options, X-Content-Type-Options, dll), CORS whitelist (`FRONTEND_URL`), dan central error handler yang tidak pernah membocorkan stack trace ke client.
 - **Validasi input** di ML service via Pydantic (`schemas.py`): bounds-check lat/lon Indonesia, `crop_type` Literal, `ndvi`/`pest_pressure` 0–1, dll. `petani_id` dinormalisasi sebagai UUID sebelum disimpan (`database.py`).
 - **Query aman dari SQL injection**: semua akses DB lewat SQLAlchemy ORM (parameterized).
 - **Rotasi kredensial (manual):** jika `DATABASE_URL` (Supabase) atau `APPEEARS_PASS` pernah dibagikan di luar tim, rotasi di Supabase Dashboard → Database → Reset password dan di akun APPEEARS, lalu update env var hosting. Anon key Supabase bersifat publik (dilindungi RLS), aman di frontend.
