@@ -132,7 +132,7 @@ export default function PrediksiPage() {
     } catch (err) {
       setStatus({
         kind: "error",
-        message: err instanceof Error ? err.message : "Gagal memanggil ML service.",
+        message: err instanceof Error ? err.message : "Gagal memproses prediksi. Coba lagi.",
       });
     }
   }
@@ -450,7 +450,7 @@ export default function PrediksiPage() {
         {/* Result */}
         <div className="mt-10 space-y-6">
           {status.kind === "loading" && (
-            <SkeletonLoader label="Memanggil ML service..." />
+            <SkeletonLoader label="Menganalisis data lahan & cuaca..." />
           )}
 
           {status.kind === "error" && (
