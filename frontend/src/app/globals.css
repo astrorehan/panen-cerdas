@@ -44,6 +44,63 @@
     background: rgba(31, 81, 50, 0.18);
     color: #0f1f18;
   }
+
+  /* ── Accessibility: adjustable text size ───────────────────────
+     The UI is rem-based, so scaling the root font-size scales the
+     whole interface. Toggled by the AccessibilityMenu component. */
+  html.a11y-small-text {
+    font-size: 93.75%; /* ~15px */
+  }
+  html.a11y-large-text {
+    font-size: 118.75%; /* ~19px */
+  }
+
+  /* ── Accessibility: high-contrast theme ────────────────────────
+     Tailwind colors are hardcoded hex (not CSS vars), so we override
+     the highest-impact utility classes plus the var-driven body.
+     Scoped to .a11y-contrast so the default theme is untouched. */
+  html.a11y-contrast {
+    --background: #ffffff;
+    --foreground: #000000;
+    --border: #000000;
+    --ring: #000000;
+  }
+  html.a11y-contrast body {
+    background: #ffffff;
+    color: #000000;
+  }
+  html.a11y-contrast .text-muted-foreground {
+    color: #1a1a1a !important;
+  }
+  html.a11y-contrast .text-foreground {
+    color: #000000 !important;
+  }
+  html.a11y-contrast .text-primary {
+    color: #0a3d1f !important;
+  }
+  html.a11y-contrast .bg-background,
+  html.a11y-contrast .bg-surface,
+  html.a11y-contrast .bg-muted {
+    background-color: #ffffff !important;
+  }
+  html.a11y-contrast .border,
+  html.a11y-contrast .border-border {
+    border-color: #000000 !important;
+  }
+
+  /* ── Accessibility: respect reduced-motion preference ──────────── */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer components {
