@@ -33,6 +33,83 @@ Browser  ->  Next.js 14 (frontend, :3000)  ----> Supabase (auth + profiles)
 | Data sources | NASA POWER (cuaca), NASA APPEEARS MOD13Q1 (NDVI 250m/16-hari), Kementan 2020-2025 | `ml_service/data/` |
 | Training | 3 model RandomForest (harvest_days, yield_ratio, risk) + online retrain | `ml_service/model.py`, `ml_service/retrain_scheduler.py` |
 
+## Skema Database (ERD)
+
+Tiga tabel aplikasi (SQLAlchemy ORM di `ml_service/database.py`) + `auth.users` / `profiles` yang dikelola Supabase Auth. `petani_id` adalah FK ke `auth.users(id)` (di Postgres; di SQLite fallback degrade ke `CHAR(32)` tanpa constraint).
+
+```mermaid
+erDiagram
+    auth_users  ||--o{ prediction_log    : "petani_id"
+    auth_users  ||--o{ training_feedback  : "petani_id"
+    auth_users  ||--o| profiles           : "id"
+    prediction_log ||..o{ training_feedback : "prediction_log_id"
+
+    auth_users {
+        uuid id PK "dikelola Supabase Auth"
+    }
+    profiles {
+        uuid id PK "FK auth.users"
+        text name
+        text role "petani | pemerintah"
+        timestamptz created_at
+    }
+    prediction_log {
+        int id PK
+        float ndvi
+        float rainfall_mm
+        float temperature_c
+        float solar_radiation
+        float land_area_ha
+        string crop_type
+        int pred_harvest_days
+        float pred_yield_ton_per_ha
+        string pred_risk_level
+        float pred_confidence
+        string model_source
+        uuid petani_id FK
+        string lahan_id
+        float lat
+        float lon
+        datetime created_at
+        bool feedback_given
+    }
+    training_feedback {
+        int id PK
+        int prediction_log_id
+        float ndvi
+        float rainfall_mm
+        float temperature_c
+        float solar_radiation
+        float land_area_ha
+        string crop_type
+        int actual_harvest_days
+        float actual_yield_ton_per_ha
+        string actual_risk_level
+        float pest_pressure
+        string variety
+        uuid petani_id FK
+        string lahan_id
+        text catatan
+        datetime created_at
+        bool used_in_training
+        int training_version
+    }
+    model_version {
+        int id PK
+        int version UK
+        datetime trained_at
+        float mae_harvest_days
+        float mae_yield
+        float risk_accuracy
+        int n_synthetic
+        int n_real
+        bool is_active
+        text notes
+    }
+```
+
+> `model_version` berdiri sendiri (riwayat versi model untuk rollback), tidak punya FK ke tabel lain. `climate_cache` dibuat otomatis oleh `data_cache.py` sebagai cache NASA POWER/NDVI (bukan data domain).
+
 ## Quick Start
 
 > **PENTING:** Python 3.12 (bukan 3.13/3.14, wheel-nya belum lengkap di Windows) dan Node.js 20+ LTS.
@@ -279,6 +356,32 @@ RETRAIN_FEEDBACK_THRESHOLD=10
 1. **Cold start ml_service** — load 6 joblib models + connect Postgres pool butuh 5-15 detik. Render free tier sleep setelah 15 menit idle → request pertama akan delay. Mitigasi: paid tier atau cron ping tiap 10 menit.
 2. **Supabase pool limit** — free tier session pooler ≈ 60 koneksi. SQLAlchemy default pool 5 + overflow 10, masih aman untuk demo. Pantau kalau scale.
 3. **NDVI fetcher async** — `ndvi_fetcher.py` polling APPEEARS task selama beberapa menit. Kalau request timeout (Express `ML_TIMEOUT_MS=60000`), fallback ke estimasi musiman. Acceptable untuk demo.
+
+## Keamanan & Secrets
+
+- **Tidak ada secret di repo.** Semua kredensial dibaca dari environment variable. File `.env` / `.env.local` ada di `.gitignore` dan tidak pernah ter-commit (cek: `git ls-files | grep .env` hanya menampilkan `*.example`). Template lengkap ada di tiap `*.env.example`.
+- **Gateway Express** dilindungi [`helmet`](https://helmetjs.github.io/) (security headers: CSP, X-Frame-Options, X-Content-Type-Options, dll), `express-rate-limit` (default 120 req/menit/IP, override via `RATE_LIMIT_MAX`), CORS whitelist (`FRONTEND_URL`), dan central error handler yang tidak pernah membocorkan stack trace ke client.
+- **Validasi input** di ML service via Pydantic (`schemas.py`): bounds-check lat/lon Indonesia, `crop_type` Literal, `ndvi`/`pest_pressure` 0–1, dll. `petani_id` dinormalisasi sebagai UUID sebelum disimpan (`database.py`).
+- **Query aman dari SQL injection**: semua akses DB lewat SQLAlchemy ORM (parameterized).
+- **Rotasi kredensial (manual):** jika `DATABASE_URL` (Supabase) atau `APPEEARS_PASS` pernah dibagikan di luar tim, rotasi di Supabase Dashboard → Database → Reset password dan di akun APPEEARS, lalu update env var hosting. Anon key Supabase bersifat publik (dilindungi RLS), aman di frontend.
+- **Production CORS:** `ml_service/main.py` masih `allow_origins=["*"]` untuk kemudahan dev. Sebelum publish, set `ALLOWED_ORIGINS` ke daftar origin eksplisit (frontend + express URL).
+
+## Aksesibilitas
+
+Menu aksesibilitas mengambang (tombol kanan-bawah, `accessibility-menu.tsx`) tersedia di **semua halaman**:
+
+- **Kontras tinggi** — palette WCAG-friendly (teks hitam, border tegas) yang men-override token default tanpa mengubah tema normal.
+- **Ukuran teks adjustable** (Kecil / Normal / Besar) — UI berbasis `rem` ikut menyesuaikan.
+- **`prefers-reduced-motion`** dihormati — animasi dimatikan otomatis untuk pengguna yang memilihnya di OS.
+- Preferensi disimpan di `localStorage` dan diterapkan sebelum paint (tanpa flash). Semua kontrol bisa dioperasikan via keyboard dengan `aria-pressed` / `aria-label`.
+
+## Penggunaan AI Generatif
+
+Sesuai panduan UNITY #14 (AI Generatif diperbolehkan selama transparan), kami memakai AI assistant (Claude) secara strategis sebagai akselerator, **bukan** pengganti pemahaman tim:
+
+- **Dibantu AI:** boilerplate (komponen UI, route Express), drafting dokumentasi/README, refactor, dan debugging.
+- **Kontribusi orisinal tim:** desain arsitektur tiga-layanan, pemilihan & feature-engineering model RandomForest (target `yield_ratio` agar tak didominasi satu komoditas, fitur hama/varietas), pipeline data (integrasi NASA POWER + APPEEARS NDVI + Kementan), strategi online-retraining, dan keputusan domain pertanian Indonesia.
+- Seluruh tim memahami logika kode end-to-end dan dapat menjelaskan setiap bagian saat sesi tanya jawab.
 
 ## Kontribusi
 
