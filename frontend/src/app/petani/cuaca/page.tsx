@@ -141,7 +141,7 @@ export default function CuacaPage() {
           Catatan sumber
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Suhu, curah hujan, dan radiasi matahari diambil real-time dari{" "}
+          Suhu, curah hujan, dan radiasi matahari bersumber dari{" "}
           <a
             href="https://power.larc.nasa.gov/"
             target="_blank"
@@ -150,8 +150,8 @@ export default function CuacaPage() {
           >
             NASA POWER
           </a>
-          . Data sains agroklimatologi gratis dengan lag 3-7 hari. Versi
-          berikutnya menambahkan prakiraan 7-hari ke depan dari BMKG.
+          {" "}— data agroklimatologi observasional gratis dengan jeda sekitar
+          3-7 hari dari tanggal terkini.
         </p>
       </section>
     </div>
