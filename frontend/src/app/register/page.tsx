@@ -36,6 +36,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("petani");
+  const [accessCode, setAccessCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -58,6 +59,7 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
         role,
+        accessCode,
       });
       router.push(`/${role}/dashboard`);
     } catch (err) {
@@ -181,6 +183,30 @@ export default function RegisterPage() {
                   disabled={loading}
                 />
               </div>
+
+              {role === "pemerintah" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="accessCode">Kode akses instansi</Label>
+                  <Input
+                    id="accessCode"
+                    type="text"
+                    required
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value)}
+                    placeholder="Masukkan kode dari admin"
+                    disabled={loading}
+                  />
+                  <p className="text-[11px] leading-tight text-muted-foreground">
+                    Belum punya kode akses instansi?{" "}
+                    <Link
+                      href="/hubungi-kami"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      Hubungi kami
+                    </Link>
+                  </p>
+                </div>
+              )}
 
               {error && (
                 <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-2.5 text-sm text-destructive">

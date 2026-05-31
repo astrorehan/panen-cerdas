@@ -87,7 +87,22 @@ export async function signUp(input: {
   password: string;
   name: string;
   role: Role;
+  accessCode?: string;
 }): Promise<{ role: Role; name: string }> {
+  // Peran pemerintah wajib lolos verifikasi kode akses instansi (Supabase RPC).
+  // Dicek lebih dulu supaya akun tidak terlanjur dibuat saat kode salah.
+  if (input.role === "pemerintah") {
+    const { data: valid, error: rpcError } = await supabase.rpc(
+      "verify_gov_code",
+      { p_code: (input.accessCode ?? "").trim() },
+    );
+    if (rpcError) {
+      throw new Error(`Gagal memverifikasi kode akses: ${rpcError.message}`);
+    }
+    if (valid !== true) {
+      throw new Error("Kode akses instansi tidak valid");
+    }
+  }
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
     password: input.password,

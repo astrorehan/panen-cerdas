@@ -51,6 +51,77 @@ create policy "users update own profile"
 
 Verifikasi: Sidebar → **Table Editor** → harus muncul `profiles` dengan 4 kolom.
 
+## 3b. Kode akses instansi (gating peran pemerintah)
+
+Supaya **tidak sembarang orang bisa daftar sebagai pemerintah**, peran pemerintah
+butuh **kode akses instansi**. Saat register, kalau user pilih kartu "Pemerintah",
+muncul field kode; `signUp()` memvalidasinya lewat fungsi RPC `verify_gov_code`
+sebelum akun dibuat. Petani tidak terpengaruh (tidak perlu kode).
+
+Kode disimpan di tabel `gov_access_codes` yang **RLS-nya tidak punya policy SELECT**,
+jadi isi tabel tak bisa dibaca dari browser (anon key). Validasi memakai fungsi
+`SECURITY DEFINER` yang hanya mengembalikan `true/false` — kode rahasia tidak pernah
+dikirim ke client / ikut ter-bundle ke JS.
+
+Sidebar → **SQL Editor** → **New query** → paste → **Run**:
+
+```sql
+-- Tabel kode akses instansi pemerintah
+create table public.gov_access_codes (
+  code       text primary key,
+  label      text,                       -- nama instansi / keterangan
+  is_active  boolean not null default true,
+  created_at timestamptz default now()
+);
+
+-- RLS aktif TANPA policy SELECT untuk anon -> isi tabel tak terbaca dari client.
+alter table public.gov_access_codes enable row level security;
+
+-- Validasi kode tanpa membocorkan isi tabel (SECURITY DEFINER bypass RLS).
+create or replace function public.verify_gov_code(p_code text)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.gov_access_codes
+    where code = p_code and is_active = true
+  );
+$$;
+
+grant execute on function public.verify_gov_code(text) to anon, authenticated;
+
+-- Seed contoh kode (GANTI dengan kode rahasia kamu sendiri).
+insert into public.gov_access_codes (code, label)
+values ('PANEN-GOV-2026', 'Demo UNITY / instansi pilot');
+```
+
+Verifikasi: Sidebar → **Table Editor** → `gov_access_codes` harus muncul dengan
+minimal 1 baris aktif.
+
+### Cara admin mengelola kode
+
+Lewat **SQL Editor** (atau Table Editor):
+
+```sql
+-- Tambah kode baru untuk satu instansi
+insert into public.gov_access_codes (code, label)
+values ('DIY-DISTAN-01', 'Dinas Pertanian DIY');
+
+-- Nonaktifkan kode (tanpa menghapus) -> register pemerintah dgn kode ini ditolak
+update public.gov_access_codes set is_active = false where code = 'DIY-DISTAN-01';
+```
+
+### Alur komunikasi admin ↔ instansi (out-of-band)
+
+Akun pemerintah tetap dibuat sendiri oleh instansi lewat halaman `/register`, tapi
+**hanya pemegang kode** yang bisa membuatnya sebagai pemerintah. Kode dibagikan
+**di luar sistem** oleh tim/admin PanenCerdas ke instansi yang sah — mis. lewat email
+resmi atau saat onboarding. Instansi yang belum punya kode diarahkan oleh prompt di
+form register: *"Belum punya kode akses instansi? Hubungi kami"* → halaman
+`/hubungi-kami`. Untuk demo (juri UNITY), bagikan kode seed `PANEN-GOV-2026`.
+
 ## 4. Copy kredensial ke frontend
 
 Sidebar → **Project Settings** → **API**.
