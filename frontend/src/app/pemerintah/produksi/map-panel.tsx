@@ -34,7 +34,10 @@ export function MapPanel({
 }: Props) {
   const router = useRouter();
   return (
-    <div className="relative border-t border-rule">
+    // `isolate` contains Leaflet's internal z-index stack (panes/controls go up
+    // to 1000) inside this element's own stacking context, so it can't paint
+    // over the filter-bar dropdowns once the map mounts.
+    <div className="relative isolate border-t border-rule">
       <ChoroplethMap
         geojson={geojson}
         predictions={predictions}
