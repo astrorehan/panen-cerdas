@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, BarChart3, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SkeletonLoader } from "@/components/skeleton-loader";
@@ -11,6 +11,31 @@ import { formatNumber, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import { NdviChart } from "./ndvi-chart";
 import { BacktestChart } from "./backtest-chart";
 import { KecamatanSelect } from "./select";
+import type { CropType } from "@/types";
+
+const COMMODITIES: Array<{ id: CropType; label: string }> = [
+  { id: "padi",         label: "Padi" },
+  { id: "jagung",       label: "Jagung" },
+  { id: "kedelai",      label: "Kedelai" },
+  { id: "ubi_jalar",    label: "Ubi Jalar" },
+  { id: "ubi_kayu",     label: "Singkong" },
+  { id: "cabe_besar",   label: "Cabe Besar" },
+  { id: "cabe_rawit",   label: "Cabe Rawit" },
+  { id: "bawang_merah", label: "Bawang Merah" },
+  { id: "bawang_putih", label: "Bawang Putih" },
+];
+
+const COMMODITY_MAP: Record<string, string> = {
+  padi: "Padi",
+  jagung: "Jagung",
+  kedelai: "Kedelai",
+  ubi_jalar: "Ubi Jalar",
+  ubi_kayu: "Singkong",
+  cabe_besar: "Cabe Besar",
+  cabe_rawit: "Cabe Rawit",
+  bawang_merah: "Bawang Merah",
+  bawang_putih: "Bawang Putih",
+};
 
 export default function DetailPage() {
   return (
@@ -27,14 +52,16 @@ export default function DetailPage() {
 }
 
 function DetailPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const queryId = searchParams.get("id") ?? undefined;
+  const commodityParam = (searchParams.get("commodity") as CropType) ?? "padi";
   const isProvinceLevel = (queryId ?? "").startsWith("PROV_");
 
   // Mode kecamatan (DIY): muat 7 kecamatan (paralel, cepat) untuk dropdown.
   const { data: kecList, loading: loadingKec } = useApi(
-    isProvinceLevel ? null : apiPath.predictionsList("DI Yogyakarta"),
-    () => api.predictions.list("DI Yogyakarta"),
+    isProvinceLevel ? null : apiPath.predictionsList("DI Yogyakarta", commodityParam),
+    () => api.predictions.list("DI Yogyakarta", commodityParam),
   );
 
   // Mode provinsi: cukup direktori provinsi yang ringan untuk dropdown. Kita
@@ -49,8 +76,8 @@ function DetailPageInner() {
   const selectedId = queryId ?? kecList?.items[0]?.id;
 
   const { data: detail, loading: loadingDetail } = useApi(
-    selectedId ? apiPath.predictionsDetail(selectedId) : null,
-    () => api.predictions.detail(selectedId as string),
+    selectedId ? apiPath.predictionsDetail(selectedId, commodityParam) : null,
+    () => api.predictions.detail(selectedId as string, commodityParam),
   );
 
   const options = isProvinceLevel
@@ -97,14 +124,13 @@ function DetailPageInner() {
       <header>
         <div className="eyebrow">
           <BarChart3 className="h-3 w-3" />
-          Profil Kecamatan
+          Profil Analisis Wilayah
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-          Bedah satu kecamatan
+          Bedah Wilayah &amp; Komoditas
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Time series NDVI, prediksi yield, dan backtest historis terhadap
-          data resmi Kementan.
+          Analisis komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> untuk memantau time series NDVI, prediksi yield, dan backtest historis terhadap data resmi Kementan.
         </p>
       </header>
 
@@ -112,7 +138,7 @@ function DetailPageInner() {
         <div>
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" />
-            Subjek analisis
+            Subjek analisis · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
           </div>
           {isProvinceLevel ? (
             <>
@@ -120,7 +146,7 @@ function DetailPageInner() {
                 {detail?.kabupaten ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Provinsi · agregat nasional
+                Provinsi · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
               </div>
             </>
           ) : (
@@ -129,27 +155,44 @@ function DetailPageInner() {
                 {detail?.kecamatan ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel}
+                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel} · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
               </div>
             </>
           )}
         </div>
-        <KecamatanSelect
-          options={options}
-          currentId={selectedId}
-          mode={isProvinceLevel ? "province" : "kecamatan"}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <KecamatanSelect
+            options={options}
+            currentId={selectedId}
+            mode={isProvinceLevel ? "province" : "kecamatan"}
+            commodity={commodityParam}
+          />
+          <label className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm shadow-sm">
+            <span className="text-xs font-medium text-muted-foreground">Komoditas</span>
+            <select
+              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
+              value={commodityParam}
+              onChange={(e) => router.push(`/pemerintah/analisis?id=${selectedId || ""}&commodity=${e.target.value}`)}
+            >
+              {COMMODITIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </Card>
 
       {!detail ? (
         <Card className="p-10 text-center text-sm text-muted-foreground">
-          Memuat detail kecamatan...
+          Memuat detail wilayah untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}...
         </Card>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <Numeral
-              label="Yield Prediksi"
+              label={`Yield Prediksi ${COMMODITY_MAP[commodityParam] || "Padi"}`}
               numeral={detail.yield_pred_ton_per_ha.toFixed(2)}
               unit="ton/ha"
             />
@@ -159,7 +202,7 @@ function DetailPageInner() {
               unit="hektar"
             />
             <Numeral
-              label="Total Produksi"
+              label={`Total Produksi ${COMMODITY_MAP[commodityParam] || "Padi"}`}
               numeral={formatNumber(detail.total_produksi_ton)}
               unit="ton"
               accent
@@ -176,7 +219,7 @@ function DetailPageInner() {
             >
               <div className="px-5 py-4">
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Status Pangan
+                  Status Pangan ({COMMODITY_MAP[commodityParam] || "Padi"})
                 </div>
                 <div
                   className="mt-1 text-2xl font-semibold tracking-tight"
@@ -205,14 +248,14 @@ function DetailPageInner() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
-                  Laporan Panen Petani
+                  Laporan Panen {COMMODITY_MAP[commodityParam] || "Padi"} Petani
                 </CardTitle>
                 <CardDescription>
                   Yield aktual ground-truth dari{" "}
                   <span className="font-medium text-foreground">
                     {detail.feedback_count} laporan
                   </span>{" "}
-                  petani di kecamatan ini — diperbarui otomatis setiap ada laporan baru.
+                  petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di kecamatan ini — diperbarui otomatis setiap ada laporan baru.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -240,7 +283,7 @@ function DetailPageInner() {
             </Card>
           ) : (
             <Card className="border-dashed p-5 text-sm text-muted-foreground">
-              Belum ada laporan panen petani untuk kecamatan ini. Angka di atas
+              Belum ada laporan panen petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di kecamatan ini. Angka di atas
               murni prediksi model — akan otomatis diperbarui saat petani mengirim
               hasil panen lewat fitur feedback.
             </Card>
@@ -248,7 +291,7 @@ function DetailPageInner() {
 
           <Card>
             <CardHeader>
-              <CardTitle>NDVI Time Series</CardTitle>
+              <CardTitle>NDVI Time Series ({COMMODITY_MAP[commodityParam] || "Padi"})</CardTitle>
               <CardDescription>
                 {detail.ndvi_source === "modis_appeears" ? (
                   <>
@@ -257,11 +300,11 @@ function DetailPageInner() {
                     <span className="font-medium text-foreground">
                       {detail.ndvi_series.length} composite real
                     </span>{" "}
-                    untuk titik koordinat ini, 2018–2025.
+                    untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"} di titik koordinat ini, 2018–2025.
                   </>
                 ) : (
                   <>
-                    Data satelit NDVI historis per koordinat (2018–2025 bulanan).
+                    Data satelit NDVI historis per koordinat untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"} (2018–2025 bulanan).
                   </>
                 )}
               </CardDescription>
@@ -273,9 +316,9 @@ function DetailPageInner() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Backtest - Prediksi vs Aktual</CardTitle>
+              <CardTitle>Backtest - Prediksi vs Aktual ({COMMODITY_MAP[commodityParam] || "Padi"})</CardTitle>
               <CardDescription>
-                Validasi model RandomForest terhadap data Kementan tahun sebelumnya
+                Validasi model RandomForest terhadap data Kementan tahun sebelumnya untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
               </CardDescription>
             </CardHeader>
             <CardContent>

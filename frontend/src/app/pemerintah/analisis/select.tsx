@@ -8,9 +8,10 @@ type Props = {
   options: SelectOption[];
   currentId?: string;
   mode?: "kecamatan" | "province";
+  commodity?: string;
 };
 
-export function KecamatanSelect({ options, currentId, mode = "kecamatan" }: Props) {
+export function KecamatanSelect({ options, currentId, mode = "kecamatan", commodity }: Props) {
   const router = useRouter();
   const isProvince = mode === "province";
   return (
@@ -19,7 +20,7 @@ export function KecamatanSelect({ options, currentId, mode = "kecamatan" }: Prop
       <select
         className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
         value={currentId ?? ""}
-        onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}`)}
+        onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}${commodity ? `&commodity=${commodity}` : ""}`)}
       >
         <option value="" disabled>
           -

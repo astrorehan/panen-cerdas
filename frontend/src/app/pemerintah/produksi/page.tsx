@@ -199,6 +199,7 @@ export default function PetaPage() {
                   center={mapView.center}
                   zoom={mapView.zoom}
                   viewKey={`${provinceKey}-${predictions.items.length}`}
+                  commodity={commodity}
                 />
               </div>
             </CardContent>
