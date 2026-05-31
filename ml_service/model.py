@@ -675,6 +675,33 @@ def is_model_loaded() -> bool:
     return bool(_models)
 
 
+def _yield_confidence(yield_model, X_y) -> float:
+    """
+    Keyakinan model terhadap prediksi YIELD = tingkat kesepakatan antar-pohon
+    di RandomForest regressor.
+
+    Prediksi RF = rata-rata 200 pohon. Kalau pohon-pohon sepakat (sebaran
+    sempit) berarti model yakin; kalau berpencar berarti tidak yakin. Kita
+    ukur coefficient of variation (std/mean) prediksi tiap pohon, lalu petakan
+    ke [0.5, 0.99] via (1 - cv).
+
+    Lebih jujur dari probabilitas kelas risiko karena langsung mengukur
+    ketidakpastian angka yield yang ditampilkan ke petani. cv invarian
+    terhadap de-normalisasi ratio→ton (faktor baseline konstan tercoret),
+    jadi aman dihitung di ruang ratio.
+    """
+    try:
+        Xv = X_y.to_numpy() if hasattr(X_y, "to_numpy") else X_y
+        tree_preds = np.array([est.predict(Xv)[0] for est in yield_model.estimators_])
+        mean = float(tree_preds.mean())
+        std  = float(tree_preds.std())
+        cv = std / max(abs(mean), 1e-6)
+        return round(float(np.clip(1.0 - cv, 0.5, 0.99)), 2)
+    except Exception as e:
+        logger.warning(f"Hitung yield confidence gagal: {e} — pakai default 0.75")
+        return 0.75
+
+
 # ── PREDICT ───────────────────────────────────────────────────────────────────
 def predict(data: PredictInput) -> PredictOutput:
     if not is_model_loaded():
@@ -733,6 +760,8 @@ def predict(data: PredictInput) -> PredictOutput:
             row["yield_ratio"] = 1.0
         X_y = row[[f for f in yield_feats if f in row.columns]]
         raw_yield = float(_models["yield"].predict(X_y)[0])
+        # Keyakinan model = kesepakatan antar-pohon RF pada prediksi yield ini.
+        confidence = _yield_confidence(_models["yield"], X_y)
         if yield_norm:
             # Model mengembalikan ratio → kalikan dengan baseline crop
             baseline   = BASE_YIELD.get(data.crop_type, 5.0)
@@ -746,8 +775,6 @@ def predict(data: PredictInput) -> PredictOutput:
         row["yield_ratio"] = np.clip(predicted_ratio, 0.1, 2.0)
         X_r = row[[f for f in risk_feats if f in row.columns]]
         risk_level = str(_models["risk"].predict(X_r)[0])
-        risk_proba = _models["risk"].predict_proba(X_r)[0]
-        confidence = round(float(risk_proba.max()), 2)
 
         total_yield = round(yield_per_ha * data.land_area_ha, 2)
         risk_score  = round({"low": 0.15, "medium": 0.50, "high": 0.85}.get(risk_level, 0.5), 2)
