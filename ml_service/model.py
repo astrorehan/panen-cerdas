@@ -702,6 +702,59 @@ def _yield_confidence(yield_model, X_y) -> float:
         return 0.75
 
 
+# ── YIELD-ONLY PREDICT (cepat) ────────────────────────────────────────────────
+def predict_yield_only(data: PredictInput) -> float:
+    """
+    Prediksi yield (ton/ha) saja, tanpa harvest/risk/recommendations dan tanpa
+    perhitungan confidence antar-pohon (loop 200 estimator yang mahal).
+
+    Dipakai untuk batch di mana yang ditampilkan cuma angka yield — mis. backtest
+    per-tahun di predictions_router — supaya tidak bayar ~400 ms per panggilan.
+    Logika yield identik dengan predict() agar angkanya konsisten.
+    """
+    if not is_model_loaded():
+        return round(predict_fallback(data).yield_ton_per_ha, 2)
+    try:
+        enc        = _models["encoder"]
+        feat_meta  = _models["feature_meta"]
+        yield_norm = feat_meta.get("yield_normalized", False)
+        use_pest_now = feat_meta.get("use_pest", False)
+        use_var_now  = feat_meta.get("use_variety", False)
+        yield_feats  = feat_meta.get("yield_features",
+                                     feat_meta.get("features", FEATURES_BASE))
+
+        if data.crop_type not in feat_meta.get("crop_types", CROP_TYPES):
+            return round(predict_fallback(data).yield_ton_per_ha, 2)
+
+        row = pd.DataFrame([{
+            "ndvi":            data.ndvi,
+            "rainfall_mm":     data.rainfall_mm,
+            "temperature_c":   data.temperature_c,
+            "solar_radiation": data.solar_radiation,
+            "land_area_ha":    data.land_area_ha,
+            "crop_type":       data.crop_type,
+        }])
+        row["crop_encoded"]       = enc.transform(row["crop_type"])
+        row["crop_group"]         = CROP_GROUP.get(data.crop_type, "pangan")
+        row["crop_group_encoded"] = CROP_GROUP_ENCODER.transform(row["crop_group"])
+        if use_pest_now:
+            pest_val = float(getattr(data, "pest_pressure", DEFAULT_PEST_PRESSURE) or DEFAULT_PEST_PRESSURE)
+            row["pest_pressure"] = np.clip(pest_val, 0.0, 1.0)
+        if use_var_now:
+            row["variety_encoded"] = encode_variety(getattr(data, "variety", None), data.crop_type)
+        if yield_norm and "yield_ratio" in yield_feats:
+            row["yield_ratio"] = 1.0
+
+        X_y       = row[[f for f in yield_feats if f in row.columns]]
+        raw_yield = float(_models["yield"].predict(X_y)[0])
+        if yield_norm:
+            return round(raw_yield * BASE_YIELD.get(data.crop_type, 5.0), 2)
+        return round(raw_yield, 2)
+    except Exception as e:
+        logger.warning(f"predict_yield_only gagal: {e} — fallback")
+        return round(predict_fallback(data).yield_ton_per_ha, 2)
+
+
 # ── PREDICT ───────────────────────────────────────────────────────────────────
 def predict(data: PredictInput) -> PredictOutput:
     if not is_model_loaded():

@@ -22,13 +22,14 @@ import hashlib
 import logging
 import math
 from datetime import date, timedelta
+from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db, PredictionLog, TrainingFeedback
 from data_cache import get_or_fetch_climate
-from model import is_model_loaded, predict as ml_predict, BASE_YIELD
+from model import is_model_loaded, predict as ml_predict, predict_yield_only, BASE_YIELD
 import backtest_climate
 import kementan_data
 import provinces_data
@@ -521,40 +522,34 @@ def predictions_history(
     }
 
 
-def _build_backtest(
+@lru_cache(maxsize=512)
+def _historical_backtest(
     kementan_province_name: str,
     commodity: str,
     province_code: str | None,
-    predicted_yield: float,
-) -> tuple[list[YieldPoint], float | None]:
+) -> tuple[tuple[tuple[int, float, str], ...], float | None, int | None]:
     """
-    Real backtest: untuk tiap tahun historis, jalankan ulang model dengan iklim
-    NASA POWER tahun itu, lalu bandingkan ke yield aktual Kementan.
+    Bagian deterministik backtest (dicache): untuk tiap tahun historis, jalankan
+    ulang model dengan iklim NASA POWER tahun itu dan bandingkan ke yield aktual
+    Kementan. Hasilnya statik per (provinsi, komoditas) — CSV iklim, data
+    Kementan, dan model semuanya tetap — jadi aman dimemoize.
 
-    - Aktual   = yield Kementan provinsi 5 tahun terakhir.
-    - Prediksi = output model per tahun (iklim tahun itu dari historical_climate
-      snapshot) + 1 titik proyeksi tahun depan (prediksi live yang dikirim
-      pemanggil). Memakai ndvi/pest/varietas yang sama dengan _predict_one supaya
-      sebanding dengan angka headline dashboard.
-    - MAPE     = rata-rata |aktual - prediksi| / aktual dari tahun-tahun yang
-      punya iklim historis. None kalau tak ada tahun yang bisa diprediksi.
-
-    Kalau Kementan tidak punya data, return ([], None) supaya frontend show
-    empty state alih-alih grafik palsu.
+    Returns: (rows, mape, next_year) di mana rows = tuple of (year, value, kind).
+    rows kosong + next_year None kalau Kementan tak punya data komoditas itu.
     """
     trend = kementan_data.trend(kementan_province_name, commodity)
     if not trend:
-        return [], None
+        return (), None, None
 
     last5 = trend[-5:]
     use_model = is_model_loaded()
-    points: list[YieldPoint] = []
+    rows: list[tuple[int, float, str]] = []
     errors: list[float] = []
 
     for r in last5:
         year   = r["year"]
         actual = round(r["yield_ton_per_ha"], 2)
-        points.append(YieldPoint(year=year, value=actual, kind="aktual"))
+        rows.append((year, actual, "aktual"))
 
         climate = (
             backtest_climate.annual_climate(province_code, year)
@@ -573,20 +568,41 @@ def _build_backtest(
                 pest_pressure=0.0,
                 variety="Lokal",
             )
-            pred = round(ml_predict(data).yield_ton_per_ha, 2)
-            points.append(YieldPoint(year=year, value=pred, kind="prediksi"))
+            pred = predict_yield_only(data)  # yield saja — backtest tak butuh confidence/risk
+            rows.append((year, pred, "prediksi"))
             if actual > 0:
                 errors.append(abs(actual - pred) / actual)
         except Exception as e:
             logger.warning(f"backtest predict {kementan_province_name} {year} gagal: {e}")
 
-    # Titik proyeksi tahun depan (prediksi live dari pemanggil).
-    next_year = last5[-1]["year"] + 1
+    mape = round(sum(errors) / len(errors) * 100.0, 1) if errors else None
+    return tuple(rows), mape, last5[-1]["year"] + 1
+
+
+def _build_backtest(
+    kementan_province_name: str,
+    commodity: str,
+    province_code: str | None,
+    predicted_yield: float,
+) -> tuple[list[YieldPoint], float | None]:
+    """
+    Backtest model vs aktual + 1 titik proyeksi tahun depan.
+
+    Bagian historis (aktual + prediksi per tahun + MAPE) dihitung sekali lalu
+    dicache via _historical_backtest; di sini tinggal menempelkan titik proyeksi
+    tahun depan dari prediksi live (yang berubah-ubah). Kalau Kementan tidak
+    punya data, return ([], None) supaya frontend show empty state.
+    """
+    rows, mape, next_year = _historical_backtest(
+        kementan_province_name, commodity, province_code
+    )
+    if not rows and next_year is None:
+        return [], None
+
+    points = [YieldPoint(year=y, value=v, kind=k) for (y, v, k) in rows]  # type: ignore[arg-type]
     points.append(
         YieldPoint(year=next_year, value=round(predicted_yield, 2), kind="prediksi")
     )
-
-    mape = round(sum(errors) / len(errors) * 100.0, 1) if errors else None
     return points, mape
 
 
