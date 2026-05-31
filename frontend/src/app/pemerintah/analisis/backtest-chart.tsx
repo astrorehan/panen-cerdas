@@ -16,18 +16,41 @@ const AMBER = "#C97B1A";
 const MUTED = "#6B7568";
 const BORDER = "#E7E2D6";
 
-export function BacktestChart({ points }: { points: YieldPoint[] }) {
-  const data = points.map((p) => ({
-    year: p.year,
-    aktual: p.kind === "aktual" ? p.value : null,
-    prediksi: p.kind === "prediksi" ? p.value : null,
-  }));
-
-  let last: number | null = null;
-  for (const r of data) {
-    if (r.aktual != null) last = r.aktual;
-    if (r.prediksi != null && r.aktual == null) r.aktual = last;
+export function BacktestChart({
+  points,
+  mape,
+}: {
+  points: YieldPoint[];
+  mape?: number | null;
+}) {
+  // No Kementan history for this province + commodity (e.g. ubi jalar di DKI
+  // Jakarta). Backend returns an empty list on purpose — show why, not a blank
+  // grid.
+  if (points.length === 0) {
+    return (
+      <div className="flex h-64 w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border bg-muted/20 text-center">
+        <span className="text-sm font-medium text-foreground">
+          Belum ada data Kementan
+        </span>
+        <span className="max-w-xs text-xs text-muted-foreground">
+          Komoditas ini belum tercatat produksinya di provinsi terpilih, jadi
+          tidak ada riwayat untuk divalidasi.
+        </span>
+      </div>
+    );
   }
+
+  // Backend emits actual + model prediction as separate points per year (plus a
+  // forward projection). Merge by year so each year carries both the actual and
+  // the re-run prediction — that's what lets the dashed line overlap history.
+  const byYear = new Map<number, { year: number; aktual: number | null; prediksi: number | null }>();
+  for (const p of points) {
+    const row = byYear.get(p.year) ?? { year: p.year, aktual: null, prediksi: null };
+    if (p.kind === "aktual") row.aktual = p.value;
+    else row.prediksi = p.value;
+    byYear.set(p.year, row);
+  }
+  const data = [...byYear.values()].sort((a, b) => a.year - b.year);
 
   return (
     <div className="h-64 w-full">
@@ -96,7 +119,11 @@ export function BacktestChart({ points }: { points: YieldPoint[] }) {
           />
           Prediksi RandomForest
         </span>
-        <span className="ml-auto">MAPE 13.4% - split per-tahun</span>
+        <span className="ml-auto">
+          {mape != null
+            ? `MAPE ${mape.toFixed(1)}% - rata-rata error per tahun`
+            : "MAPE belum tersedia"}
+        </span>
       </div>
     </div>
   );

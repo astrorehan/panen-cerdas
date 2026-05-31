@@ -437,11 +437,11 @@ function DetailPageInner() {
             <CardHeader>
               <CardTitle>Backtest - Prediksi vs Aktual ({COMMODITY_MAP[commodityParam] || "Padi"})</CardTitle>
               <CardDescription>
-                Validasi model RandomForest terhadap data Kementan tahun sebelumnya untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
+                Model RandomForest dijalankan ulang dengan iklim NASA POWER tiap tahun, lalu dibandingkan ke yield aktual Kementan untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <BacktestChart points={detail.backtest} />
+              <BacktestChart points={detail.backtest} mape={detail.backtest_mape} />
             </CardContent>
           </Card>
         </>
