@@ -208,6 +208,9 @@ class KecamatanDetail(BaseModel):
         "seasonal_estimate"
     )
     backtest: list[YieldPoint]
+    # MAPE backtest model vs aktual Kementan (rata-rata error % per tahun).
+    # None kalau tidak ada tahun yang bisa diprediksi (mis. tak ada data iklim).
+    backtest_mape: Optional[float] = None
     # Surplus/defisit + status pangan region ini (sama perhitungan dengan
     # KecamatanPrediction) — supaya halaman detail tidak perlu memuat list.
     surplus_pct: float = 0.0

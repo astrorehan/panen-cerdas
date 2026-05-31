@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from database import get_db, PredictionLog, TrainingFeedback
 from data_cache import get_or_fetch_climate
 from model import is_model_loaded, predict as ml_predict, BASE_YIELD
+import backtest_climate
 import kementan_data
 import provinces_data
 from schemas import (
@@ -523,31 +524,70 @@ def predictions_history(
 def _build_backtest(
     kementan_province_name: str,
     commodity: str,
+    province_code: str | None,
     predicted_yield: float,
-) -> list[YieldPoint]:
+) -> tuple[list[YieldPoint], float | None]:
     """
-    Backtest yield = data Kementan real per tahun (aktual) + prediksi tahun depan.
+    Real backtest: untuk tiap tahun historis, jalankan ulang model dengan iklim
+    NASA POWER tahun itu, lalu bandingkan ke yield aktual Kementan.
 
-    - Aktual = yield Kementan provinsi 5 tahun terakhir (kalau data lengkap).
-    - Prediksi = output model untuk tahun sesudahnya.
+    - Aktual   = yield Kementan provinsi 5 tahun terakhir.
+    - Prediksi = output model per tahun (iklim tahun itu dari historical_climate
+      snapshot) + 1 titik proyeksi tahun depan (prediksi live yang dikirim
+      pemanggil). Memakai ndvi/pest/varietas yang sama dengan _predict_one supaya
+      sebanding dengan angka headline dashboard.
+    - MAPE     = rata-rata |aktual - prediksi| / aktual dari tahun-tahun yang
+      punya iklim historis. None kalau tak ada tahun yang bisa diprediksi.
 
-    Kalau Kementan tidak punya data, return list kosong supaya frontend bisa
-    show empty state alih-alih grafik palsu.
+    Kalau Kementan tidak punya data, return ([], None) supaya frontend show
+    empty state alih-alih grafik palsu.
     """
     trend = kementan_data.trend(kementan_province_name, commodity)
     if not trend:
-        return []
+        return [], None
 
     last5 = trend[-5:]
-    points = [
-        YieldPoint(year=r["year"], value=round(r["yield_ton_per_ha"], 2), kind="aktual")
-        for r in last5
-    ]
+    use_model = is_model_loaded()
+    points: list[YieldPoint] = []
+    errors: list[float] = []
+
+    for r in last5:
+        year   = r["year"]
+        actual = round(r["yield_ton_per_ha"], 2)
+        points.append(YieldPoint(year=year, value=actual, kind="aktual"))
+
+        climate = (
+            backtest_climate.annual_climate(province_code, year)
+            if province_code else None
+        )
+        if not (use_model and climate):
+            continue
+        try:
+            data = PredictInput(
+                crop_type=commodity,
+                land_area_ha=r["luas_panen_ha"] or 1000.0,
+                rainfall_mm=climate["rainfall_mm"],
+                temperature_c=climate["temperature_c"],
+                solar_radiation=climate["solar_radiation"],
+                ndvi=0.65,            # baseline tropis — sama dengan _predict_one
+                pest_pressure=0.0,
+                variety="Lokal",
+            )
+            pred = round(ml_predict(data).yield_ton_per_ha, 2)
+            points.append(YieldPoint(year=year, value=pred, kind="prediksi"))
+            if actual > 0:
+                errors.append(abs(actual - pred) / actual)
+        except Exception as e:
+            logger.warning(f"backtest predict {kementan_province_name} {year} gagal: {e}")
+
+    # Titik proyeksi tahun depan (prediksi live dari pemanggil).
     next_year = last5[-1]["year"] + 1
     points.append(
         YieldPoint(year=next_year, value=round(predicted_yield, 2), kind="prediksi")
     )
-    return points
+
+    mape = round(sum(errors) / len(errors) * 100.0, 1) if errors else None
+    return points, mape
 
 
 @router.get("/{region_id}", response_model=KecamatanDetail)
@@ -564,6 +604,7 @@ async def get_detail(
       - "PROV_<code>" -> provinsi (lookup provinces_data by Kementan code)
     """
     kementan_province_name: str
+    province_code: str | None = None
     row: dict | None = None
     actual: dict | None = None
 
@@ -578,6 +619,7 @@ async def get_detail(
             )
         row = _province_row(prov.name, commodity)
         kementan_province_name = prov.kementan_name
+        province_code = prov.code
     else:
         # Mode kecamatan DIY
         row = next((r for r in KECAMATAN_DATA if r["id"] == region_id), None)
@@ -589,8 +631,9 @@ async def get_detail(
                     f"Gunakan ID kecamatan DIY atau format 'PROV_<kode>'."
                 ),
             )
-        # Kecamatan DIY → backtest pakai Kementan provinsi DIY sebagai proxy
+        # Kecamatan DIY → backtest pakai Kementan + iklim provinsi DIY sebagai proxy
         kementan_province_name = "DAERAH ISTIMEWA YOGYAKARTA"
+        province_code = "34"
         # Laporan panen petani untuk kecamatan ini (kalau ada).
         actual = _feedback_by_kecamatan(db, commodity).get(region_id)
 
@@ -611,9 +654,10 @@ async def get_detail(
         db=db,
     )
 
-    backtest = _build_backtest(
+    backtest, backtest_mape = _build_backtest(
         kementan_province_name=kementan_province_name,
         commodity=commodity,
+        province_code=province_code,
         predicted_yield=pred.yield_pred_ton_per_ha,
     )
 
@@ -626,6 +670,7 @@ async def get_detail(
         ndvi_series=series,
         ndvi_source=ndvi_source,
         backtest=backtest,
+        backtest_mape=backtest_mape,
         surplus_pct=pred.surplus_pct,
         status=pred.status,
         yield_actual_ton_per_ha=pred.yield_actual_ton_per_ha,
