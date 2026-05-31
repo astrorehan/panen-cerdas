@@ -68,6 +68,9 @@ export default function PrediksiPage() {
   const [climateMode, setClimateMode] = useState<ClimateMode>("default");
   const [lat, setLat] = useState("");
   const [lon, setLon] = useState("");
+  const [geoStatus, setGeoStatus] = useState<
+    { kind: "idle" } | { kind: "loading" } | { kind: "error"; message: string }
+  >({ kind: "idle" });
   const [rainfall, setRainfall] = useState("");
   const [temperature, setTemperature] = useState("");
   const [solar, setSolar] = useState("");
@@ -92,15 +95,24 @@ export default function PrediksiPage() {
 
   function useGeolocation() {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      alert("Geolokasi tidak tersedia di peramban ini.");
+      setGeoStatus({
+        kind: "error",
+        message: "Geolokasi tidak tersedia di peramban ini.",
+      });
       return;
     }
+    setGeoStatus({ kind: "loading" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLat(pos.coords.latitude.toFixed(5));
         setLon(pos.coords.longitude.toFixed(5));
+        setGeoStatus({ kind: "idle" });
       },
-      (err) => alert(`Gagal mengambil lokasi: ${err.message}`),
+      (err) =>
+        setGeoStatus({
+          kind: "error",
+          message: `Gagal mengambil lokasi: ${err.message}`,
+        }),
       { enableHighAccuracy: false, timeout: 8000 },
     );
   }
@@ -361,11 +373,23 @@ export default function PrediksiPage() {
                   variant="outline"
                   size="sm"
                   onClick={useGeolocation}
+                  disabled={geoStatus.kind === "loading"}
                   className="sm:col-span-2"
                 >
                   <MapPin className="h-4 w-4" />
-                  Gunakan lokasi peramban
+                  {geoStatus.kind === "loading"
+                    ? "Mengambil lokasi..."
+                    : "Gunakan lokasi peramban"}
                 </Button>
+                {geoStatus.kind === "error" && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/8 p-3 text-sm text-foreground sm:col-span-2"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <span>{geoStatus.message}</span>
+                  </div>
+                )}
               </div>
             )}
 
