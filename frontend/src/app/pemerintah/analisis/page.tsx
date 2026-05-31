@@ -262,7 +262,7 @@ function DetailPageInner() {
                 {detail?.kabupaten ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Provinsi · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
+                Provinsi
               </div>
             </>
           ) : (
@@ -271,7 +271,7 @@ function DetailPageInner() {
                 {detail?.kecamatan ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel} · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
+                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel}
               </div>
             </>
           )}
@@ -437,7 +437,7 @@ function DetailPageInner() {
             <CardHeader>
               <CardTitle>Backtest - Prediksi vs Aktual ({COMMODITY_MAP[commodityParam] || "Padi"})</CardTitle>
               <CardDescription>
-                Model RandomForest dijalankan ulang dengan iklim NASA POWER tiap tahun, lalu dibandingkan ke yield aktual Kementan untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
+                Prediksi model RandomForest per tahun dibandingkan ke yield aktual Kementan untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}. MAPE = rata-rata error; makin kecil makin akurat.
               </CardDescription>
             </CardHeader>
             <CardContent>
