@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { clearRole, getRole, type Role } from "@/lib/auth";
+import { clearRole, getRole, getUserName, type Role } from "@/lib/auth";
 
 type AppNavItem = { href: string; label: string };
 
@@ -64,11 +64,13 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [role, setRoleState] = useState<Role | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     setRoleState(getRole());
+    setUserName(getUserName());
   }, [pathname]);
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export function Navbar() {
   async function logout() {
     await clearRole();
     setRoleState(null);
+    setUserName(null);
     router.push("/");
   }
 
@@ -144,20 +147,26 @@ export function Navbar() {
         {/* Right side actions (desktop) */}
         <div className="hidden items-center gap-2 md:flex">
           {isMarketing ? (
-            <>
-              {role ? (
-                <Button asChild variant="outline" size="sm">
+            role ? (
+              <>
+                <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground">
+                  <Sprout className="h-4 w-4 text-primary" />
+                  {userName ? `Halo, ${userName}` : "Akun saya"}
+                </span>
+                <Button asChild size="sm">
                   <Link href={`/${role}/dashboard`}>Buka Dashboard</Link>
                 </Button>
-              ) : (
+              </>
+            ) : (
+              <>
                 <Button asChild variant="ghost" size="sm">
                   <Link href="/login">Masuk</Link>
                 </Button>
-              )}
-              <Button asChild size="sm">
-                <Link href="/register">Daftar</Link>
-              </Button>
-            </>
+                <Button asChild size="sm">
+                  <Link href="/register">Daftar</Link>
+                </Button>
+              </>
+            )
           ) : (
             role && (
               <Button onClick={logout} variant="outline" size="sm">
@@ -191,8 +200,12 @@ export function Navbar() {
             </div>
             <div className="mt-6 flex flex-col gap-2 border-t border-border pt-6">
               {isMarketing ? (
-                <>
-                  {role ? (
+                role ? (
+                  <>
+                    <span className="flex items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-3 text-base font-medium text-foreground">
+                      <Sprout className="h-4 w-4 text-primary" />
+                      {userName ? `Halo, ${userName}` : "Akun saya"}
+                    </span>
                     <Button
                       asChild
                       onClick={() => setMobileOpen(false)}
@@ -200,7 +213,9 @@ export function Navbar() {
                     >
                       <Link href={`/${role}/dashboard`}>Buka Dashboard</Link>
                     </Button>
-                  ) : (
+                  </>
+                ) : (
+                  <>
                     <Button
                       asChild
                       variant="outline"
@@ -209,15 +224,15 @@ export function Navbar() {
                     >
                       <Link href="/login">Masuk</Link>
                     </Button>
-                  )}
-                  <Button
-                    asChild
-                    onClick={() => setMobileOpen(false)}
-                    className="w-full"
-                  >
-                    <Link href="/register">Daftar</Link>
-                  </Button>
-                </>
+                    <Button
+                      asChild
+                      onClick={() => setMobileOpen(false)}
+                      className="w-full"
+                    >
+                      <Link href="/register">Daftar</Link>
+                    </Button>
+                  </>
+                )
               ) : (
                 role && (
                   <Button
