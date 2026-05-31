@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 type SelectOption = { id: string; kabupaten: string; kecamatan?: string };
 
@@ -15,24 +16,23 @@ export function KecamatanSelect({ options, currentId, mode = "kecamatan", commod
   const router = useRouter();
   const isProvince = mode === "province";
   return (
-    <label className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm shadow-sm">
-      <span className="text-xs font-medium text-muted-foreground">Pilih</span>
-      <select
-        className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
-        value={currentId ?? ""}
-        onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}${commodity ? `&commodity=${commodity}` : ""}`)}
-      >
-        <option value="" disabled>
-          -
+    <CustomSelect
+      id="kec-select"
+      label={isProvince ? "Pilih Provinsi" : "Pilih Kecamatan"}
+      value={currentId ?? ""}
+      onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}${commodity ? `&commodity=${commodity}` : ""}`)}
+      wrapperClassName="min-w-[200px]"
+    >
+      <option value="" disabled>
+        -
+      </option>
+      {options.map((o) => (
+        <option key={o.id} value={o.id}>
+          {isProvince
+            ? o.kabupaten
+            : `${o.kecamatan} - Kab. ${o.kabupaten}`}
         </option>
-        {options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {isProvince
-              ? o.kabupaten
-              : `${o.kecamatan} - Kab. ${o.kabupaten}`}
-          </option>
-        ))}
-      </select>
-    </label>
+      ))}
+    </CustomSelect>
   );
 }

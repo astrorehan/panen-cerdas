@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const ROLES: Array<{
   role: Role;
@@ -230,23 +231,21 @@ export default function RegisterPage() {
 
               {role === "pemerintah" && (
                 <>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="province">Wilayah Dinas</Label>
-                    <select
-                      id="province"
-                      required
-                      value={province}
-                      onChange={(e) => setProvince(e.target.value)}
-                      className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      disabled={loading}
-                    >
-                      {PROVINCE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <CustomSelect
+                    id="province"
+                    label="Wilayah Dinas"
+                    required
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    disabled={loading}
+                    wrapperClassName="mt-2"
+                  >
+                    {PROVINCE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </CustomSelect>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="accessCode">Kode akses instansi</Label>

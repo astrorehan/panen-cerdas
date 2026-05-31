@@ -13,6 +13,7 @@ import { BacktestChart } from "./backtest-chart";
 import { KecamatanSelect } from "./select";
 import type { CropType } from "@/types";
 import { getUserProvince } from "@/lib/auth";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const COMMODITIES: Array<{ id: CropType; label: string }> = [
   { id: "padi",         label: "Padi" },
@@ -212,27 +213,26 @@ function DetailPageInner() {
             </>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <KecamatanSelect
             options={options}
             currentId={selectedId}
             mode={isProvinceLevel ? "province" : "kecamatan"}
             commodity={commodityParam}
           />
-          <label className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm shadow-sm">
-            <span className="text-xs font-medium text-muted-foreground">Komoditas</span>
-            <select
-              className="bg-transparent text-sm font-medium text-foreground focus:outline-none"
-              value={commodityParam}
-              onChange={(e) => router.push(`/pemerintah/analisis?id=${selectedId || ""}&commodity=${e.target.value}`)}
-            >
-              {COMMODITIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <CustomSelect
+            id="comm-select"
+            label="Komoditas"
+            value={commodityParam}
+            onChange={(e) => router.push(`/pemerintah/analisis?id=${selectedId || ""}&commodity=${e.target.value}`)}
+            wrapperClassName="min-w-[180px]"
+          >
+            {COMMODITIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </CustomSelect>
         </div>
       </Card>
 

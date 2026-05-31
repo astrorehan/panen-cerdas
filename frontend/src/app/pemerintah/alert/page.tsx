@@ -11,6 +11,7 @@ import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import { getUserProvince } from "@/lib/auth";
 import type { CropType, Province } from "@/types";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const COMMODITIES: Array<{ id: CropType; label: string }> = [
   { id: "padi",         label: "Padi" },
@@ -119,41 +120,33 @@ export default function AlertPage() {
       </header>
 
       {/* Filter bar */}
-      <section className="grid gap-3 rounded-2xl border border-border bg-surface p-4 shadow-card sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="province">Wilayah Pemantauan</Label>
-          <select
-            id="province"
-            value={provinceKey}
-            onChange={(e) => setProvinceKey(e.target.value)}
-            className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {provinces.map((p) => (
-              <option
-                key={p.id}
-                value={p.id === "ALL" ? "ALL" : p.name}
-              >
-                {p.name}
-                {p.region !== "Nasional" ? ` (${p.region})` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="commodity">Komoditas</Label>
-          <select
-            id="commodity"
-            value={commodity}
-            onChange={(e) => setCommodity(e.target.value as CropType)}
-            className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {COMMODITIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
+      <section className="grid gap-4 rounded-3xl border border-border bg-surface/40 p-4 shadow-card sm:grid-cols-2 backdrop-blur-sm">
+        <CustomSelect
+          id="province"
+          label="Wilayah Pemantauan"
+          value={provinceKey}
+          onChange={(e) => setProvinceKey(e.target.value)}
+        >
+          {provinces.map((p) => (
+            <option key={p.id} value={p.id === "ALL" ? "ALL" : p.name}>
+              {p.name}
+              {p.region !== "Nasional" ? ` (${p.region})` : ""}
+            </option>
+          ))}
+        </CustomSelect>
+
+        <CustomSelect
+          id="commodity"
+          label="Komoditas"
+          value={commodity}
+          onChange={(e) => setCommodity(e.target.value as CropType)}
+        >
+          {COMMODITIES.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </CustomSelect>
       </section>
 
       {/* Stats */}

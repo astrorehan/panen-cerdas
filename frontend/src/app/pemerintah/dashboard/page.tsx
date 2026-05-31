@@ -1,24 +1,62 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { AlertCircle, Database, Satellite, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/kpi-card";
 import { TrendChart } from "@/components/trend-chart";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
+import { getUserProvince } from "@/lib/auth";
+import type { CropType, Province } from "@/types";
+import { CustomSelect } from "@/components/ui/select-custom";
+
+const COMMODITIES: Array<{ id: CropType; label: string }> = [
+  { id: "padi",         label: "Padi" },
+  { id: "jagung",       label: "Jagung" },
+  { id: "kedelai",      label: "Kedelai" },
+  { id: "ubi_jalar",    label: "Ubi Jalar" },
+  { id: "ubi_kayu",     label: "Singkong" },
+  { id: "cabe_besar",   label: "Cabe Besar" },
+  { id: "cabe_rawit",   label: "Cabe Rawit" },
+  { id: "bawang_merah", label: "Bawang Merah" },
+  { id: "bawang_putih", label: "Bawang Putih" },
+];
 
 export default function PemerintahDashboardPage() {
-  const { data: summary, loading: loadingSummary } = useApi(
-    apiPath.dashboardSummary(),
-    () => api.dashboard.summary(),
+  const defaultProv = getUserProvince();
+  const [provinceKey, setProvinceKey] = useState<string>(() =>
+    defaultProv === "ALL" ? "DI Yogyakarta" : defaultProv
   );
+  const [commodity, setCommodity]     = useState<CropType>("padi");
+
+  const { data: provincesRes } = useApi(
+    apiPath.regionsProvinces(),
+    () => api.regions.provinces(),
+  );
+
+  const provinces = useMemo<Province[]>(
+    () => provincesRes?.items ?? [],
+    [provincesRes],
+  );
+
+  const { data: summary, loading: loadingSummary } = useApi(
+    apiPath.dashboardSummary(provinceKey, commodity),
+    () => api.dashboard.summary(provinceKey, commodity),
+  );
+
   const { data: trend, loading: loadingTrend } = useApi(
-    apiPath.dashboardTrend(),
-    () => api.dashboard.trend(),
+    apiPath.dashboardTrend(provinceKey, commodity),
+    () => api.dashboard.trend(provinceKey, commodity),
   );
 
   const loading = loadingSummary || loadingTrend;
+
+  const activeCommodityLabel = useMemo(() => {
+    return COMMODITIES.find((c) => c.id === commodity)?.label ?? "Padi";
+  }, [commodity]);
 
   if (loading && (!summary || !trend)) {
     return (
@@ -50,22 +88,22 @@ export default function PemerintahDashboardPage() {
   }
 
   return (
-    <div className="container space-y-10 py-8 md:py-12">
+    <div className="container space-y-8 py-8 md:py-12">
       {/* Hero */}
       <section className="rounded-3xl border border-border bg-gradient-to-br from-primary-soft via-surface to-amber/10 p-7 md:p-10">
         <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
           <div>
             <div className="eyebrow">
               <Sparkles className="h-3 w-3" />
-              Dashboard Eksekutif
+              Dashboard Eksekutif · {summary.province}
             </div>
             <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance md:text-5xl">
               Memetakan panen <span className="text-primary">sebelum panen</span>.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Buletin ini meringkas prediksi hasil panen padi {summary.province} untuk{" "}
-              {summary.season}, dihitung dari citra Sentinel-2, agregasi cuaca harian,
-              dan data historis Kementan - tiga bulan sebelum panen aktual.
+              Meringkas prediksi hasil panen komoditas <span className="font-semibold text-foreground">{activeCommodityLabel}</span> di {summary.province} untuk{" "}
+              {summary.season}, dihitung dari citra satelit, agregasi cuaca harian,
+              dan data historis Kementan — tiga bulan sebelum panen aktual.
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-surface p-5">
@@ -78,26 +116,56 @@ export default function PemerintahDashboardPage() {
                   <Satellite className="h-3.5 w-3.5" />
                   Citra
                 </dt>
-                <dd className="text-right font-medium">Sentinel-2 L2A - 10 m</dd>
+                <dd className="text-right font-medium">MODIS & Sentinel-2</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Frekuensi</dt>
-                <dd className="font-medium">5 hari</dd>
+                <dt className="text-muted-foreground">Iklim & Cuaca</dt>
+                <dd className="font-medium">NASA POWER API</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-muted-foreground">Model</dt>
-                <dd className="font-medium">RandomForest - ensemble</dd>
+                <dt className="text-muted-foreground">Model ML</dt>
+                <dd className="font-medium">RandomForest Ensemble</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="flex items-center gap-1.5 text-muted-foreground">
                   <Database className="h-3.5 w-3.5" />
                   Validasi
                 </dt>
-                <dd className="text-right font-medium">Kementan MT 2023</dd>
+                <dd className="text-right font-medium">Data Historis Kementan</dd>
               </div>
             </dl>
           </div>
         </div>
+      </section>
+
+      {/* Filter bar */}
+      <section className="grid gap-4 rounded-3xl border border-border bg-surface/40 p-4 shadow-card sm:grid-cols-2 backdrop-blur-sm">
+        <CustomSelect
+          id="province"
+          label="Wilayah Pemantauan"
+          value={provinceKey}
+          onChange={(e) => setProvinceKey(e.target.value)}
+        >
+          {provinces.map((p) => (
+            <option key={p.id} value={p.name}>
+              {p.name}
+              {p.region !== "Nasional" ? ` (${p.region})` : ""}
+            </option>
+          ))}
+        </CustomSelect>
+
+        <CustomSelect
+          id="commodity"
+          label="Komoditas"
+          value={commodity}
+          onChange={(e) => setCommodity(e.target.value as CropType)}
+        >
+          {COMMODITIES.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </CustomSelect>
       </section>
 
       {/* KPI strip */}
@@ -105,7 +173,7 @@ export default function PemerintahDashboardPage() {
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Indikator Utama</h2>
           <span className="text-xs text-muted-foreground">
-            {summary.tiles.length} metrik
+            {summary.tiles.length} metrik aktif
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -125,19 +193,19 @@ export default function PemerintahDashboardPage() {
       {/* Trend */}
       <section>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Tren Produksi</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Tren Produksi Historigrafis</h2>
           <span className="text-xs text-muted-foreground">
-            Sumber Kementan - aktual 2020-2024, proyeksi tahun berjalan
+            Sumber Kementan — tren aktual 2020-2024, proyeksi model tahun berjalan
           </span>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>
-              Produksi {trend.commodity} {trend.province}
+              Produksi {activeCommodityLabel} {trend.province}
             </CardTitle>
-            <CardDescription>Unit - {trend.unit}</CardDescription>
+            <CardDescription>Satuan unit: {trend.unit}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pb-6">
             <TrendChart trend={trend} />
           </CardContent>
         </Card>
@@ -149,11 +217,11 @@ export default function PemerintahDashboardPage() {
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-amber/20 blur-3xl" />
         <div className="relative max-w-3xl">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1 text-xs font-medium backdrop-blur-sm">
-            Pernyataan Dampak
+            Pernyataan Dampak Swasembada
           </div>
           <blockquote className="mt-5 text-2xl font-medium leading-tight tracking-tight text-balance md:text-4xl">
             &ldquo;Indonesia mengimpor beras, jagung, dan kedelai setiap tahun
-            meski berpotensi swasembada - jika logistik dan timing-nya tepat.
+            meski berpotensi swasembada — jika logistik dan timing-nya tepat.
             Salah prediksi pangan merugikan triliunan rupiah per tahun.&rdquo;
           </blockquote>
           <div className="mt-7 text-xs font-medium uppercase tracking-wider text-primary-foreground/70">
