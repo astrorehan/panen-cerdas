@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, BarChart3, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -102,6 +102,13 @@ function DetailPageInner() {
   const queryId = searchParams.get("id") ?? undefined;
   const commodityParam = (searchParams.get("commodity") as CropType) ?? "padi";
 
+  const commodityOptions = useMemo(() => {
+    return COMMODITIES.map((c) => ({
+      value: c.id,
+      label: c.label,
+    }));
+  }, []);
+
   const defaultProv = getUserProvince();
   const defaultId = defaultProv === "DI Yogyakarta"
     ? undefined
@@ -187,7 +194,7 @@ function DetailPageInner() {
         </p>
       </header>
 
-      <Card className="flex flex-wrap items-end justify-between gap-4 p-5">
+      <Card className="relative z-20 flex flex-wrap items-end justify-between gap-4 p-5">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" />
@@ -224,15 +231,10 @@ function DetailPageInner() {
             id="comm-select"
             label="Komoditas"
             value={commodityParam}
-            onChange={(e) => router.push(`/pemerintah/analisis?id=${selectedId || ""}&commodity=${e.target.value}`)}
+            onChange={(val) => router.push(`/pemerintah/analisis?id=${selectedId || ""}&commodity=${val}`)}
             wrapperClassName="min-w-[180px]"
-          >
-            {COMMODITIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </CustomSelect>
+            options={commodityOptions}
+          />
         </div>
       </Card>
 

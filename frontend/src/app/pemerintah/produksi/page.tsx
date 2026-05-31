@@ -54,6 +54,20 @@ export default function PetaPage() {
     [provincesRes],
   );
 
+  const provinceOptions = useMemo(() => {
+    return provinces.map((p) => ({
+      value: p.id === "ALL" ? "ALL" : p.name,
+      label: p.name + (p.region !== "Nasional" ? ` (${p.region})` : ""),
+    }));
+  }, [provinces]);
+
+  const commodityOptions = useMemo(() => {
+    return COMMODITIES.map((c) => ({
+      value: c.id,
+      label: c.label,
+    }));
+  }, []);
+
   const province = provinceKey === "ALL" ? "ALL" : provinceKey;
 
   const {
@@ -119,33 +133,22 @@ export default function PetaPage() {
       </header>
 
       {/* Filter bar */}
-      <section className="grid gap-4 rounded-3xl border border-border bg-surface/40 p-4 shadow-card sm:grid-cols-2 backdrop-blur-sm">
+      <section className="relative z-20 grid gap-4 rounded-3xl border border-border bg-surface/40 p-4 shadow-card sm:grid-cols-2 backdrop-blur-sm">
         <CustomSelect
           id="province"
           label="Wilayah"
           value={provinceKey}
-          onChange={(e) => setProvinceKey(e.target.value)}
-        >
-          {provinces.map((p) => (
-            <option key={p.id} value={p.id === "ALL" ? "ALL" : p.name}>
-              {p.name}
-              {p.region !== "Nasional" ? ` (${p.region})` : ""}
-            </option>
-          ))}
-        </CustomSelect>
+          onChange={(val) => setProvinceKey(val)}
+          options={provinceOptions}
+        />
 
         <CustomSelect
           id="commodity"
           label="Komoditas"
           value={commodity}
-          onChange={(e) => setCommodity(e.target.value as CropType)}
-        >
-          {COMMODITIES.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </CustomSelect>
+          onChange={(val) => setCommodity(val as CropType)}
+          options={commodityOptions}
+        />
       </section>
 
       {loading && (!predictions || !geojson) && (

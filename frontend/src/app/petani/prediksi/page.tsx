@@ -12,6 +12,7 @@ import { ResultCard } from "@/components/result-card";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { cn } from "@/lib/utils";
 import type { CropType, PredictResponse } from "@/types";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const CROPS: Array<{ id: CropType; label: string; subtitle: string }> = [
   { id: "padi", label: "Padi", subtitle: "± 110 hari" },
@@ -75,6 +76,12 @@ export default function PrediksiPage() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const varietyOptions = useMemo(() => VARIETIES[cropType], [cropType]);
+  const mappedVarietyOptions = useMemo(() => {
+    return varietyOptions.map((v) => ({
+      value: v,
+      label: v + (v === "Lokal" ? " - varietas lokal" : " - unggul"),
+    }));
+  }, [varietyOptions]);
 
   function pickCrop(c: CropType) {
     setCropType(c);
@@ -162,6 +169,7 @@ export default function PrediksiPage() {
             step={1}
             title="Komoditas dan lahan"
             description="Pilih jenis tanaman dan luas lahan Anda."
+            className="relative z-30"
           >
             <div className="mb-5 space-y-2">
               <Label htmlFor="lahan-name">
@@ -238,19 +246,12 @@ export default function PrediksiPage() {
                   Varietas{" "}
                   <span className="text-muted-foreground">({varietyOptions.length} opsi)</span>
                 </Label>
-                <select
+                <CustomSelect
                   id="variety"
                   value={variety}
-                  onChange={(e) => setVariety(e.target.value)}
-                  className="flex h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                >
-                  {varietyOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                      {v === "Lokal" ? " - varietas lokal" : " - unggul"}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setVariety(val)}
+                  options={mappedVarietyOptions}
+                />
               </div>
             </div>
           </FormCard>
@@ -507,14 +508,16 @@ function FormCard({
   title,
   description,
   children,
+  className,
 }: {
   step: number;
   title: string;
   description: string;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="rounded-3xl border border-border bg-surface p-6 shadow-card md:p-8">
+    <section className={cn("rounded-3xl border border-border bg-surface p-6 shadow-card md:p-8", className)}>
       <header className="mb-5 flex items-start gap-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary">
           {step}
