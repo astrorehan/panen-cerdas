@@ -1,18 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AlertCircle, AlertTriangle, ArrowRight, Bell, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
+import { getUserProvince } from "@/lib/auth";
+import type { CropType, Province } from "@/types";
+
+const COMMODITIES: Array<{ id: CropType; label: string }> = [
+  { id: "padi",         label: "Padi" },
+  { id: "jagung",       label: "Jagung" },
+  { id: "kedelai",      label: "Kedelai" },
+  { id: "ubi_jalar",    label: "Ubi Jalar" },
+  { id: "ubi_kayu",     label: "Singkong" },
+  { id: "cabe_besar",   label: "Cabe Besar" },
+  { id: "cabe_rawit",   label: "Cabe Rawit" },
+  { id: "bawang_merah", label: "Bawang Merah" },
+  { id: "bawang_putih", label: "Bawang Putih" },
+];
 
 export default function AlertPage() {
+  const [provinceKey, setProvinceKey] = useState<string>(() => getUserProvince());
+  const [commodity, setCommodity]     = useState<CropType>("padi");
+
+  const { data: provincesRes } = useApi(
+    apiPath.regionsProvinces(),
+    () => api.regions.provinces(),
+  );
+
+  const provinces = useMemo<Province[]>(
+    () => [
+      {
+        id: "ALL",
+        code: "00",
+        name: "Indonesia (Nasional)",
+        capital: "—",
+        region: "Nasional",
+        lat: -2.5,
+        lon: 117.5,
+      },
+      ...(provincesRes?.items ?? []),
+    ],
+    [provincesRes],
+  );
+
   const { data: list, loading } = useApi(
-    apiPath.predictionsList(),
-    () => api.predictions.list(),
+    apiPath.predictionsList(provinceKey, commodity),
+    () => api.predictions.list(provinceKey, commodity),
   );
 
   const flagged = useMemo(
@@ -28,10 +67,11 @@ export default function AlertPage() {
     return {
       defisit: items.filter((it) => it.status === "defisit").length,
       waspada: items.filter((it) => it.status === "waspada").length,
-      aman: items.filter((it) => it.status === "surplus" || it.status === "cukup")
-        .length,
+      aman: items.filter((it) => it.status === "surplus" || it.status === "cukup").length,
     };
   }, [list]);
+
+  const isNational = provinceKey === "ALL";
 
   if (loading && !list) {
     return (
@@ -68,21 +108,59 @@ export default function AlertPage() {
           Alert Pangan
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-          Kecamatan rawan untuk diintervensi
+          Wilayah rawan untuk diintervensi
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Lembar ini menyaring prediksi {list.commodity} {list.season} di{" "}
-          {list.province} dan mengangkat kecamatan berstatus waspada dan
-          defisit - sesuai ambang surplus 10%. Diurutkan dari yang paling
-          defisit di atas.
+          Lembar ini menyaring prediksi komoditas <span className="font-semibold text-foreground">{list.commodity}</span> di{" "}
+          <span className="font-semibold text-foreground">{list.province}</span> dan mengangkat daerah berstatus waspada dan
+          defisit — sesuai ambang surplus 10%. Diurutkan dari yang paling
+          defisit.
         </p>
       </header>
 
+      {/* Filter bar */}
+      <section className="grid gap-3 rounded-2xl border border-border bg-surface p-4 shadow-card sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="province">Wilayah Pemantauan</Label>
+          <select
+            id="province"
+            value={provinceKey}
+            onChange={(e) => setProvinceKey(e.target.value)}
+            className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {provinces.map((p) => (
+              <option
+                key={p.id}
+                value={p.id === "ALL" ? "ALL" : p.name}
+              >
+                {p.name}
+                {p.region !== "Nasional" ? ` (${p.region})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="commodity">Komoditas</Label>
+          <select
+            id="commodity"
+            value={commodity}
+            onChange={(e) => setCommodity(e.target.value as CropType)}
+            className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {COMMODITIES.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
       {/* Stats */}
       <section className="grid gap-3 sm:grid-cols-3">
-        <Stat icon={AlertCircle} label="Defisit" value={counts.defisit} tone="destructive" />
-        <Stat icon={AlertTriangle} label="Waspada" value={counts.waspada} tone="amber" />
-        <Stat icon={CheckCircle2} label="Surplus / Cukup" value={counts.aman} tone="primary" />
+        <Stat icon={AlertCircle} label="Defisit" value={counts.defisit} tone="destructive" isNational={isNational} />
+        <Stat icon={AlertTriangle} label="Waspada" value={counts.waspada} tone="amber" isNational={isNational} />
+        <Stat icon={CheckCircle2} label="Surplus / Cukup" value={counts.aman} tone="primary" isNational={isNational} />
       </section>
 
       {flagged.length === 0 ? (
@@ -91,20 +169,20 @@ export default function AlertPage() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <p className="mt-4 text-lg font-semibold tracking-tight">
-            Tidak ada kecamatan rawan untuk pekan ini.
+            Tidak ada wilayah rawan untuk komoditas ini.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Semua wilayah berada di atas ambang aman.
+            Semua daerah berada di atas ambang aman.
           </p>
         </Card>
       ) : (
         <section>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold tracking-tight">
-              Daftar Intervensi
+              Daftar Intervensi Prioritas
             </h2>
             <span className="text-xs text-muted-foreground">
-              {flagged.length} kecamatan
+              {flagged.length} {isNational ? "provinsi" : "kecamatan"}
             </span>
           </div>
           <div className="grid gap-3">
@@ -127,7 +205,7 @@ export default function AlertPage() {
                 </div>
                 <div>
                   <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Kec. {item.kecamatan} - Kab. {item.kabupaten}
+                    {item.kecamatan ? `Kec. ${item.kecamatan} - ` : ""}Kab. {item.kabupaten}
                   </div>
                   <h3 className="mt-1 text-lg font-semibold tracking-tight">
                     <span style={{ color: STATUS_COLOR[item.status] }}>
@@ -145,7 +223,7 @@ export default function AlertPage() {
                   </p>
                 </div>
                 <Link
-                  href={`/pemerintah/analisis?id=${item.id}`}
+                  href={`/pemerintah/analisis?id=${item.id}&commodity=${commodity}`}
                   className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-all hover:border-primary/30 hover:bg-primary-soft hover:text-primary"
                 >
                   Analisis
@@ -162,10 +240,7 @@ export default function AlertPage() {
           Catatan Operasional
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Lembar ini dimaksudkan untuk menjadi pintu kerja harian pengambil
-          keputusan - daftar pendek, terurut, dengan jalan pintas ke detail
-          kecamatan. Versi berikutnya akan menambahkan kanal notifikasi
-          (email + WhatsApp Bot) saat status berubah.
+          Lembar EWS (Early Warning System) ini disesuaikan otomatis dengan wilayah penugasan instansi Anda secara default. Daftar pendek ini terurut dinamis untuk membantu penanganan kerawanan pangan lokal secara cepat.
         </p>
       </section>
     </div>
@@ -177,11 +252,13 @@ function Stat({
   label,
   value,
   tone,
+  isNational,
 }: {
   icon: typeof AlertCircle;
   label: string;
   value: number;
   tone: "destructive" | "amber" | "primary";
+  isNational: boolean;
 }) {
   const toneClasses = {
     destructive: "bg-destructive/12 text-destructive",
@@ -201,7 +278,7 @@ function Stat({
         </div>
         <div className="mt-0.5 flex items-baseline gap-1.5">
           <span className="text-3xl font-semibold tracking-tight">{value}</span>
-          <span className="text-xs text-muted-foreground">kecamatan</span>
+          <span className="text-xs text-muted-foreground">{isNational ? "provinsi" : "kecamatan"}</span>
         </div>
       </div>
     </Card>

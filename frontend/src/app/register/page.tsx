@@ -30,6 +30,48 @@ const ROLES: Array<{
   },
 ];
 
+const PROVINCE_OPTIONS = [
+  { value: "DI Yogyakarta", label: "DI Yogyakarta" },
+  { value: "ALL", label: "Nasional (Indonesia)" },
+  { value: "Aceh", label: "Aceh" },
+  { value: "Sumatera Utara", label: "Sumatera Utara" },
+  { value: "Sumatera Barat", label: "Sumatera Barat" },
+  { value: "Riau", label: "Riau" },
+  { value: "Kepulauan Riau", label: "Kepulauan Riau" },
+  { value: "Jambi", label: "Jambi" },
+  { value: "Sumatera Selatan", label: "Sumatera Selatan" },
+  { value: "Bangka Belitung", label: "Bangka Belitung" },
+  { value: "Bengkulu", label: "Bengkulu" },
+  { value: "Lampung", label: "Lampung" },
+  { value: "DKI Jakarta", label: "DKI Jakarta" },
+  { value: "Jawa Barat", label: "Jawa Barat" },
+  { value: "Banten", label: "Banten" },
+  { value: "Jawa Tengah", label: "Jawa Tengah" },
+  { value: "Jawa Timur", label: "Jawa Timur" },
+  { value: "Bali", label: "Bali" },
+  { value: "Nusa Tenggara Barat", label: "Nusa Tenggara Barat" },
+  { value: "Nusa Tenggara Timur", label: "Nusa Tenggara Timur" },
+  { value: "Kalimantan Barat", label: "Kalimantan Barat" },
+  { value: "Kalimantan Tengah", label: "Kalimantan Tengah" },
+  { value: "Kalimantan Selatan", label: "Kalimantan Selatan" },
+  { value: "Kalimantan Timur", label: "Kalimantan Timur" },
+  { value: "Kalimantan Utara", label: "Kalimantan Utara" },
+  { value: "Sulawesi Utara", label: "Sulawesi Utara" },
+  { value: "Gorontalo", label: "Gorontalo" },
+  { value: "Sulawesi Tengah", label: "Sulawesi Tengah" },
+  { value: "Sulawesi Barat", label: "Sulawesi Barat" },
+  { value: "Sulawesi Selatan", label: "Sulawesi Selatan" },
+  { value: "Sulawesi Tenggara", label: "Sulawesi Tenggara" },
+  { value: "Maluku", label: "Maluku" },
+  { value: "Maluku Utara", label: "Maluku Utara" },
+  { value: "Papua Barat", label: "Papua Barat" },
+  { value: "Papua", label: "Papua" },
+  { value: "Papua Selatan", label: "Papua Selatan" },
+  { value: "Papua Tengah", label: "Papua Tengah" },
+  { value: "Papua Pegunungan", label: "Papua Pegunungan" },
+  { value: "Papua Barat Daya", label: "Papua Barat Daya" },
+];
+
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -37,6 +79,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("petani");
   const [accessCode, setAccessCode] = useState("");
+  const [province, setProvince] = useState("DI Yogyakarta");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +102,8 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
         role,
-        accessCode,
+        accessCode: role === "pemerintah" ? accessCode : undefined,
+        province: role === "pemerintah" ? province : undefined,
       });
       router.push(`/${role}/dashboard`);
     } catch (err) {
@@ -185,27 +229,47 @@ export default function RegisterPage() {
               </div>
 
               {role === "pemerintah" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="accessCode">Kode akses instansi</Label>
-                  <Input
-                    id="accessCode"
-                    type="text"
-                    required
-                    value={accessCode}
-                    onChange={(e) => setAccessCode(e.target.value)}
-                    placeholder="Masukkan kode dari admin"
-                    disabled={loading}
-                  />
-                  <p className="text-[11px] leading-tight text-muted-foreground">
-                    Belum punya kode akses instansi?{" "}
-                    <Link
-                      href="/hubungi-kami"
-                      className="font-medium text-primary hover:underline"
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="province">Wilayah Dinas</Label>
+                    <select
+                      id="province"
+                      required
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="flex h-10 w-full rounded-xl border border-border bg-surface px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      disabled={loading}
                     >
-                      Hubungi kami
-                    </Link>
-                  </p>
-                </div>
+                      {PROVINCE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="accessCode">Kode akses instansi</Label>
+                    <Input
+                      id="accessCode"
+                      type="text"
+                      required
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value)}
+                      placeholder="Masukkan kode dari admin"
+                      disabled={loading}
+                    />
+                    <p className="text-[11px] leading-tight text-muted-foreground">
+                      Belum punya kode akses instansi?{" "}
+                      <Link
+                        href="/hubungi-kami"
+                        className="font-medium text-primary hover:underline"
+                      >
+                        Hubungi kami
+                      </Link>
+                    </p>
+                  </div>
+                </>
               )}
 
               {error && (

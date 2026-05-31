@@ -40,11 +40,12 @@ export function getPetaniId(): string {
   return legacy;
 }
 
-function persistSession(userId: string, role: Role, name: string) {
+function persistSession(userId: string, role: Role, name: string, province?: string) {
   window.localStorage.setItem(USER_ID_KEY, userId);
   window.localStorage.setItem(ROLE_KEY, role);
   window.localStorage.setItem(USER_NAME_KEY, name);
   window.localStorage.setItem(PETANI_ID_KEY, userId);
+  window.localStorage.setItem("panen.province", province || "DI Yogyakarta");
 }
 
 function clearSession() {
@@ -52,25 +53,26 @@ function clearSession() {
   window.localStorage.removeItem(ROLE_KEY);
   window.localStorage.removeItem(USER_NAME_KEY);
   window.localStorage.removeItem(PETANI_ID_KEY);
+  window.localStorage.removeItem("panen.province");
 }
 
-async function fetchProfile(userId: string): Promise<{ role: Role; name: string }> {
+async function fetchProfile(userId: string): Promise<{ role: Role; name: string; province?: string }> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("role, name")
+    .select("role, name, province")
     .eq("id", userId)
     .single();
   if (error) throw new Error(`Profil tidak ditemukan: ${error.message}`);
   if (data.role !== "petani" && data.role !== "pemerintah") {
     throw new Error("Role pada profil tidak valid");
   }
-  return { role: data.role, name: data.name };
+  return { role: data.role, name: data.name, province: data.province };
 }
 
 export async function signIn(
   email: string,
   password: string,
-): Promise<{ role: Role; name: string }> {
+): Promise<{ role: Role; name: string; province?: string }> {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -78,7 +80,7 @@ export async function signIn(
   if (error) throw new Error(translateAuthError(error.message));
   if (!data.user) throw new Error("Login gagal: user kosong");
   const profile = await fetchProfile(data.user.id);
-  persistSession(data.user.id, profile.role, profile.name);
+  persistSession(data.user.id, profile.role, profile.name, profile.province);
   return profile;
 }
 
@@ -88,7 +90,8 @@ export async function signUp(input: {
   name: string;
   role: Role;
   accessCode?: string;
-}): Promise<{ role: Role; name: string }> {
+  province?: string;
+}): Promise<{ role: Role; name: string; province?: string }> {
   // Peran pemerintah wajib lolos verifikasi kode akses instansi (Supabase RPC).
   // Dicek lebih dulu supaya akun tidak terlanjur dibuat saat kode salah.
   if (input.role === "pemerintah") {
@@ -115,12 +118,18 @@ export async function signUp(input: {
     id: data.user.id,
     name: input.name,
     role: input.role,
+    province: input.province || "DI Yogyakarta",
   });
   if (profileError) {
     throw new Error(`Gagal menyimpan profil: ${profileError.message}`);
   }
-  persistSession(data.user.id, input.role, input.name);
-  return { role: input.role, name: input.name };
+  persistSession(data.user.id, input.role, input.name, input.province);
+  return { role: input.role, name: input.name, province: input.province };
+}
+
+export function getUserProvince(): string {
+  if (typeof window === "undefined") return "DI Yogyakarta";
+  return window.localStorage.getItem("panen.province") || "DI Yogyakarta";
 }
 
 export async function signOut(): Promise<void> {

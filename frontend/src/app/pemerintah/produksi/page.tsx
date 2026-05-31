@@ -15,6 +15,7 @@ import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import { MapPanel } from "./map-panel";
+import { getUserProvince } from "@/lib/auth";
 import type { CropType, Province, StatusPangan } from "@/types";
 
 const COMMODITIES: Array<{ id: CropType; label: string }> = [
@@ -40,7 +41,7 @@ const NATIONAL: Province = {
 };
 
 export default function PetaPage() {
-  const [provinceKey, setProvinceKey] = useState<string>("DI Yogyakarta");
+  const [provinceKey, setProvinceKey] = useState<string>(() => getUserProvince());
   const [commodity, setCommodity]     = useState<CropType>("padi");
 
   const { data: provincesRes } = useApi(

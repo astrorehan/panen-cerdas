@@ -12,6 +12,7 @@ import { NdviChart } from "./ndvi-chart";
 import { BacktestChart } from "./backtest-chart";
 import { KecamatanSelect } from "./select";
 import type { CropType } from "@/types";
+import { getUserProvince } from "@/lib/auth";
 
 const COMMODITIES: Array<{ id: CropType; label: string }> = [
   { id: "padi",         label: "Padi" },
@@ -37,6 +38,49 @@ const COMMODITY_MAP: Record<string, string> = {
   bawang_putih: "Bawang Putih",
 };
 
+const PROV_CODE_MAP: Record<string, string> = {
+  "Aceh": "PROV_11",
+  "Sumatera Utara": "PROV_12",
+  "Sumatera Barat": "PROV_13",
+  "Riau": "PROV_14",
+  "Jambi": "PROV_15",
+  "Sumatera Selatan": "PROV_16",
+  "Bengkulu": "PROV_17",
+  "Lampung": "PROV_18",
+  "Kepulauan Bangka Belitung": "PROV_19",
+  "Bangka Belitung": "PROV_19",
+  "Kepulauan Riau": "PROV_21",
+  "DKI Jakarta": "PROV_31",
+  "Jawa Barat": "PROV_32",
+  "Jawa Tengah": "PROV_33",
+  "DI Yogyakarta": "PROV_34",
+  "Jawa Timur": "PROV_35",
+  "Banten": "PROV_36",
+  "Bali": "PROV_51",
+  "Nusa Tenggara Barat": "PROV_52",
+  "Nusa Tenggara Timur": "PROV_53",
+  "Kalimantan Barat": "PROV_61",
+  "Kalimantan Tengah": "PROV_62",
+  "Kalimantan Selatan": "PROV_63",
+  "Kalimantan Timur": "PROV_64",
+  "Kalimantan Utara": "PROV_65",
+  "Sulawesi Utara": "PROV_71",
+  "Gorontalo": "PROV_75",
+  "Sulawesi Tengah": "PROV_72",
+  "Sulawesi Barat": "PROV_76",
+  "Sulawesi Selatan": "PROV_73",
+  "Sulawesi Tenggara": "PROV_74",
+  "Maluku": "PROV_81",
+  "Maluku Utara": "PROV_82",
+  "Papua Barat": "PROV_91",
+  "Papua": "PROV_94",
+  "Papua Selatan": "PROV_93",
+  "Papua Tengah": "PROV_94",
+  "Papua Pegunungan": "PROV_95",
+  "Papua Barat Daya": "PROV_96",
+  "ALL": "PROV_34",
+};
+
 export default function DetailPage() {
   return (
     <Suspense
@@ -56,12 +100,20 @@ function DetailPageInner() {
   const searchParams = useSearchParams();
   const queryId = searchParams.get("id") ?? undefined;
   const commodityParam = (searchParams.get("commodity") as CropType) ?? "padi";
-  const isProvinceLevel = (queryId ?? "").startsWith("PROV_");
+
+  const defaultProv = getUserProvince();
+  const defaultId = defaultProv === "DI Yogyakarta"
+    ? undefined
+    : (PROV_CODE_MAP[defaultProv] ?? "PROV_34");
+
+  const tempId = queryId ?? defaultId;
+  const isProvinceLevel = (tempId ?? "").startsWith("PROV_");
 
   // Mode kecamatan (DIY): muat 7 kecamatan (paralel, cepat) untuk dropdown.
+  const listProvinceName = defaultProv === "ALL" ? "DI Yogyakarta" : defaultProv;
   const { data: kecList, loading: loadingKec } = useApi(
-    isProvinceLevel ? null : apiPath.predictionsList("DI Yogyakarta", commodityParam),
-    () => api.predictions.list("DI Yogyakarta", commodityParam),
+    isProvinceLevel ? null : apiPath.predictionsList(listProvinceName, commodityParam),
+    () => api.predictions.list(listProvinceName, commodityParam),
   );
 
   // Mode provinsi: cukup direktori provinsi yang ringan untuk dropdown. Kita
@@ -73,7 +125,7 @@ function DetailPageInner() {
     () => api.regions.provinces(),
   );
 
-  const selectedId = queryId ?? kecList?.items[0]?.id;
+  const selectedId = tempId ?? kecList?.items[0]?.id;
 
   const { data: detail, loading: loadingDetail } = useApi(
     selectedId ? apiPath.predictionsDetail(selectedId, commodityParam) : null,
