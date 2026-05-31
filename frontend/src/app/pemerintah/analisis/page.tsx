@@ -2,7 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { AlertCircle, BarChart3, MapPin } from "lucide-react";
+import { AlertCircle, BarChart3, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
@@ -175,6 +175,52 @@ function DetailPageInner() {
                 </div>
               </div>
             </div>
+          )}
+
+          {detail.feedback_count && detail.feedback_count > 0 && detail.yield_actual_ton_per_ha != null ? (
+            <Card className="border-primary/25 bg-primary/[0.04]">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-primary" />
+                  Laporan Panen Petani
+                </CardTitle>
+                <CardDescription>
+                  Yield aktual ground-truth dari{" "}
+                  <span className="font-medium text-foreground">
+                    {detail.feedback_count} laporan
+                  </span>{" "}
+                  petani di kecamatan ini — diperbarui otomatis setiap ada laporan baru.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Numeral
+                    label="Yield Aktual (petani)"
+                    numeral={detail.yield_actual_ton_per_ha.toFixed(2)}
+                    unit="ton/ha"
+                    accent
+                  />
+                  <Numeral
+                    label="Yield Prediksi (model)"
+                    numeral={detail.yield_pred_ton_per_ha.toFixed(2)}
+                    unit="ton/ha"
+                  />
+                  <Numeral
+                    label="Selisih Aktual - Prediksi"
+                    numeral={`${
+                      detail.yield_actual_ton_per_ha - detail.yield_pred_ton_per_ha >= 0 ? "+" : ""
+                    }${(detail.yield_actual_ton_per_ha - detail.yield_pred_ton_per_ha).toFixed(2)}`}
+                    unit="ton/ha"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="border-dashed p-5 text-sm text-muted-foreground">
+              Belum ada laporan panen petani untuk kecamatan ini. Angka di atas
+              murni prediksi model — akan otomatis diperbarui saat petani mengirim
+              hasil panen lewat fitur feedback.
+            </Card>
           )}
 
           <Card>

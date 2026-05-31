@@ -35,6 +35,9 @@ export type KecamatanPrediction = {
   produksi_pred_ton: number;
   surplus_pct: number;
   status: StatusPangan;
+  // Yield aktual dari laporan panen petani di kecamatan ini (null = belum ada).
+  yield_actual_ton_per_ha?: number | null;
+  feedback_count?: number;
 };
 
 export type PredictionsResponse = {
@@ -55,6 +58,8 @@ export type KecamatanDetail = {
   ndvi_series: NdviPoint[];
   ndvi_source?: "modis_appeears" | "seasonal_estimate";
   backtest: YieldPoint[];
+  yield_actual_ton_per_ha?: number | null;
+  feedback_count?: number;
 };
 
 export type GeoFeature =
