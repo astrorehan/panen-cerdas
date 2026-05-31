@@ -26,7 +26,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from database import get_db, PredictionLog
+from database import get_db, PredictionLog, TrainingFeedback
 from data_cache import get_or_fetch_climate
 from model import is_model_loaded, predict as ml_predict, BASE_YIELD
 import kementan_data
@@ -69,6 +69,68 @@ KECAMATAN_DATA: list[dict] = [
     {"id": "3403140", "kabupaten": "Gunungkidul", "kecamatan": "Wonosari",
      "lat": -7.9720, "lon": 110.5980, "luas": 1900},
 ]
+
+
+# ── FEEDBACK → KECAMATAN (ground truth petani) ─────────
+# Laporan panen petani (TrainingFeedback) tidak menyimpan kecamatan, tapi
+# prediction_log yang direferensikan punya lat/lon (kalau petani pakai GPS).
+# Kita petakan tiap feedback ke centroid kecamatan DIY terdekat.
+_MAX_MATCH_KM = 25.0  # di luar radius ini, feedback dianggap bukan dari DIY
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _nearest_kecamatan_id(lat: float, lon: float) -> str | None:
+    """ID kecamatan DIY dengan centroid terdekat, atau None kalau > _MAX_MATCH_KM."""
+    best_id, best_d = None, float("inf")
+    for r in KECAMATAN_DATA:
+        d = _haversine_km(lat, lon, r["lat"], r["lon"])
+        if d < best_d:
+            best_id, best_d = r["id"], d
+    return best_id if best_d <= _MAX_MATCH_KM else None
+
+
+def _feedback_by_kecamatan(db: Session, commodity: str) -> dict[str, dict]:
+    """
+    Agregat yield aktual dari laporan panen petani, dikelompokkan per kecamatan
+    DIY (via centroid terdekat dari koordinat prediction_log yang direferensikan).
+
+    Return: {kecamatan_id: {"yield_actual": float, "count": int}}.
+    Kecamatan tanpa laporan tidak muncul di dict.
+    """
+    rows = (
+        db.query(
+            TrainingFeedback.actual_yield_ton_per_ha,
+            PredictionLog.lat,
+            PredictionLog.lon,
+        )
+        .join(PredictionLog, TrainingFeedback.prediction_log_id == PredictionLog.id)
+        .filter(TrainingFeedback.crop_type == commodity)
+        .filter(PredictionLog.lat.isnot(None))
+        .filter(PredictionLog.lon.isnot(None))
+        .all()
+    )
+
+    agg: dict[str, dict] = {}
+    for actual_yield, lat, lon in rows:
+        kid = _nearest_kecamatan_id(lat, lon)
+        if kid is None:
+            continue
+        bucket = agg.setdefault(kid, {"sum": 0.0, "count": 0})
+        bucket["sum"] += actual_yield
+        bucket["count"] += 1
+
+    return {
+        kid: {"yield_actual": round(v["sum"] / v["count"], 2), "count": v["count"]}
+        for kid, v in agg.items()
+    }
 
 
 # ── NDVI ESTIMATOR ─────────────────────────────────────
@@ -230,6 +292,7 @@ async def _predict_one(
     db: Session,
     use_model: bool,
     baseline_yield: float | None = None,
+    actual: dict | None = None,
 ) -> KecamatanPrediction:
     """
     Prediksi 1 region (kecamatan ATAU provinsi). Region row schema:
@@ -237,6 +300,10 @@ async def _predict_one(
 
     `baseline_yield` overrides national baseline untuk hitung surplus_pct.
     Dipakai mode provinsi dengan baseline yield Kementan 3 tahun terakhir.
+
+    `actual` = {"yield_actual": float, "count": int} dari laporan panen petani
+    untuk region ini (kalau ada). Ditempel ke response tanpa mengubah angka
+    prediksi model — frontend menampilkannya berdampingan.
     """
     base = baseline_yield if baseline_yield is not None else BASE_YIELD.get(commodity, 5.0)
     yield_pred: float
@@ -283,6 +350,8 @@ async def _predict_one(
         produksi_pred_ton=produksi,
         surplus_pct=surplus_pct,
         status=_status_from_surplus(surplus_pct),
+        yield_actual_ton_per_ha=actual["yield_actual"] if actual else None,
+        feedback_count=actual["count"] if actual else 0,
     )
 
 
@@ -362,8 +431,9 @@ async def list_predictions(
     # ── MODE 2: DIY pilot (7 kecamatan) ───────────────────
     if provinces_data.is_diy(province):
         baseline = _kementan_baseline_yield("DAERAH ISTIMEWA YOGYAKARTA", commodity)
+        fb_map = _feedback_by_kecamatan(db, commodity)
         tasks = [
-            _predict_one(row, commodity, db, use_model, baseline)
+            _predict_one(row, commodity, db, use_model, baseline, fb_map.get(row["id"]))
             for row in KECAMATAN_DATA
         ]
         items = await asyncio.gather(*tasks)
@@ -495,6 +565,7 @@ async def get_detail(
     """
     kementan_province_name: str
     row: dict | None = None
+    actual: dict | None = None
 
     if region_id.startswith("PROV_"):
         # Mode provinsi
@@ -520,12 +591,14 @@ async def get_detail(
             )
         # Kecamatan DIY → backtest pakai Kementan provinsi DIY sebagai proxy
         kementan_province_name = "DAERAH ISTIMEWA YOGYAKARTA"
+        # Laporan panen petani untuk kecamatan ini (kalau ada).
+        actual = _feedback_by_kecamatan(db, commodity).get(region_id)
 
     if row is None:
         raise HTTPException(status_code=404, detail=f"Tidak bisa load region {region_id}")
 
     baseline = _kementan_baseline_yield(kementan_province_name, commodity)
-    pred = await _predict_one(row, commodity, db, is_model_loaded(), baseline)
+    pred = await _predict_one(row, commodity, db, is_model_loaded(), baseline, actual)
 
     # NDVI series 7 tahun. Cache APPEEARS HIT -> real MODIS, MISS -> estimator.
     # Pre-warm via scripts/prewarm_ndvi_cache.py untuk dapat data real.
@@ -553,4 +626,6 @@ async def get_detail(
         ndvi_series=series,
         ndvi_source=ndvi_source,
         backtest=backtest,
+        yield_actual_ton_per_ha=pred.yield_actual_ton_per_ha,
+        feedback_count=pred.feedback_count,
     )

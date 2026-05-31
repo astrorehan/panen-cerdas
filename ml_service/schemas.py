@@ -179,6 +179,10 @@ class KecamatanPrediction(BaseModel):
     produksi_pred_ton: float
     surplus_pct: float
     status: Literal["surplus", "cukup", "waspada", "defisit"]
+    # Ground truth dari laporan panen petani (TrainingFeedback) yang lokasinya
+    # jatuh di kecamatan ini. None kalau belum ada laporan masuk.
+    yield_actual_ton_per_ha: Optional[float] = None
+    feedback_count: int = 0
 
 
 class PredictionsResponse(BaseModel):
@@ -204,3 +208,6 @@ class KecamatanDetail(BaseModel):
         "seasonal_estimate"
     )
     backtest: list[YieldPoint]
+    # Agregat laporan panen petani untuk kecamatan ini (None = belum ada).
+    yield_actual_ton_per_ha: Optional[float] = None
+    feedback_count: int = 0
