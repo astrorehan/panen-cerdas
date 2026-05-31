@@ -127,7 +127,7 @@ export default function PetaPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
           {isNational
-            ? "Bubble map 37 provinsi - ukuran sesuai produksi, warna sesuai status pangan. Klik provinsi untuk drill-down."
+            ? "Choropleth 37 provinsi - warna sesuai status pangan. Klik provinsi untuk drill-down."
             : "Choropleth status pangan per kecamatan - klik wilayah untuk drill-down. Mode kecamatan tersedia untuk DI Yogyakarta (pilot)."}
         </p>
       </header>
@@ -242,8 +242,8 @@ export default function PetaPage() {
                 <p>Surplus &gt; +10% - Defisit &lt; -10%</p>
                 <p>
                   {isNational
-                    ? "Mode nasional menampilkan 37 provinsi sebagai bubble di centroid administratif. Surplus dihitung vs rata-rata yield Kementan 3 tahun terakhir per provinsi."
-                    : "Mode DI Yogyakarta menampilkan 7 kecamatan pilot dengan polygon real. Provinsi lain belum punya batas kecamatan, pilih 'Indonesia' untuk view nasional."}
+                    ? "Mode nasional mewarnai 34 provinsi dengan polygon batas wilayah real; 3 provinsi Papua baru (belum ada batas) tampil sebagai bubble di centroid. Surplus dihitung vs rata-rata yield Kementan 3 tahun terakhir per provinsi."
+                    : "Mode DI Yogyakarta menampilkan 7 kecamatan pilot dengan polygon kecamatan. Provinsi lain memakai polygon batas provinsi; pilih 'Indonesia' untuk view nasional."}
                 </p>
               </CardContent>
             </Card>
