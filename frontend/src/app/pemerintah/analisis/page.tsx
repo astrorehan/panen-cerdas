@@ -8,9 +8,17 @@ import { SkeletonLoader, KpiSkeleton, ChartSkeleton, Skeleton } from "@/componen
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatNumber, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
-import { NdviChart } from "./ndvi-chart";
-import { BacktestChart } from "./backtest-chart";
+import dynamic from "next/dynamic";
 import { KecamatanSelect } from "./select";
+// Recharts is heavy; load these charts on demand to keep the page bundle lean.
+const NdviChart = dynamic(
+  () => import("./ndvi-chart").then((m) => m.NdviChart),
+  { ssr: false, loading: () => <div className="h-72 w-full" /> },
+);
+const BacktestChart = dynamic(
+  () => import("./backtest-chart").then((m) => m.BacktestChart),
+  { ssr: false, loading: () => <div className="h-64 w-full" /> },
+);
 import type { CropType } from "@/types";
 import { getUserProvince } from "@/lib/auth";
 import { CustomSelect } from "@/components/ui/select-custom";

@@ -4,8 +4,13 @@ import { useMemo, useState } from "react";
 import { AlertCircle, Database, Satellite, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import dynamic from "next/dynamic";
 import { KpiCard } from "@/components/kpi-card";
-import { TrendChart } from "@/components/trend-chart";
+// Recharts is heavy; load it on demand so it stays out of the initial bundle.
+const TrendChart = dynamic(
+  () => import("@/components/trend-chart").then((m) => m.TrendChart),
+  { ssr: false, loading: () => <div className="h-72 w-full" /> },
+);
 import { SkeletonLoader, KpiSkeleton, ChartSkeleton } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
