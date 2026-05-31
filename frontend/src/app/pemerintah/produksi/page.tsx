@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { SkeletonLoader } from "@/components/skeleton-loader";
+import { SkeletonLoader, MapSkeleton } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
@@ -151,11 +151,7 @@ export default function PetaPage() {
         />
       </section>
 
-      {loading && (!predictions || !geojson) && (
-        <SkeletonLoader label="Memuat peta..." />
-      )}
-
-      {error && (!predictions || !geojson) && (
+      {!loading && error && (!predictions || !geojson) && (
         <div className="mx-auto max-w-md rounded-3xl border border-destructive/30 bg-destructive/8 p-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
             <AlertCircle className="h-6 w-6" />
@@ -167,7 +163,9 @@ export default function PetaPage() {
         </div>
       )}
 
-      {predictions && geojson && (
+      {loading || !predictions || !geojson ? (
+        <MapSkeleton />
+      ) : (
         <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
           <Card className="overflow-hidden">
             <CardHeader className="flex flex-row items-start justify-between gap-3">

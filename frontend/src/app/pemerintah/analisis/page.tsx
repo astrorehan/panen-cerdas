@@ -4,7 +4,7 @@ import { Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertCircle, BarChart3, MapPin, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { SkeletonLoader } from "@/components/skeleton-loader";
+import { SkeletonLoader, KpiSkeleton, ChartSkeleton, Skeleton } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatNumber, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
@@ -86,8 +86,18 @@ export default function DetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="container py-12">
-          <SkeletonLoader label="Memuat data kecamatan..." />
+        <div className="container space-y-8 py-8 md:py-12">
+          <header className="space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </header>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton />
+          </div>
+          <Skeleton className="h-[300px] w-full" />
         </div>
       }
     >
@@ -148,14 +158,52 @@ function DetailPageInner() {
     ? "Indonesia"
     : kecList?.province ?? "DI Yogyakarta";
 
-  // Loading awal: belum ada apa pun untuk ditampilkan.
   const initialLoading = isProvinceLevel
     ? !detail && loadingDetail
     : loadingKec && !kecList;
+
   if (initialLoading) {
     return (
-      <div className="container py-12">
-        <SkeletonLoader label="Memuat data wilayah..." />
+      <div className="container space-y-8 py-8 md:py-12">
+        <header>
+          <div className="eyebrow">
+            <BarChart3 className="h-3 w-3" />
+            Profil Analisis Wilayah
+          </div>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
+            Bedah Wilayah &amp; Komoditas
+          </h1>
+          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+            Analisis komoditas {COMMODITY_MAP[commodityParam] || "Padi"} untuk memantau time series NDVI, prediksi yield, dan backtest historis terhadap data resmi Kementan.
+          </p>
+        </header>
+
+        <Card className="relative z-20 flex flex-wrap items-end justify-between gap-4 p-5">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <MapPin className="h-3 w-3" />
+              Subjek analisis · Komoditas {COMMODITY_MAP[commodityParam] || "Padi"}
+            </div>
+            <Skeleton className="h-8 w-40 mt-2" />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <Skeleton className="h-11 w-[200px]" />
+            <Skeleton className="h-11 w-[180px]" />
+          </div>
+        </Card>
+
+        <div className="space-y-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton />
+          </div>
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartSkeleton />
+            <ChartSkeleton />
+          </div>
+        </div>
       </div>
     );
   }
@@ -238,10 +286,19 @@ function DetailPageInner() {
         </div>
       </Card>
 
-      {!detail ? (
-        <Card className="p-10 text-center text-sm text-muted-foreground">
-          Memuat detail wilayah untuk komoditas {COMMODITY_MAP[commodityParam] || "Padi"}...
-        </Card>
+      {loadingDetail || !detail ? (
+        <div className="space-y-6 animate-in fade-in-50 duration-300">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton />
+          </div>
+          <Skeleton className="h-20 w-full rounded-2xl" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <ChartSkeleton />
+            <ChartSkeleton />
+          </div>
+        </div>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">

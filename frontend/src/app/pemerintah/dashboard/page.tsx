@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/kpi-card";
 import { TrendChart } from "@/components/trend-chart";
-import { SkeletonLoader } from "@/components/skeleton-loader";
+import { SkeletonLoader, KpiSkeleton, ChartSkeleton } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { getUserProvince } from "@/lib/auth";
@@ -72,15 +72,7 @@ export default function PemerintahDashboardPage() {
     }));
   }, []);
 
-  if (loading && (!summary || !trend)) {
-    return (
-      <div className="container py-12">
-        <SkeletonLoader label="Memuat dashboard..." />
-      </div>
-    );
-  }
-
-  if (!summary || !trend) {
+  if (!loading && (!summary || !trend)) {
     return (
       <div className="container py-12">
         <div className="mx-auto max-w-md rounded-3xl border border-destructive/30 bg-destructive/8 p-8 text-center">
@@ -109,14 +101,14 @@ export default function PemerintahDashboardPage() {
           <div>
             <div className="eyebrow">
               <Sparkles className="h-3 w-3" />
-              Dashboard Eksekutif · {summary.province}
+              Dashboard Eksekutif · {summary?.province || provinceKey}
             </div>
             <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance md:text-5xl">
               Memetakan panen <span className="text-primary">sebelum panen</span>.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Meringkas prediksi hasil panen komoditas <span className="font-semibold text-foreground">{activeCommodityLabel}</span> di {summary.province} untuk{" "}
-              {summary.season}, dihitung dari citra satelit, agregasi cuaca harian,
+              Meringkas prediksi hasil panen komoditas <span className="font-semibold text-foreground">{activeCommodityLabel}</span> di {summary?.province || provinceKey} untuk{" "}
+              {summary?.season || "Musim ini"}, dihitung dari citra satelit, agregasi cuaca harian,
               dan data historis Kementan — tiga bulan sebelum panen aktual.
             </p>
           </div>
@@ -176,20 +168,29 @@ export default function PemerintahDashboardPage() {
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Indikator Utama</h2>
           <span className="text-xs text-muted-foreground">
-            {summary.tiles.length} metrik aktif
+            {loading ? "Memuat..." : `${summary?.tiles?.length ?? 0} metrik aktif`}
           </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {summary.tiles.map((t, i) => (
-            <KpiCard
-              key={t.label}
-              label={t.label}
-              value={t.value}
-              delta={t.delta}
-              positive={t.positive}
-              index={i}
-            />
-          ))}
+          {loading || !summary ? (
+            <>
+              <KpiSkeleton />
+              <KpiSkeleton />
+              <KpiSkeleton />
+              <KpiSkeleton />
+            </>
+          ) : (
+            summary.tiles.map((t, i) => (
+              <KpiCard
+                key={t.label}
+                label={t.label}
+                value={t.value}
+                delta={t.delta}
+                positive={t.positive}
+                index={i}
+              />
+            ))
+          )}
         </div>
       </section>
 
@@ -201,17 +202,21 @@ export default function PemerintahDashboardPage() {
             Sumber Kementan — tren aktual 2020-2024, proyeksi model tahun berjalan
           </span>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Produksi {activeCommodityLabel} {trend.province}
-            </CardTitle>
-            <CardDescription>Satuan unit: {trend.unit}</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <TrendChart trend={trend} />
-          </CardContent>
-        </Card>
+        {loading || !trend ? (
+          <ChartSkeleton />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                Produksi {activeCommodityLabel} {trend.province}
+              </CardTitle>
+              <CardDescription>Satuan unit: {trend.unit}</CardDescription>
+            </CardHeader>
+            <CardContent className="pb-6">
+              <TrendChart trend={trend} />
+            </CardContent>
+          </Card>
+        )}
       </section>
 
       {/* Impact statement */}

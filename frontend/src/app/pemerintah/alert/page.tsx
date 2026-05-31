@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { AlertCircle, AlertTriangle, ArrowRight, Bell, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { SkeletonLoader } from "@/components/skeleton-loader";
+import { SkeletonLoader, KpiSkeleton, TableSkeleton } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
@@ -86,15 +86,7 @@ export default function AlertPage() {
 
   const isNational = provinceKey === "ALL";
 
-  if (loading && !list) {
-    return (
-      <div className="container py-12">
-        <SkeletonLoader label="Memuat alert pangan..." />
-      </div>
-    );
-  }
-
-  if (!list) {
+  if (!loading && !list) {
     return (
       <div className="container py-12">
         <div className="mx-auto max-w-md rounded-3xl border border-destructive/30 bg-destructive/8 p-8 text-center">
@@ -124,8 +116,8 @@ export default function AlertPage() {
           Wilayah rawan untuk diintervensi
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Lembar ini menyaring prediksi komoditas <span className="font-semibold text-foreground">{list.commodity}</span> di{" "}
-          <span className="font-semibold text-foreground">{list.province}</span> dan mengangkat daerah berstatus waspada dan
+          Lembar ini menyaring prediksi komoditas <span className="font-semibold text-foreground">{list?.commodity || commodity}</span> di{" "}
+          <span className="font-semibold text-foreground">{list?.province || provinceKey}</span> dan mengangkat daerah berstatus waspada dan
           defisit — sesuai ambang surplus 10%. Diurutkan dari yang paling
           defisit.
         </p>
@@ -152,12 +144,24 @@ export default function AlertPage() {
 
       {/* Stats */}
       <section className="grid gap-3 sm:grid-cols-3">
-        <Stat icon={AlertCircle} label="Defisit" value={counts.defisit} tone="destructive" isNational={isNational} />
-        <Stat icon={AlertTriangle} label="Waspada" value={counts.waspada} tone="amber" isNational={isNational} />
-        <Stat icon={CheckCircle2} label="Surplus / Cukup" value={counts.aman} tone="primary" isNational={isNational} />
+        {loading || !list ? (
+          <>
+            <KpiSkeleton />
+            <KpiSkeleton />
+            <KpiSkeleton />
+          </>
+        ) : (
+          <>
+            <Stat icon={AlertCircle} label="Defisit" value={counts.defisit} tone="destructive" isNational={isNational} />
+            <Stat icon={AlertTriangle} label="Waspada" value={counts.waspada} tone="amber" isNational={isNational} />
+            <Stat icon={CheckCircle2} label="Surplus / Cukup" value={counts.aman} tone="primary" isNational={isNational} />
+          </>
+        )}
       </section>
 
-      {flagged.length === 0 ? (
+      {loading || !list ? (
+        <TableSkeleton />
+      ) : flagged.length === 0 ? (
         <Card className="p-10 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary">
             <CheckCircle2 className="h-6 w-6" />
