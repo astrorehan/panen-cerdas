@@ -558,13 +558,14 @@ def _historical_backtest(
         if not (use_model and climate):
             continue
         try:
+            ndvi = backtest_climate.annual_ndvi(province_code, year)
             data = PredictInput(
                 crop_type=commodity,
                 land_area_ha=r["luas_panen_ha"] or 1000.0,
                 rainfall_mm=climate["rainfall_mm"],
                 temperature_c=climate["temperature_c"],
                 solar_radiation=climate["solar_radiation"],
-                ndvi=0.65,            # baseline tropis — sama dengan _predict_one
+                ndvi=ndvi if ndvi is not None else 0.65,  # NDVI MODIS real per tahun; baseline kalau tak ada
                 pest_pressure=0.0,
                 variety="Lokal",
             )

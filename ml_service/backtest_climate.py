@@ -18,6 +18,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 CSV_PATH = Path(__file__).parent / "data" / "historical_climate.csv"
+NDVI_CSV_PATH = Path(__file__).parent / "data" / "historical_ndvi.csv"
 
 
 @lru_cache(maxsize=1)
@@ -44,3 +45,25 @@ def _load() -> dict[tuple[str, int], dict]:
 def annual_climate(province_code: str, year: int) -> dict | None:
     """Iklim tahunan satu provinsi, atau None kalau tidak ada di snapshot."""
     return _load().get((str(province_code), int(year)))
+
+
+@lru_cache(maxsize=1)
+def _load_ndvi() -> dict[tuple[str, int], float]:
+    """Map (province_code, year) -> NDVI growing-season real (MODIS MOD13Q1)."""
+    if not NDVI_CSV_PATH.exists():
+        logger.warning(f"historical_ndvi.csv tidak ditemukan: {NDVI_CSV_PATH} — backtest pakai NDVI baseline")
+        return {}
+    out: dict[tuple[str, int], float] = {}
+    with open(NDVI_CSV_PATH, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            try:
+                out[(str(r["code"]), int(r["year"]))] = float(r["ndvi"])
+            except (KeyError, ValueError) as e:
+                logger.warning(f"Baris historical_ndvi dilewati: {r} ({e})")
+    logger.info(f"historical_ndvi loaded: {len(out)} (provinsi x tahun)")
+    return out
+
+
+def annual_ndvi(province_code: str, year: int) -> float | None:
+    """NDVI growing-season satu provinsi-tahun, atau None kalau tidak ada."""
+    return _load_ndvi().get((str(province_code), int(year)))
