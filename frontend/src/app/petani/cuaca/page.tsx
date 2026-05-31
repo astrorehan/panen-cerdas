@@ -21,6 +21,7 @@ import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { getPetaniId } from "@/lib/auth";
 import type { LahanItem, WeatherCuaca, WeatherResponse } from "@/types";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const CUACA_META: Record<WeatherCuaca, { label: string; icon: LucideIcon; tint: string }> = {
   cerah: { label: "Cerah", icon: Sun, tint: "bg-amber/15 text-amber" },
@@ -169,6 +170,13 @@ function LahanPicker({
   selectedId: string;
   onChange: (id: string) => void;
 }) {
+  const selectOptions = useMemo(() => {
+    return options.map((l) => ({
+      value: l.lahan_id,
+      label: `${l.lahan_id} (${l.last_lat.toFixed(3)}, ${l.last_lon.toFixed(3)})`,
+    }));
+  }, [options]);
+
   if (options.length === 0) {
     return (
       <Card className="p-5">
@@ -205,18 +213,12 @@ function LahanPicker({
     <Card className="p-5">
       <div className="space-y-2">
         <Label htmlFor="lahan-cuaca">Lahan</Label>
-        <select
+        <CustomSelect
           id="lahan-cuaca"
           value={selectedId}
-          onChange={(e) => onChange(e.target.value)}
-          className="flex h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-        >
-          {options.map((l) => (
-            <option key={l.lahan_id} value={l.lahan_id}>
-              {l.lahan_id} ({l.last_lat.toFixed(3)}, {l.last_lon.toFixed(3)})
-            </option>
-          ))}
-        </select>
+          onChange={onChange}
+          options={selectOptions}
+        />
         <p className="text-xs text-muted-foreground">
           Menampilkan {options.length} dari {totalLahan} lahan yang punya
           koordinat (mode GPS).

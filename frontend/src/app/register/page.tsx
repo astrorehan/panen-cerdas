@@ -234,18 +234,12 @@ export default function RegisterPage() {
                   <CustomSelect
                     id="province"
                     label="Wilayah Dinas"
-                    required
                     value={province}
-                    onChange={(e) => setProvince(e.target.value)}
+                    onChange={(val) => setProvince(val)}
                     disabled={loading}
+                    options={PROVINCE_OPTIONS}
                     wrapperClassName="mt-2"
-                  >
-                    {PROVINCE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </CustomSelect>
+                  />
 
                   <div className="space-y-1.5">
                     <Label htmlFor="accessCode">Kode akses instansi</Label>

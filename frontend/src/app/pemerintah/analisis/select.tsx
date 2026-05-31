@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { CustomSelect } from "@/components/ui/select-custom";
 
@@ -15,24 +16,23 @@ type Props = {
 export function KecamatanSelect({ options, currentId, mode = "kecamatan", commodity }: Props) {
   const router = useRouter();
   const isProvince = mode === "province";
+
+  const selectOptions = useMemo(() => {
+    const mapped = options.map((o) => ({
+      value: o.id,
+      label: isProvince ? o.kabupaten : `${o.kecamatan} - Kab. ${o.kabupaten}`,
+    }));
+    return [{ value: "", label: "-" }, ...mapped];
+  }, [options, isProvince]);
+
   return (
     <CustomSelect
       id="kec-select"
       label={isProvince ? "Pilih Provinsi" : "Pilih Kecamatan"}
       value={currentId ?? ""}
-      onChange={(e) => router.push(`/pemerintah/analisis?id=${e.target.value}${commodity ? `&commodity=${commodity}` : ""}`)}
+      onChange={(val) => router.push(`/pemerintah/analisis?id=${val}${commodity ? `&commodity=${commodity}` : ""}`)}
       wrapperClassName="min-w-[200px]"
-    >
-      <option value="" disabled>
-        -
-      </option>
-      {options.map((o) => (
-        <option key={o.id} value={o.id}>
-          {isProvince
-            ? o.kabupaten
-            : `${o.kecamatan} - Kab. ${o.kabupaten}`}
-        </option>
-      ))}
-    </CustomSelect>
+      options={selectOptions}
+    />
   );
 }

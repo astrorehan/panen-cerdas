@@ -12,6 +12,7 @@ import { ResultCard } from "@/components/result-card";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { cn } from "@/lib/utils";
 import type { CropType, PredictResponse } from "@/types";
+import { CustomSelect } from "@/components/ui/select-custom";
 
 const CROPS: Array<{ id: CropType; label: string; subtitle: string }> = [
   { id: "padi", label: "Padi", subtitle: "± 110 hari" },
@@ -75,6 +76,12 @@ export default function PrediksiPage() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const varietyOptions = useMemo(() => VARIETIES[cropType], [cropType]);
+  const mappedVarietyOptions = useMemo(() => {
+    return varietyOptions.map((v) => ({
+      value: v,
+      label: v + (v === "Lokal" ? " - varietas lokal" : " - unggul"),
+    }));
+  }, [varietyOptions]);
 
   function pickCrop(c: CropType) {
     setCropType(c);
@@ -238,19 +245,12 @@ export default function PrediksiPage() {
                   Varietas{" "}
                   <span className="text-muted-foreground">({varietyOptions.length} opsi)</span>
                 </Label>
-                <select
+                <CustomSelect
                   id="variety"
                   value={variety}
-                  onChange={(e) => setVariety(e.target.value)}
-                  className="flex h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-                >
-                  {varietyOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                      {v === "Lokal" ? " - varietas lokal" : " - unggul"}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setVariety(val)}
+                  options={mappedVarietyOptions}
+                />
               </div>
             </div>
           </FormCard>
