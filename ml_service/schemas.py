@@ -208,6 +208,10 @@ class KecamatanDetail(BaseModel):
         "seasonal_estimate"
     )
     backtest: list[YieldPoint]
+    # Surplus/defisit + status pangan region ini (sama perhitungan dengan
+    # KecamatanPrediction) — supaya halaman detail tidak perlu memuat list.
+    surplus_pct: float = 0.0
+    status: Literal["surplus", "cukup", "waspada", "defisit"] = "cukup"
     # Agregat laporan panen petani untuk kecamatan ini (None = belum ada).
     yield_actual_ton_per_ha: Optional[float] = None
     feedback_count: int = 0

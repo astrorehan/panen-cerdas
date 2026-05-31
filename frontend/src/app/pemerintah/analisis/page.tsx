@@ -30,29 +30,54 @@ function DetailPageInner() {
   const searchParams = useSearchParams();
   const queryId = searchParams.get("id") ?? undefined;
   const isProvinceLevel = (queryId ?? "").startsWith("PROV_");
-  const listProvince = isProvinceLevel ? "ALL" : "DI Yogyakarta";
 
-  const { data: list, loading: loadingList } = useApi(
-    apiPath.predictionsList(listProvince),
-    () => api.predictions.list(listProvince),
+  // Mode kecamatan (DIY): muat 7 kecamatan (paralel, cepat) untuk dropdown.
+  const { data: kecList, loading: loadingKec } = useApi(
+    isProvinceLevel ? null : apiPath.predictionsList("DI Yogyakarta"),
+    () => api.predictions.list("DI Yogyakarta"),
   );
 
-  const selectedId = queryId ?? list?.items[0]?.id;
+  // Mode provinsi: cukup direktori provinsi yang ringan untuk dropdown. Kita
+  // TIDAK memuat prediksi 37 provinsi sekaligus di sini — itu berat (~20-25s)
+  // dan kena timeout gateway. Konten provinsi diambil dari endpoint detail
+  // satu provinsi di bawah (1 fetch, cepat).
+  const { data: provDir } = useApi(
+    isProvinceLevel ? apiPath.regionsProvinces() : null,
+    () => api.regions.provinces(),
+  );
 
-  const { data: detail } = useApi(
+  const selectedId = queryId ?? kecList?.items[0]?.id;
+
+  const { data: detail, loading: loadingDetail } = useApi(
     selectedId ? apiPath.predictionsDetail(selectedId) : null,
     () => api.predictions.detail(selectedId as string),
   );
 
-  if (loadingList && !list) {
+  const options = isProvinceLevel
+    ? (provDir?.items ?? []).map((p) => ({ id: p.id, kabupaten: p.name }))
+    : (kecList?.items ?? []);
+
+  const provinceLabel = isProvinceLevel
+    ? "Indonesia"
+    : kecList?.province ?? "DI Yogyakarta";
+
+  // Loading awal: belum ada apa pun untuk ditampilkan.
+  const initialLoading = isProvinceLevel
+    ? !detail && loadingDetail
+    : loadingKec && !kecList;
+  if (initialLoading) {
     return (
       <div className="container py-12">
-        <SkeletonLoader label="Memuat data kecamatan..." />
+        <SkeletonLoader label="Memuat data wilayah..." />
       </div>
     );
   }
 
-  if (!list) {
+  // Backend mati: mode kecamatan tak dapat daftar, mode provinsi tak dapat detail.
+  const backendDown = isProvinceLevel
+    ? !loadingDetail && !detail
+    : !loadingKec && !kecList;
+  if (backendDown) {
     return (
       <div className="container py-12">
         <div className="mx-auto max-w-md rounded-3xl border border-destructive/30 bg-destructive/8 p-8 text-center">
@@ -66,8 +91,6 @@ function DetailPageInner() {
       </div>
     );
   }
-
-  const selectedPred = list.items.find((it) => it.id === selectedId);
 
   return (
     <div className="container space-y-8 py-8 md:py-12">
@@ -106,13 +129,13 @@ function DetailPageInner() {
                 {detail?.kecamatan ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Kab. {detail?.kabupaten ?? "-"} - {list.province}
+                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel}
               </div>
             </>
           )}
         </div>
         <KecamatanSelect
-          options={list.items}
+          options={options}
           currentId={selectedId}
           mode={isProvinceLevel ? "province" : "kecamatan"}
         />
@@ -143,11 +166,11 @@ function DetailPageInner() {
             />
           </div>
 
-          {selectedPred && (
+          {detail.status && detail.surplus_pct != null && (
             <div
               className="flex flex-wrap items-center justify-between gap-4 overflow-hidden rounded-2xl border border-border bg-surface shadow-card"
               style={{
-                borderLeftColor: STATUS_COLOR[selectedPred.status],
+                borderLeftColor: STATUS_COLOR[detail.status],
                 borderLeftWidth: 5,
               }}
             >
@@ -157,17 +180,17 @@ function DetailPageInner() {
                 </div>
                 <div
                   className="mt-1 text-2xl font-semibold tracking-tight"
-                  style={{ color: STATUS_COLOR[selectedPred.status] }}
+                  style={{ color: STATUS_COLOR[detail.status] }}
                 >
-                  {STATUS_LABEL[selectedPred.status]}
+                  {STATUS_LABEL[detail.status]}
                 </div>
               </div>
               <div className="px-5 py-4 text-right text-xs text-muted-foreground">
                 <div>
                   Surplus / Defisit ·{" "}
                   <span className="font-semibold text-foreground">
-                    {selectedPred.surplus_pct > 0 ? "+" : ""}
-                    {selectedPred.surplus_pct.toFixed(1)}%
+                    {detail.surplus_pct > 0 ? "+" : ""}
+                    {detail.surplus_pct.toFixed(1)}%
                   </span>
                 </div>
                 <div className="mt-1">

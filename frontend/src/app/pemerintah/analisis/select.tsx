@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { KecamatanPrediction } from "@/types";
+
+type SelectOption = { id: string; kabupaten: string; kecamatan?: string };
 
 type Props = {
-  options: KecamatanPrediction[];
+  options: SelectOption[];
   currentId?: string;
   mode?: "kecamatan" | "province";
 };

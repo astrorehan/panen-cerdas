@@ -58,6 +58,8 @@ export type KecamatanDetail = {
   ndvi_series: NdviPoint[];
   ndvi_source?: "modis_appeears" | "seasonal_estimate";
   backtest: YieldPoint[];
+  surplus_pct?: number;
+  status?: StatusPangan;
   yield_actual_ton_per_ha?: number | null;
   feedback_count?: number;
 };

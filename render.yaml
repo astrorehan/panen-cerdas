@@ -26,3 +26,5 @@ services:
         sync: false # Diisi manual dengan URL dari panen-cerdas-ml (contoh: https://panen-cerdas-ml-xxx.onrender.com)
       - key: FRONTEND_URL
         sync: false # Diisi manual di dashboard Render dengan URL Vercel (contoh: https://panen-cerdas.vercel.app)
+      - key: ML_TIMEOUT_MS
+        value: "120000" # Peta nasional (37 provinsi) bisa ~20-25s saat cache dingin + cold start free-tier; jangan abort gateway terlalu cepat

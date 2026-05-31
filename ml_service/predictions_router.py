@@ -626,6 +626,8 @@ async def get_detail(
         ndvi_series=series,
         ndvi_source=ndvi_source,
         backtest=backtest,
+        surplus_pct=pred.surplus_pct,
+        status=pred.status,
         yield_actual_ton_per_ha=pred.yield_actual_ton_per_ha,
         feedback_count=pred.feedback_count,
     )
