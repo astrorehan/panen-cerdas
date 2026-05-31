@@ -186,7 +186,7 @@ function DetailPageInner() {
           </p>
         </header>
 
-        <Card className="relative z-20 flex flex-wrap items-end justify-between gap-4 p-5">
+        <Card className="relative z-20 flex flex-wrap items-start justify-between gap-4 p-5">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <MapPin className="h-3 w-3" />
@@ -250,7 +250,7 @@ function DetailPageInner() {
         </p>
       </header>
 
-      <Card className="relative z-20 flex flex-wrap items-end justify-between gap-4 p-5">
+      <Card className="relative z-20 flex flex-wrap items-start justify-between gap-4 p-5">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             <MapPin className="h-3 w-3" />
