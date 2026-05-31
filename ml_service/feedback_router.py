@@ -15,7 +15,7 @@ Adaptasi vs V2:
 """
 
 from typing import Optional, Literal
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -24,6 +24,7 @@ from database import (
     get_feedback_count, get_prediction_stats,
     PredictionLog, TrainingFeedback,
 )
+from retrain_scheduler import check_and_retrain_if_needed, RETRAIN_THRESHOLD
 
 
 # Base yields untuk inferensi risk level — harus sinkron dengan model.BASE_YIELD
@@ -123,7 +124,11 @@ class FeedbackStats(BaseModel):
 
 # ── ENDPOINTS ──────────────────────────────────────────
 @router.post("", response_model=FeedbackResponse, summary="Lapor hasil panen nyata")
-def submit_feedback(data: FeedbackInput, db: Session = Depends(get_db)):
+def submit_feedback(
+    data: FeedbackInput,
+    bg: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     try:
         # Auto-load dari prediction_log kalau ID dikirim
         log: Optional[PredictionLog] = None
@@ -198,10 +203,13 @@ def submit_feedback(data: FeedbackInput, db: Session = Depends(get_db)):
 
         counts = get_feedback_count(db)
         total  = counts["total"]
-        RETRAIN_THRESHOLD = 10
         remaining = RETRAIN_THRESHOLD - (counts["unused"] % RETRAIN_THRESHOLD)
-        if remaining == RETRAIN_THRESHOLD:
-            estimasi = "Threshold tercapai - retrain otomatis akan berjalan"
+        if counts["unused"] >= RETRAIN_THRESHOLD:
+            # Ambang tercapai → jalankan retrain di background (non-blocking)
+            # supaya respons feedback tetap cepat. Lock di scheduler mencegah
+            # retrain tumpang-tindih kalau banyak feedback masuk berbarengan.
+            bg.add_task(check_and_retrain_if_needed)
+            estimasi = "Threshold tercapai - retrain otomatis sedang berjalan"
         else:
             estimasi = f"Perlu {remaining} feedback lagi untuk trigger retrain"
 

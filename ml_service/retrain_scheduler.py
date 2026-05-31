@@ -11,6 +11,7 @@ Cara kerja:
 """
 
 import os
+import threading
 import joblib
 import numpy as np
 import pandas as pd
@@ -54,6 +55,10 @@ RETRAIN_THRESHOLD = 10
 # Scheduler instance
 _scheduler = BackgroundScheduler()
 _current_version = 1
+
+# Cegah retrain tumpang-tindih: dua feedback yang masuk berbarengan tidak
+# boleh memicu dua retrain paralel (race di file .joblib + _current_version).
+_retrain_lock = threading.Lock()
 
 
 # ── LOAD DATA SYNTHETIC ────────────────────────────────
@@ -368,9 +373,16 @@ def retrain(force: bool = False, db: Session = None) -> dict:
 # ── CHECK THRESHOLD ────────────────────────────────────
 def check_and_retrain_if_needed():
     """
-    Dipanggil setiap kali ada feedback baru masuk.
-    Cek apakah sudah cukup data untuk retrain.
+    Dipanggil setiap kali ada feedback baru masuk (via BackgroundTasks).
+    Cek apakah sudah cukup data untuk retrain — kalau ya, retrain.
+
+    Pakai lock non-blocking: kalau ada retrain yang sedang jalan, lewati saja
+    (feedback yang masuk akan ikut terhitung di retrain berikutnya).
     """
+    if not _retrain_lock.acquire(blocking=False):
+        print("⏭  Retrain lain sedang jalan — lewati pengecekan ini.")
+        return
+
     db = SessionLocal()
     try:
         counts = get_feedback_count(db)
@@ -380,13 +392,15 @@ def check_and_retrain_if_needed():
             retrain(db=db)
     finally:
         db.close()
+        _retrain_lock.release()
 
 
 # ── SCHEDULED RETRAIN (TIAP MINGGU) ───────────────────
 def scheduled_weekly_retrain():
     """Retrain terjadwal tiap Minggu jam 02.00 — dipaksa meski belum threshold."""
     print(f"\n⏰ Scheduled weekly retrain — {datetime.now()}")
-    retrain(force=True)
+    with _retrain_lock:
+        retrain(force=True)
 
 
 # ── SCHEDULER SETUP ────────────────────────────────────
