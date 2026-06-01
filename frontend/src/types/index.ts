@@ -154,6 +154,7 @@ export type PredictionHistoryItem = {
   confidence: number;
   model_source: "ml_model" | "fallback_rules";
   feedback_given: boolean;
+  lahan_archived?: boolean;
   created_at: string;
 };
 

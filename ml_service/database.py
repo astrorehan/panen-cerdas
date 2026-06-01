@@ -100,6 +100,10 @@ class PredictionLog(Base):
     created_at       = Column(DateTime, default=datetime.utcnow)
     # Feedback (diisi nanti setelah panen)
     feedback_given   = Column(Boolean, default=False)
+    # Soft-delete lahan: True = lahan diarsipkan oleh petani. Baris TIDAK dihapus
+    # supaya riwayat prediksi + feedback (ground truth model) tetap utuh; hanya
+    # disembunyikan dari daftar /api/lahan.
+    lahan_archived   = Column(Boolean, default=False)
 
 
 # ── TABEL 2: training_feedback ─────────────────────────
@@ -169,6 +173,7 @@ def init_db():
     owned = [t for t in Base.metadata.sorted_tables if t.schema != "auth"]
     Base.metadata.create_all(bind=engine, tables=owned)
     _migrate_prediction_log_lat_lon()
+    _migrate_prediction_log_archived()
 
     if DATABASE_URL.startswith("sqlite"):
         print(
@@ -195,6 +200,23 @@ def _migrate_prediction_log_lat_lon():
                 conn.execute(text(f"ALTER TABLE prediction_log ADD COLUMN {col} FLOAT"))
         except Exception:
             pass
+
+
+def _migrate_prediction_log_archived():
+    """Tambah kolom lahan_archived ke prediction_log kalau belum ada.
+
+    DEFAULT FALSE supaya baris lama otomatis dianggap aktif (tidak diarsipkan).
+    Pakai literal FALSE (bukan 0) karena Postgres menolak integer untuk kolom
+    boolean; FALSE valid di Postgres maupun SQLite 3.23+.
+    Idempotent: kalau kolom sudah ada, ALTER gagal dan diabaikan.
+    """
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE prediction_log ADD COLUMN lahan_archived BOOLEAN DEFAULT FALSE"
+            ))
+    except Exception:
+        pass
 
 
 # ── SESSION HELPER ─────────────────────────────────────

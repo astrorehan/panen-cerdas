@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  Archive,
   ArrowRight,
   CalendarDays,
   CheckCircle2,
@@ -241,6 +242,12 @@ function PredictionCard({
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                 <MapPin className="h-3 w-3" />
                 {item.lahan_id}
+              </span>
+            )}
+            {item.lahan_archived && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground/80">
+                <Archive className="h-3 w-3" />
+                Lahan diarsipkan
               </span>
             )}
           </h3>

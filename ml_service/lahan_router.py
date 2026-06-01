@@ -14,12 +14,23 @@ sumber ke tabel Lahan tanpa ubah response shape.
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from database import get_db, PredictionLog, TrainingFeedback
 
 router = APIRouter(prefix="/api/lahan", tags=["lahan"])
+
+
+def _not_archived():
+    """Predikat baris lahan yang masih aktif (belum diarsipkan).
+
+    Pakai OR is_(None) supaya baris pra-migrasi (kolom NULL) tetap dianggap aktif.
+    """
+    return or_(
+        PredictionLog.lahan_archived == False,  # noqa: E712
+        PredictionLog.lahan_archived.is_(None),
+    )
 
 
 class LahanUpdate(BaseModel):
@@ -59,7 +70,10 @@ def list_lahan(
     if petani_id:
         query = query.filter(PredictionLog.petani_id == petani_id)
 
-    rows = query.filter(PredictionLog.lahan_id.isnot(None)).all()
+    rows = query.filter(
+        PredictionLog.lahan_id.isnot(None),
+        _not_archived(),
+    ).all()
 
     grouped: dict[tuple[str, str], list[PredictionLog]] = {}
     for r in rows:
@@ -115,8 +129,15 @@ def list_lahan(
 
 
 def _lahan_query(db: Session, lahan_id: str, petani_id: Optional[str]):
-    """Query prediction_log untuk satu lahan (opsional disaring per petani)."""
-    q = db.query(PredictionLog).filter(PredictionLog.lahan_id == lahan_id)
+    """Query baris prediction_log AKTIF untuk satu lahan (opsional per petani).
+
+    Hanya menyentuh baris non-arsip — endpoint edit/hapus bekerja pada lahan yang
+    sedang tampil di daftar.
+    """
+    q = db.query(PredictionLog).filter(
+        PredictionLog.lahan_id == lahan_id,
+        _not_archived(),
+    )
     if petani_id:
         q = q.filter(PredictionLog.petani_id == petani_id)
     return q
@@ -168,28 +189,31 @@ def update_lahan(
     }
 
 
-@router.delete("/{lahan_id}", summary="Hapus lahan beserta seluruh prediksinya")
+@router.delete("/{lahan_id}", summary="Arsipkan lahan (riwayat & feedback tetap disimpan)")
 def delete_lahan(
     lahan_id: str,
     petani_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Hapus lahan: semua baris prediction_log + training_feedback miliknya."""
+    """Arsipkan lahan — bukan hard delete.
+
+    Lahan hilang dari daftar /api/lahan, tapi baris prediction_log + seluruh
+    training_feedback DIBIARKAN UTUH supaya riwayat prediksi petani dan data
+    ground-truth untuk melatih model tidak ikut terhapus.
+    """
     pred_q = _lahan_query(db, lahan_id, petani_id)
     n_pred = pred_q.count()
     if n_pred == 0:
         raise HTTPException(status_code=404, detail=f"Lahan '{lahan_id}' tidak ditemukan")
 
-    fb_q = db.query(TrainingFeedback).filter(TrainingFeedback.lahan_id == lahan_id)
-    if petani_id:
-        fb_q = fb_q.filter(TrainingFeedback.petani_id == petani_id)
-    n_fb = fb_q.delete(synchronize_session=False)
-    pred_q.delete(synchronize_session=False)
+    pred_q.update(
+        {PredictionLog.lahan_archived: True},
+        synchronize_session=False,
+    )
     db.commit()
 
     return {
-        "deleted":             True,
-        "lahan_id":            lahan_id,
-        "predictions_deleted": n_pred,
-        "feedback_deleted":    n_fb,
+        "archived":             True,
+        "lahan_id":             lahan_id,
+        "predictions_archived": n_pred,
     }

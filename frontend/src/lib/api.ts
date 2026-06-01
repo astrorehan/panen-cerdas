@@ -153,7 +153,7 @@ export const api = {
     },
     remove: async (lahan_id: string, petani_id?: string) => {
       const path = `/api/lahan/${encodeURIComponent(lahan_id)}${qs({ petani_id })}`;
-      const result = await mutate<{ deleted: boolean }>("DELETE", path);
+      const result = await mutate<{ archived: boolean }>("DELETE", path);
       invalidate("/api/lahan");
       invalidate("/api/predictions");
       return result;

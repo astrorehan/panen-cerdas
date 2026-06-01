@@ -422,12 +422,13 @@ function DeleteLahanDialog({
         <DialogHeader>
           <DialogTitle>Hapus lahan &quot;{item.lahan_id}&quot;?</DialogTitle>
           <DialogDescription>
-            Tindakan ini menghapus lahan beserta {item.total_predictions} riwayat
+            Lahan ini akan dihilangkan dari daftar. {item.total_predictions} riwayat
             prediksi
             {item.total_feedback > 0
               ? ` dan ${item.total_feedback} feedback panen`
               : ""}{" "}
-            secara permanen. Tidak bisa dibatalkan.
+            <strong>tetap tersimpan</strong> di halaman Riwayat dan tetap dipakai
+            untuk melatih model.
           </DialogDescription>
         </DialogHeader>
 

@@ -515,6 +515,7 @@ def predictions_history(
                 "confidence":            r.pred_confidence,
                 "model_source":          r.model_source,
                 "feedback_given":        r.feedback_given,
+                "lahan_archived":        bool(r.lahan_archived),
                 "created_at":            r.created_at.isoformat(),
             }
             for r in rows
