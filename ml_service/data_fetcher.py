@@ -181,6 +181,62 @@ async def fetch_climate_daily(lat: float, lon: float, days_back: int = 7) -> lis
     return series
 
 
+# ── FORECAST (Open-Meteo) untuk halaman cuaca petani ──
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+
+
+async def fetch_forecast_daily(lat: float, lon: float, days: int = 7) -> list[dict]:
+    """
+    PRAKIRAAN cuaca harian KE DEPAN dari Open-Meteo (gratis, tanpa API key).
+
+    Beda dari fetch_climate_daily (NASA POWER = historis, lag 1-3 hari), ini
+    ramalan sungguhan untuk `days` hari ke depan termasuk hari ini.
+
+    Returns list of {date, temperature_min/max/mean, rainfall_mm,
+    solar_radiation (MJ/m^2/hari, konsisten dgn NASA), weather_code (WMO)}.
+    Empty list kalau gagal (pemanggil bisa fallback ke NASA POWER).
+    """
+    days = max(1, min(days, 16))  # Open-Meteo forecast max 16 hari
+    params = {
+        "latitude":  lat,
+        "longitude": lon,
+        "daily": (
+            "weather_code,temperature_2m_max,temperature_2m_min,"
+            "temperature_2m_mean,precipitation_sum,shortwave_radiation_sum"
+        ),
+        "forecast_days": days,
+        "timezone": "auto",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.get(OPEN_METEO_URL, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as e:
+        logger.warning(f"Open-Meteo forecast gagal: {e}")
+        return []
+
+    daily = data.get("daily", {})
+    times = daily.get("time", [])
+
+    def col(key: str, i: int):
+        arr = daily.get(key) or []
+        return arr[i] if i < len(arr) else None
+
+    out: list[dict] = []
+    for i, d in enumerate(times):
+        out.append({
+            "date":             d,  # sudah ISO YYYY-MM-DD
+            "temperature_min":  col("temperature_2m_min", i),
+            "temperature_max":  col("temperature_2m_max", i),
+            "temperature_mean": col("temperature_2m_mean", i),
+            "rainfall_mm":      col("precipitation_sum", i) or 0.0,
+            "solar_radiation":  col("shortwave_radiation_sum", i),  # MJ/m^2/hari
+            "weather_code":     col("weather_code", i),
+        })
+    return out
+
+
 # ── NDVI HELPER ────────────────────────────────────────
 def estimate_ndvi_from_season(lat: float, lon: float, crop_type: str) -> float:
     """

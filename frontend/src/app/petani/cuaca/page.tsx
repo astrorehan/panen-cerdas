@@ -85,15 +85,15 @@ export default function CuacaPage() {
       <header>
         <div className="eyebrow">
           <CloudRain className="h-3 w-3" />
-          Cuaca 7 Hari Terakhir
+          Prakiraan Cuaca 7 Hari
         </div>
         <h1 className="mt-4 text-3xl font-semibold tracking-tight md:text-4xl">
-          Ringkasan cuaca {target.label}
+          Prakiraan cuaca {target.label}
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Data harian dari NASA POWER untuk koordinat lahan terpilih. Pakai
-          untuk evaluasi kondisi tanam minggu lalu dan rencanakan irigasi,
-          pemupukan, atau penyemprotan minggu depan.
+          Ramalan harian ke depan dari Open-Meteo untuk koordinat lahan terpilih.
+          Pakai untuk merencanakan irigasi, pemupukan, dan penyemprotan beberapa
+          hari ke depan.
         </p>
       </header>
 
@@ -107,7 +107,7 @@ export default function CuacaPage() {
         />
       )}
 
-      {loading && !data && <SkeletonLoader label="Mengambil data NASA POWER..." />}
+      {loading && !data && <SkeletonLoader label="Mengambil prakiraan cuaca..." />}
 
       {error && !data && (
         <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/8 p-5">
@@ -131,7 +131,7 @@ export default function CuacaPage() {
         <div className="flex items-start gap-3 rounded-2xl border border-amber/30 bg-amber/10 p-5">
           <Loader2 className="h-5 w-5 shrink-0 text-amber" />
           <p className="text-sm text-foreground">
-            NASA POWER belum mengembalikan data untuk koordinat ini. Coba
+            Layanan cuaca belum mengembalikan data untuk koordinat ini. Coba
             beberapa menit lagi - server mungkin sedang sibuk.
           </p>
         </div>
@@ -142,17 +142,17 @@ export default function CuacaPage() {
           Catatan sumber
         </div>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Suhu, curah hujan, dan radiasi matahari bersumber dari{" "}
+          Prakiraan suhu, curah hujan, dan radiasi matahari bersumber dari{" "}
           <a
-            href="https://power.larc.nasa.gov/"
+            href="https://open-meteo.com/"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-primary underline-offset-2 hover:underline"
           >
-            NASA POWER
+            Open-Meteo
           </a>
-          {" "}— data agroklimatologi observasional gratis dengan jeda sekitar
-          3-7 hari dari tanggal terkini.
+          {" "}— layanan ramalan cuaca gratis. Jika ramalan tidak tersedia,
+          sistem otomatis menampilkan ringkasan observasi terbaru dari NASA POWER.
         </p>
       </section>
     </div>

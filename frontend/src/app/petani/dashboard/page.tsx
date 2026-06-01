@@ -48,7 +48,7 @@ const QUICK_LINKS = [
     icon: CloudRain,
     title: "Prakiraan Cuaca",
     blurb:
-      "Ringkasan cuaca 7 hari terakhir untuk merencanakan irigasi, pemupukan, dan panen.",
+      "Prakiraan cuaca 7 hari ke depan untuk merencanakan irigasi, pemupukan, dan panen.",
     cta: "Lihat cuaca",
   },
 ];
@@ -180,9 +180,10 @@ export default function PetaniDashboardPage() {
             Catatan
           </div>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Lahan didaftarkan otomatis lewat formulir prediksi. Cuaca diambil
-            dari NASA POWER (rangkuman minggu lalu, bukan forecast). Prediksi
-            memanggil model RandomForest terlatih di server.
+            Lahan didaftarkan otomatis lewat formulir prediksi. Prakiraan cuaca
+            diambil dari Open-Meteo (ramalan ke depan; fallback NASA POWER bila
+            ramalan tak tersedia). Prediksi memanggil model RandomForest terlatih
+            di server.
           </p>
         </section>
       </div>

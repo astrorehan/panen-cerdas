@@ -39,7 +39,7 @@ from database import (
     PredictionLog,
 )
 from data_cache import init_cache, get_or_fetch_climate, get_cache_stats, cleanup_expired_cache
-from data_fetcher import INDONESIA_DEFAULTS, fetch_climate_daily
+from data_fetcher import INDONESIA_DEFAULTS, fetch_climate_daily, fetch_forecast_daily
 from ndvi_fetcher import get_or_fetch_ndvi
 from feedback_router import router as feedback_router
 from dashboard_router import router as dashboard_router
@@ -266,6 +266,21 @@ def _classify_cuaca(rain_mm: float, radiation: float | None) -> str:
     return "cerah"
 
 
+def _cuaca_from_code(code: int | None) -> str | None:
+    """Map kode cuaca WMO (Open-Meteo) -> label UI. None kalau kode tak dikenal."""
+    if code is None:
+        return None
+    if code in (0, 1):
+        return "cerah"
+    if code in (2, 3, 45, 48):
+        return "berawan"
+    if code in (65, 66, 67, 82, 95, 96, 99):
+        return "hujan-lebat"
+    if code in (51, 53, 55, 56, 57, 61, 63, 80, 81):
+        return "hujan-ringan"
+    return "berawan"
+
+
 def _catatan_for(cuaca: str, rain_mm: float, t_max: float | None) -> str:
     if cuaca == "hujan-lebat":
         return "Periksa drainase - potensi genangan di petak rendah."
@@ -281,21 +296,30 @@ def _catatan_for(cuaca: str, rain_mm: float, t_max: float | None) -> str:
 @app.get("/api/weather/recent", tags=["weather"])
 async def weather_recent(lat: float = -7.855, lon: float = 110.42, days: int = 7):
     """
-    Data cuaca harian 7 hari terakhir dari NASA POWER untuk koordinat tertentu.
-    Default centroid DI Yogyakarta. Dipakai halaman /petani/cuaca.
+    PRAKIRAAN cuaca harian KE DEPAN (Open-Meteo) untuk koordinat tertentu.
+    Default centroid DI Yogyakarta. Dipakai dashboard + halaman /petani/cuaca.
 
-    NASA POWER bukan layanan forecast - data delay 1-3 hari, jadi ini adalah
-    ringkasan cuaca minggu lalu, bukan ramalan ke depan.
+    Open-Meteo = layanan forecast sungguhan (ramalan ke depan). Kalau gagal,
+    fallback ke NASA POWER (historis, ringkasan beberapa hari terakhir) supaya
+    halaman tetap ada isinya — ditandai lewat field `source`.
     """
     from datetime import date as _date
 
     days = max(1, min(days, 14))  # clamp 1..14
-    # Request 7 extra hari karena NASA POWER ada lag 3-7 hari; lalu trim ke "days" terakhir.
-    series = await fetch_climate_daily(lat=lat, lon=lon, days_back=days + 7)
 
-    # Konversi NASA POWER solar (MJ/m^2/hari) -> W/m^2 untuk konsistensi label UI.
+    # Konversi solar (MJ/m^2/hari) -> W/m^2 untuk label UI.
     # 1 MJ/m^2/hari = 1e6 J / 86400 s = ~11.574 W/m^2 (rata-rata harian).
     MJ_TO_W = 11.574
+
+    # 1) Forecast ke depan (Open-Meteo)
+    series = await fetch_forecast_daily(lat=lat, lon=lon, days=days)
+    source = "open_meteo_forecast"
+
+    # 2) Fallback: ringkasan NASA POWER (historis) kalau forecast gagal.
+    if not series:
+        nasa = await fetch_climate_daily(lat=lat, lon=lon, days_back=days + 7)
+        series = nasa[-days:]
+        source = "nasa_power_recent"
 
     items = []
     for row in series:
@@ -308,7 +332,9 @@ async def weather_recent(lat: float = -7.855, lon: float = 110.42, days: int = 7
         t_min  = row.get("temperature_min")
         t_max  = row.get("temperature_max")
         t_mean = row.get("temperature_mean")
-        cuaca   = _classify_cuaca(rain, rad_w)
+        # Forecast bawa weather_code WMO (lebih akurat); kalau tak ada, klasifikasi
+        # dari hujan + radiasi.
+        cuaca   = _cuaca_from_code(row.get("weather_code")) or _classify_cuaca(rain, rad_w)
         catatan = _catatan_for(cuaca, rain, t_max)
         items.append({
             "date":         row["date"],
@@ -323,13 +349,10 @@ async def weather_recent(lat: float = -7.855, lon: float = 110.42, days: int = 7
             "catatan":      catatan,
         })
 
-    # Ambil hanya N hari terakhir (NASA POWER returns in date-ascending order).
-    items = items[-days:]
-
     return {
         "lat":    lat,
         "lon":    lon,
-        "source": "nasa_power" if items else "unavailable",
+        "source": source if items else "unavailable",
         "items":  items,
     }
 
