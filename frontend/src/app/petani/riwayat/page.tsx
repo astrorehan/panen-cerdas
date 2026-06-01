@@ -170,8 +170,16 @@ function PredictionGroup({
   setOpenFeedbackId: (id: number | null) => void;
   refresh: () => void;
 }) {
+  // Awalnya tampil 5; tombol "Tampilkan lebih banyak" menambah 10 tiap klik
+  // (bukan langsung semua) supaya daftar panjang tetap ringkas.
+  const INITIAL = 5;
+  const STEP = 10;
+  const [visible, setVisible] = useState(INITIAL);
+
   if (items.length === 0) return null;
   const t = GROUP_TONE[tone];
+  const shown = items.slice(0, visible);
+  const remaining = items.length - shown.length;
 
   return (
     <section className={`rounded-3xl border p-4 md:p-5 ${t.ring}`}>
@@ -188,7 +196,7 @@ function PredictionGroup({
         </span>
       </header>
       <div className="grid gap-3">
-        {items.map((item) => (
+        {shown.map((item) => (
           <PredictionCard
             key={item.id}
             item={item}
@@ -204,6 +212,17 @@ function PredictionGroup({
           />
         ))}
       </div>
+      {remaining > 0 && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setVisible((v) => v + STEP)}
+          >
+            Tampilkan lebih banyak ({Math.min(STEP, remaining)} dari {remaining} tersisa)
+          </Button>
+        </div>
+      )}
     </section>
   );
 }
