@@ -19,6 +19,7 @@ from pathlib import Path
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 from sklearn.metrics import mean_absolute_error, accuracy_score
@@ -416,6 +417,26 @@ def start_scheduler():
         id="weekly_retrain",
         replace_existing=True,
     )
+
+    # Prewarm cache iklim berkala supaya peta nasional (province=ALL) selalu cepat.
+    # Default tiap 330 menit (5j30m) < TTL cache 6 jam → cache tak pernah basi.
+    # Jalan sekali langsung saat boot juga (next_run_time=now).
+    if os.getenv("PREWARM_CLIMATE", "true").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            interval_min = int(os.getenv("PREWARM_CLIMATE_INTERVAL_MIN", "330"))
+        except ValueError:
+            interval_min = 330
+        from prewarm import prewarm_climate
+        _scheduler.add_job(
+            prewarm_climate,
+            trigger=IntervalTrigger(minutes=interval_min),
+            id="prewarm_climate",
+            replace_existing=True,
+            next_run_time=datetime.now(),  # hangatkan langsung saat startup
+            max_instances=1,
+            coalesce=True,
+        )
+        print(f"🔥 Prewarm iklim aktif (tiap {interval_min} menit + sekali saat boot)")
 
     _scheduler.start()
     print("⏰ Retrain scheduler aktif (tiap Minggu 02.00 WIB)")

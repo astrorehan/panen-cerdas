@@ -191,6 +191,59 @@ async def run_prewarm(
         db.close()
 
 
+# ── CLIMATE PREWARM (NASA POWER) ───────────────────────
+async def _warm_climate(db, targets, period_days: int) -> tuple[int, int]:
+    """Warm iklim per koordinat, SEQUENTIAL pada satu session.
+
+    Sengaja tidak paralel: SQLAlchemy session tidak async-safe untuk dipakai
+    bersamaan (lihat catatan di predictions_router). 37+7 fetch berurutan
+    cukup cepat untuk job background.
+    """
+    from data_cache import get_or_fetch_climate
+    warmed = err = 0
+    for name, lat, lon, _crop in targets:
+        try:
+            await get_or_fetch_climate(
+                lat=lat, lon=lon, db=db, period_days=period_days, force_refresh=True,
+            )
+            warmed += 1
+        except Exception as e:
+            err += 1
+            logger.warning(f"  prewarm climate GAGAL {name}: {e}")
+    return warmed, err
+
+
+def prewarm_climate(period_days: int = 30) -> dict:
+    """Hangatkan cache iklim NASA POWER untuk 37 centroid provinsi + 7 kecamatan DIY.
+
+    Tujuan: peta nasional (/api/predictions?province=ALL) selalu cepat karena
+    iklim tiap region sudah ada di cache. `force_refresh=True` mereset TTL 6 jam
+    tiap run, jadi kalau dijadwalkan < 6 jam sekali cache tak pernah basi.
+
+    Sync — aman dipanggil dari thread APScheduler (bikin event loop sendiri).
+    Tidak butuh kredensial (NASA POWER terbuka), beda dari prewarm NDVI.
+    """
+    from database import SessionLocal
+    db = SessionLocal()
+    summary = {"ok": True, "warmed": 0, "error": 0, "n_targets": 0}
+    try:
+        targets = _collect_targets(diy_only=False)
+        summary["n_targets"] = len(targets)
+        if not targets:
+            return summary
+        logger.info(f"Prewarm climate start: {len(targets)} koordinat (NASA POWER)")
+        warmed, err = asyncio.run(_warm_climate(db, targets, period_days))
+        summary["warmed"], summary["error"] = warmed, err
+        logger.info(f"Prewarm climate selesai: {summary}")
+        return summary
+    except Exception as e:
+        logger.exception(f"Prewarm climate crash: {e}")
+        summary["ok"] = False
+        return summary
+    finally:
+        db.close()
+
+
 def start_background_prewarm() -> asyncio.Task | None:
     """
     Dipanggil dari main.lifespan(). Cek env var dan schedule task non-blocking.
