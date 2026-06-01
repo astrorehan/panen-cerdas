@@ -64,10 +64,16 @@ FEATURES_BASE = [
 FEATURES_PEST = ["pest_pressure"]
 FEATURES_VAR  = ["variety_encoded"]
 
-# Fitur untuk yield & risk model — pakai yield_ratio agar tidak didominasi crop
-# yield_ratio = yield / baseline_per_crop → range ~0.3–1.4 untuk semua crop
+# Yield model memPREDIKSI yield_ratio (= yield / baseline_per_crop) sebagai
+# TARGET. yield_ratio TIDAK boleh jadi fitur input — itu kebocoran target:
+# model jadi cuma menyalin inputnya (importance ~0.75) dan saat inferensi
+# yield_ratio dipaksa 1.0 → prediksi mengunci ke baseline & abai iklim.
+# Sebagai gantinya pakai crop_group_encoded (famili komoditas) supaya rasio
+# bisa beda per kelompok tanpa membiarkan crop mendominasi yield absolut.
 FEATURES_YIELD_MODEL = ["ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
-                         "land_area_ha", "yield_ratio"]
+                         "land_area_ha", "crop_group_encoded"]
+# Risk model BOLEH pakai yield_ratio: saat inferensi nilainya diisi dari yield
+# yang BARU diprediksi (bukan dipaksa 1.0), jadi bukan kebocoran.
 FEATURES_RISK_MODEL  = ["ndvi", "rainfall_mm", "temperature_c", "solar_radiation",
                          "land_area_ha", "yield_ratio", "crop_group_encoded"]
 
@@ -405,7 +411,11 @@ def _load_real_data(db=None) -> pd.DataFrame:
             if "ndvi_source"   not in df.columns: df["ndvi_source"]   = "kementan_manual"
             if "pest_pressure" not in df.columns: df["pest_pressure"] = DEFAULT_PEST_PRESSURE
             if "variety"       not in df.columns: df["variety"]       = "Lokal"
-            frames.append(df[REQUIRED + ["data_source", "ndvi_source", "pest_pressure", "variety"]])
+            # provinsi dipertahankan (kalau ada) untuk normalisasi yield per-provinsi.
+            keep = REQUIRED + ["data_source", "ndvi_source", "pest_pressure", "variety"]
+            if "provinsi" in df.columns:
+                keep = keep + ["provinsi"]
+            frames.append(df[keep])
             logger.info(f"✅ {len(df)} baris dari {csv_file} "
                         f"({df['crop_type'].value_counts().to_dict()})")
         except Exception as e:
@@ -563,22 +573,43 @@ def train_and_save(db=None) -> dict:
     imp_h = dict(zip(harvest_feats, harvest_model.feature_importances_.round(3)))
     print(f"   Feature importance: {imp_h}")
 
-    # ── 2. Yield model (pakai yield_ratio sebagai target) ────────────────────
-    # Train dengan yield_ratio → prediksi yield_ratio → kalikan baseline di predict()
-    # Ini membuat model belajar "seberapa bagus relatif" bukan "angka absolut"
-    print("🌾 Training yield model (normalized)...")
-    y_yield_ratio = df["yield_ratio"]  # sudah dihitung di _encode_features
+    # ── 2. Yield model (target = yield / baseline LOKAL provinsi) ─────────────
+    # Target ratio dinormalisasi ke baseline PER-PROVINSI (bukan nasional): tiap
+    # baris dibagi rata-rata yield provinsi-komoditasnya. Model jadi belajar
+    # "seberapa baik vs level lokal" dari iklim/NDVI; saat inferensi, caller
+    # mengalikan kembali dengan baseline provinsi (lihat predict_yield_only).
+    # Baris tanpa provinsi (synthetic/feedback) pakai baseline nasional.
+    print("🌾 Training yield model (per-province normalized)...")
+
+    prov_base: dict[tuple, float] = {}
+    if "provinsi" in df.columns:
+        grp = (
+            df[df["provinsi"].notna()]
+            .groupby(["provinsi", "crop_type"])["yield_ton_per_ha"]
+            .mean()
+        )
+        prov_base = {idx: float(v) for idx, v in grp.items()}
+
+    def _local_base(row) -> float:
+        prov = row.get("provinsi") if hasattr(row, "get") else None
+        if prov is not None and (prov, row["crop_type"]) in prov_base:
+            return prov_base[(prov, row["crop_type"])]
+        return BASE_YIELD.get(row["crop_type"], 5.0)
+
+    local_base = df.apply(_local_base, axis=1)
+    y_yield_local = (df["yield_ton_per_ha"] / local_base).clip(0.1, 2.0)
+
     yield_model = RandomForestRegressor(
         n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1
     )
-    yield_model.fit(X_yield.iloc[train_idx], y_yield_ratio.iloc[train_idx])
+    yield_model.fit(X_yield.iloc[train_idx], y_yield_local.iloc[train_idx])
     pred_ratio = yield_model.predict(X_yield.iloc[test_idx])
-    # Rekonstruksi yield absolut untuk MAE yang bermakna
-    test_crops   = df["crop_type"].iloc[test_idx].values
-    pred_yield   = [pred_ratio[i] * BASE_YIELD.get(test_crops[i], 5.0) for i in range(len(pred_ratio))]
+    # Rekonstruksi yield absolut pakai baseline lokal tiap baris test.
+    base_test    = local_base.iloc[test_idx].values
+    pred_yield   = pred_ratio * base_test
     actual_yield = y_yield.iloc[test_idx].values
     mae_y = mean_absolute_error(actual_yield, pred_yield)
-    mae_ratio = mean_absolute_error(y_yield_ratio.iloc[test_idx], pred_ratio)
+    mae_ratio = mean_absolute_error(y_yield_local.iloc[test_idx], pred_ratio)
     print(f"   MAE yield        : {mae_y:.2f} ton/ha (ratio error: {mae_ratio:.3f})")
     imp_y = dict(zip(yield_feats, yield_model.feature_importances_.round(3)))
     print(f"   Feature importance: {imp_y}")
@@ -703,10 +734,14 @@ def _yield_confidence(yield_model, X_y) -> float:
 
 
 # ── YIELD-ONLY PREDICT (cepat) ────────────────────────────────────────────────
-def predict_yield_only(data: PredictInput) -> float:
+def predict_yield_only(data: PredictInput, baseline: float | None = None) -> float:
     """
     Prediksi yield (ton/ha) saja, tanpa harvest/risk/recommendations dan tanpa
     perhitungan confidence antar-pohon (loop 200 estimator yang mahal).
+
+    `baseline` = level yield acuan untuk de-normalisasi ratio. Isi dengan
+    baseline LOKAL provinsi (mis. rata-rata Kementan provinsi itu) supaya
+    prediksi nempel ke level wilayahnya; kalau None pakai baseline nasional.
 
     Dipakai untuk batch di mana yang ditampilkan cuma angka yield — mis. backtest
     per-tahun di predictions_router — supaya tidak bayar ~400 ms per panggilan.
@@ -748,7 +783,8 @@ def predict_yield_only(data: PredictInput) -> float:
         X_y       = row[[f for f in yield_feats if f in row.columns]]
         raw_yield = float(_models["yield"].predict(X_y)[0])
         if yield_norm:
-            return round(raw_yield * BASE_YIELD.get(data.crop_type, 5.0), 2)
+            base = baseline if baseline else BASE_YIELD.get(data.crop_type, 5.0)
+            return round(raw_yield * base, 2)
         return round(raw_yield, 2)
     except Exception as e:
         logger.warning(f"predict_yield_only gagal: {e} — fallback")
@@ -756,7 +792,9 @@ def predict_yield_only(data: PredictInput) -> float:
 
 
 # ── PREDICT ───────────────────────────────────────────────────────────────────
-def predict(data: PredictInput) -> PredictOutput:
+def predict(data: PredictInput, baseline: float | None = None) -> PredictOutput:
+    """`baseline` = acuan yield lokal untuk de-normalisasi (lihat
+    predict_yield_only). None → baseline nasional per komoditas."""
     if not is_model_loaded():
         logger.warning("Model tidak tersedia — fallback rules")
         return predict_fallback(data)
@@ -816,9 +854,10 @@ def predict(data: PredictInput) -> PredictOutput:
         # Keyakinan model = kesepakatan antar-pohon RF pada prediksi yield ini.
         confidence = _yield_confidence(_models["yield"], X_y)
         if yield_norm:
-            # Model mengembalikan ratio → kalikan dengan baseline crop
-            baseline   = BASE_YIELD.get(data.crop_type, 5.0)
-            yield_per_ha = round(raw_yield * baseline, 2)
+            # Model mengembalikan ratio → kalikan dengan baseline (lokal kalau
+            # disediakan caller, kalau tidak baseline nasional komoditas).
+            base = baseline if baseline else BASE_YIELD.get(data.crop_type, 5.0)
+            yield_per_ha = round(raw_yield * base, 2)
         else:
             yield_per_ha = round(raw_yield, 2)
 

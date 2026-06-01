@@ -195,6 +195,10 @@ def _project_next_year(
     luas = sum(luas_vals) / len(luas_vals)
 
     ndvi = backtest_climate.annual_ndvi(prov.code, last_year)
+    # Baseline lokal = rata-rata yield 3 tahun terakhir provinsi ini, supaya
+    # proyeksi nempel ke level wilayahnya (bukan baseline nasional).
+    yld_vals = [r["yield_ton_per_ha"] for r in rows[-3:] if r.get("yield_ton_per_ha")]
+    local_base = sum(yld_vals) / len(yld_vals) if yld_vals else None
     try:
         yield_pred = predict_yield_only(PredictInput(
             crop_type=commodity,
@@ -205,7 +209,7 @@ def _project_next_year(
             ndvi=ndvi if ndvi is not None else 0.65,
             pest_pressure=0.0,
             variety="Lokal",
-        ))
+        ), baseline=local_base)
     except Exception as e:
         logger.warning(f"proyeksi trend {province}/{commodity} gagal: {e}")
         return None

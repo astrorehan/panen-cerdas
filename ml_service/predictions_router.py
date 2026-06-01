@@ -326,7 +326,9 @@ async def _predict_one(
                 pest_pressure=0.0,
                 variety="Lokal",
             )
-            result = ml_predict(data)
+            # baseline lokal (Kementan provinsi) → prediksi nempel ke level wilayah,
+            # konsisten dengan yield model yang dilatih per-provinsi.
+            result = ml_predict(data, baseline=base)
             yield_pred = round(result.yield_ton_per_ha, 2)
             src = result.model_source
         except Exception as e:
@@ -547,6 +549,15 @@ def _historical_backtest(
     rows: list[tuple[int, float, str]] = []
     errors: list[float] = []
 
+    # Baseline lokal per tahun = rata-rata yield tahun LAIN provinsi ini
+    # (leave-one-out, kausal — tidak memakai yield tahun yang diprediksi).
+    # Dipakai untuk de-normalisasi prediksi ke level wilayahnya.
+    yearly = [(t["year"], t["yield_ton_per_ha"]) for t in trend if t.get("yield_ton_per_ha")]
+
+    def _loo_baseline(year: int) -> float | None:
+        others = [y for (yr, y) in yearly if yr != year]
+        return sum(others) / len(others) if others else None
+
     for r in last5:
         year   = r["year"]
         actual = round(r["yield_ton_per_ha"], 2)
@@ -570,7 +581,8 @@ def _historical_backtest(
                 pest_pressure=0.0,
                 variety="Lokal",
             )
-            pred = predict_yield_only(data)  # yield saja — backtest tak butuh confidence/risk
+            # baseline lokal → prediksi nempel ke level provinsi, bukan nasional
+            pred = predict_yield_only(data, baseline=_loo_baseline(year))
             rows.append((year, pred, "prediksi"))
             if actual > 0:
                 errors.append(abs(actual - pred) / actual)
