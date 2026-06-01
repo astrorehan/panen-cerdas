@@ -1,10 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { ArrowRight, Layers, MapPin, Sprout } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  ArrowRight,
+  Layers,
+  MapPin,
+  Pencil,
+  Sprout,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SkeletonLoader } from "@/components/skeleton-loader";
 import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
@@ -46,7 +64,7 @@ function formatDate(iso: string): string {
 
 export default function LahanPage() {
   const petaniId = useMemo(() => getPetaniId(), []);
-  const { data, loading, error } = useApi(
+  const { data, loading, error, refresh } = useApi(
     apiPath.lahanList(petaniId),
     () => api.lahan.list(petaniId),
   );
@@ -111,7 +129,12 @@ export default function LahanPage() {
               </div>
               <div className="grid gap-3">
                 {data.items.map((l) => (
-                  <LahanCard key={l.lahan_id} item={l} />
+                  <LahanCard
+                    key={l.lahan_id}
+                    item={l}
+                    petaniId={petaniId}
+                    onChanged={refresh}
+                  />
                 ))}
               </div>
             </section>
@@ -135,11 +158,21 @@ export default function LahanPage() {
   );
 }
 
-function LahanCard({ item }: { item: LahanItem }) {
+function LahanCard({
+  item,
+  petaniId,
+  onChanged,
+}: {
+  item: LahanItem;
+  petaniId: string;
+  onChanged: () => void;
+}) {
   const s = STATUS_STYLE[item.status];
   const risk = item.last_risk_level
     ? RISK_LABEL[item.last_risk_level]
     : undefined;
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
@@ -160,12 +193,31 @@ function LahanCard({ item }: { item: LahanItem }) {
               : ""}
           </p>
         </div>
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.chip}`}
-        >
-          <Sprout className="h-3 w-3" />
-          {s.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${s.chip}`}
+          >
+            <Sprout className="h-3 w-3" />
+            {s.label}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Edit lahan"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Hapus lahan"
+            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+            onClick={() => setDeleting(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
       <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-4">
         <Cell label="Komoditas" value={formatCrop(item.last_crop_type)} />
@@ -191,7 +243,221 @@ function LahanCard({ item }: { item: LahanItem }) {
           tone={risk?.tone}
         />
       </div>
+
+      <EditLahanDialog
+        item={item}
+        petaniId={petaniId}
+        open={editing}
+        onOpenChange={setEditing}
+        onSaved={onChanged}
+      />
+      <DeleteLahanDialog
+        item={item}
+        petaniId={petaniId}
+        open={deleting}
+        onOpenChange={setDeleting}
+        onDeleted={onChanged}
+      />
     </article>
+  );
+}
+
+function EditLahanDialog({
+  item,
+  petaniId,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  item: LahanItem;
+  petaniId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(item.lahan_id);
+  const [luas, setLuas] = useState(
+    item.last_land_area_ha != null ? String(item.last_land_area_ha) : "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Sinkron ke nilai terbaru tiap dialog dibuka (item bisa berubah antar render).
+  function handleOpenChange(v: boolean) {
+    if (v) {
+      setName(item.lahan_id);
+      setLuas(item.last_land_area_ha != null ? String(item.last_land_area_ha) : "");
+      setErr(null);
+    }
+    onOpenChange(v);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setErr("Nama lahan tidak boleh kosong.");
+      return;
+    }
+    const luasNum = luas === "" ? undefined : Number(luas);
+    if (luasNum !== undefined && (!Number.isFinite(luasNum) || luasNum <= 0)) {
+      setErr("Luas lahan harus lebih dari 0.");
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.lahan.update(
+        item.lahan_id,
+        {
+          new_lahan_id: cleanName !== item.lahan_id ? cleanName : undefined,
+          land_area_ha: luasNum,
+        },
+        petaniId,
+      );
+      onOpenChange(false);
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menyimpan perubahan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit lahan</DialogTitle>
+          <DialogDescription>
+            Ubah nama lahan dan luasnya. Mengganti nama akan ikut memperbarui
+            seluruh riwayat prediksi & feedback lahan ini.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={save} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="lahan-name">Nama lahan</Label>
+            <Input
+              id="lahan-name"
+              value={name}
+              maxLength={50}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lahan-luas">
+              Luas <span className="text-muted-foreground">(hektar)</span>
+            </Label>
+            <Input
+              id="lahan-luas"
+              type="number"
+              min={0}
+              step={0.01}
+              value={luas}
+              onChange={(e) => setLuas(e.target.value)}
+              placeholder="Misal 0.5"
+            />
+          </div>
+
+          {err && (
+            <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {err}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={busy}
+            >
+              Batal
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? "Menyimpan..." : "Simpan perubahan"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteLahanDialog({
+  item,
+  petaniId,
+  open,
+  onOpenChange,
+  onDeleted,
+}: {
+  item: LahanItem;
+  petaniId: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onDeleted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true);
+    setErr(null);
+    try {
+      await api.lahan.remove(item.lahan_id, petaniId);
+      onOpenChange(false);
+      onDeleted();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Gagal menghapus lahan.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Hapus lahan &quot;{item.lahan_id}&quot;?</DialogTitle>
+          <DialogDescription>
+            Tindakan ini menghapus lahan beserta {item.total_predictions} riwayat
+            prediksi
+            {item.total_feedback > 0
+              ? ` dan ${item.total_feedback} feedback panen`
+              : ""}{" "}
+            secara permanen. Tidak bisa dibatalkan.
+          </DialogDescription>
+        </DialogHeader>
+
+        {err && (
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/8 p-3 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            {err}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
+            Batal
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={remove}
+            disabled={busy}
+          >
+            {busy ? "Menghapus..." : "Hapus lahan"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

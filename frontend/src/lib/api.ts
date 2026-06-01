@@ -92,11 +92,15 @@ async function get<T>(path: string, init?: RequestInit): Promise<T> {
   return inflight;
 }
 
-async function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
+async function mutate<TRes>(
+  method: "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Promise<TRes> {
   const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
+    method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
   const data = await res.json().catch(() => null);
@@ -107,6 +111,10 @@ async function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
     throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
   }
   return data as TRes;
+}
+
+function post<TReq, TRes>(path: string, body: TReq): Promise<TRes> {
+  return mutate<TRes>("POST", path, body);
 }
 
 export const api = {
@@ -132,6 +140,24 @@ export const api = {
   },
   lahan: {
     list: (petani_id?: string) => get<LahanResponse>(apiPath.lahanList(petani_id)),
+    update: async (
+      lahan_id: string,
+      body: { new_lahan_id?: string; land_area_ha?: number },
+      petani_id?: string,
+    ) => {
+      const path = `/api/lahan/${encodeURIComponent(lahan_id)}${qs({ petani_id })}`;
+      const result = await mutate<{ lahan_id: string }>("PATCH", path, body);
+      invalidate("/api/lahan");
+      invalidate("/api/predictions");
+      return result;
+    },
+    remove: async (lahan_id: string, petani_id?: string) => {
+      const path = `/api/lahan/${encodeURIComponent(lahan_id)}${qs({ petani_id })}`;
+      const result = await mutate<{ deleted: boolean }>("DELETE", path);
+      invalidate("/api/lahan");
+      invalidate("/api/predictions");
+      return result;
+    },
   },
   varieties: {
     list: (crop_type: CropType) =>

@@ -12,13 +12,28 @@ sumber ke tabel Lahan tanpa ubah response shape.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database import get_db, PredictionLog, TrainingFeedback
 
 router = APIRouter(prefix="/api/lahan", tags=["lahan"])
+
+
+class LahanUpdate(BaseModel):
+    """Field yang bisa diubah pada satu lahan.
+
+    Lahan tidak punya tabel sendiri — ia derive dari prediction_log. Karena itu:
+      - `new_lahan_id` me-rename SEMUA baris prediksi + feedback lahan ini.
+      - `land_area_ha` hanya menimpa luas pada prediksi TERBARU (yang jadi
+        sumber angka "Luas" di kartu lahan); riwayat input lama dibiarkan utuh
+        supaya tidak memalsukan data yang sudah dipakai model.
+    """
+
+    new_lahan_id: Optional[str] = None
+    land_area_ha: Optional[float] = None
 
 
 def _status_from_pred(crop_type: Optional[str], risk: Optional[str]) -> str:
@@ -96,4 +111,85 @@ def list_lahan(
         "total_ha":   total_ha,
         "aktif":      aktif,
         "items":      items,
+    }
+
+
+def _lahan_query(db: Session, lahan_id: str, petani_id: Optional[str]):
+    """Query prediction_log untuk satu lahan (opsional disaring per petani)."""
+    q = db.query(PredictionLog).filter(PredictionLog.lahan_id == lahan_id)
+    if petani_id:
+        q = q.filter(PredictionLog.petani_id == petani_id)
+    return q
+
+
+@router.patch("/{lahan_id}", summary="Edit nama / luas lahan")
+def update_lahan(
+    lahan_id: str,
+    payload: LahanUpdate,
+    petani_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Rename lahan dan/atau ubah luas lahan terbaru.
+
+    Body:
+      - `new_lahan_id` -> nama baru (<= 50 char). Diterapkan ke semua prediksi
+        + feedback lahan ini.
+      - `land_area_ha` -> luas baru (> 0), ditimpa ke prediksi terbaru.
+    """
+    preds = _lahan_query(db, lahan_id, petani_id) \
+        .order_by(PredictionLog.created_at.desc()).all()
+    if not preds:
+        raise HTTPException(status_code=404, detail=f"Lahan '{lahan_id}' tidak ditemukan")
+
+    if payload.land_area_ha is not None:
+        if payload.land_area_ha <= 0:
+            raise HTTPException(status_code=400, detail="Luas lahan harus lebih dari 0")
+        preds[0].land_area_ha = payload.land_area_ha
+
+    final_id = lahan_id
+    new_name = (payload.new_lahan_id or "").strip()
+    if new_name and new_name != lahan_id:
+        if len(new_name) > 50:
+            raise HTTPException(status_code=400, detail="Nama lahan maksimal 50 karakter")
+        for p in preds:
+            p.lahan_id = new_name
+        fb_q = db.query(TrainingFeedback).filter(TrainingFeedback.lahan_id == lahan_id)
+        if petani_id:
+            fb_q = fb_q.filter(TrainingFeedback.petani_id == petani_id)
+        fb_q.update({TrainingFeedback.lahan_id: new_name}, synchronize_session=False)
+        final_id = new_name
+
+    db.commit()
+    return {
+        "updated":             True,
+        "lahan_id":            final_id,
+        "previous_lahan_id":   lahan_id,
+        "predictions_updated": len(preds),
+    }
+
+
+@router.delete("/{lahan_id}", summary="Hapus lahan beserta seluruh prediksinya")
+def delete_lahan(
+    lahan_id: str,
+    petani_id: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Hapus lahan: semua baris prediction_log + training_feedback miliknya."""
+    pred_q = _lahan_query(db, lahan_id, petani_id)
+    n_pred = pred_q.count()
+    if n_pred == 0:
+        raise HTTPException(status_code=404, detail=f"Lahan '{lahan_id}' tidak ditemukan")
+
+    fb_q = db.query(TrainingFeedback).filter(TrainingFeedback.lahan_id == lahan_id)
+    if petani_id:
+        fb_q = fb_q.filter(TrainingFeedback.petani_id == petani_id)
+    n_fb = fb_q.delete(synchronize_session=False)
+    pred_q.delete(synchronize_session=False)
+    db.commit()
+
+    return {
+        "deleted":             True,
+        "lahan_id":            lahan_id,
+        "predictions_deleted": n_pred,
+        "feedback_deleted":    n_fb,
     }

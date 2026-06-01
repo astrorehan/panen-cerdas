@@ -64,8 +64,10 @@ export default function RiwayatPrediksiPage() {
   const [openFeedbackId, setOpenFeedbackId] = useState<number | null>(null);
 
   const items = data?.items ?? [];
-  const totalFeedback = items.filter((i) => i.feedback_given).length;
-  const totalPending  = items.length - totalFeedback;
+  const pending = items.filter((i) => !i.feedback_given);
+  const done    = items.filter((i) => i.feedback_given);
+  const totalFeedback = done.length;
+  const totalPending  = pending.length;
 
   return (
     <div className="container space-y-8 py-8 md:py-12">
@@ -103,22 +105,26 @@ export default function RiwayatPrediksiPage() {
           {items.length === 0 ? (
             <EmptyState />
           ) : (
-            <section className="grid gap-3">
-              {items.map((item) => (
-                <PredictionCard
-                  key={item.id}
-                  item={item}
-                  open={openFeedbackId === item.id}
-                  onToggle={() =>
-                    setOpenFeedbackId(openFeedbackId === item.id ? null : item.id)
-                  }
-                  onSubmitted={() => {
-                    setOpenFeedbackId(null);
-                    refresh();
-                  }}
-                />
-              ))}
-            </section>
+            <div className="space-y-8">
+              <PredictionGroup
+                tone="pending"
+                title="Menunggu Feedback Panen"
+                hint="Prediksi yang realisasi panennya belum Anda laporkan."
+                items={pending}
+                openFeedbackId={openFeedbackId}
+                setOpenFeedbackId={setOpenFeedbackId}
+                refresh={refresh}
+              />
+              <PredictionGroup
+                tone="done"
+                title="Sudah Diberi Feedback"
+                hint="Prediksi yang sudah dikalibrasi dengan hasil panen aktual."
+                items={done}
+                openFeedbackId={openFeedbackId}
+                setOpenFeedbackId={setOpenFeedbackId}
+                refresh={refresh}
+              />
+            </div>
           )}
         </>
       )}
@@ -126,13 +132,90 @@ export default function RiwayatPrediksiPage() {
   );
 }
 
+type GroupTone = "pending" | "done";
+
+const GROUP_TONE: Record<
+  GroupTone,
+  { dot: string; badge: string; accent: string; ring: string }
+> = {
+  pending: {
+    dot:    "bg-amber",
+    badge:  "bg-amber/15 text-amber",
+    accent: "border-l-amber",
+    ring:   "border-amber/30 bg-amber/[0.04]",
+  },
+  done: {
+    dot:    "bg-primary",
+    badge:  "bg-primary-soft text-primary",
+    accent: "border-l-primary",
+    ring:   "border-primary/25 bg-primary-soft/30",
+  },
+};
+
+function PredictionGroup({
+  tone,
+  title,
+  hint,
+  items,
+  openFeedbackId,
+  setOpenFeedbackId,
+  refresh,
+}: {
+  tone: GroupTone;
+  title: string;
+  hint: string;
+  items: PredictionHistoryItem[];
+  openFeedbackId: number | null;
+  setOpenFeedbackId: (id: number | null) => void;
+  refresh: () => void;
+}) {
+  if (items.length === 0) return null;
+  const t = GROUP_TONE[tone];
+
+  return (
+    <section className={`rounded-3xl border p-4 md:p-5 ${t.ring}`}>
+      <header className="mb-4 flex items-center gap-2.5 px-1">
+        <span className={`h-2.5 w-2.5 rounded-full ${t.dot}`} />
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${t.badge}`}
+        >
+          {items.length}
+        </span>
+        <span className="ml-auto hidden text-xs text-muted-foreground sm:block">
+          {hint}
+        </span>
+      </header>
+      <div className="grid gap-3">
+        {items.map((item) => (
+          <PredictionCard
+            key={item.id}
+            item={item}
+            tone={tone}
+            open={openFeedbackId === item.id}
+            onToggle={() =>
+              setOpenFeedbackId(openFeedbackId === item.id ? null : item.id)
+            }
+            onSubmitted={() => {
+              setOpenFeedbackId(null);
+              refresh();
+            }}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PredictionCard({
   item,
+  tone,
   open,
   onToggle,
   onSubmitted,
 }: {
   item: PredictionHistoryItem;
+  tone: GroupTone;
   open: boolean;
   onToggle: () => void;
   onSubmitted: () => void;
@@ -141,7 +224,9 @@ function PredictionCard({
   const harvestDate = estimatedHarvestDate(item.created_at, item.pred_harvest_days);
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+    <article
+      className={`overflow-hidden rounded-2xl border border-l-4 border-border bg-surface shadow-card ${GROUP_TONE[tone].accent}`}
+    >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
         <div>
           <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
