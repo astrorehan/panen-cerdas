@@ -27,6 +27,7 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 import uvicorn
 
@@ -35,6 +36,7 @@ from model import load_models, is_model_loaded, predict as ml_predict
 from database import (
     init_db, get_db, save_prediction_log,
     get_feedback_count, get_latest_model_version,
+    PredictionLog,
 )
 from data_cache import init_cache, get_or_fetch_climate, get_cache_stats, cleanup_expired_cache
 from data_fetcher import INDONESIA_DEFAULTS, fetch_climate_daily
@@ -196,6 +198,31 @@ async def predict_harvest(
 
         _fill_climate_defaults(data)
 
+        # Satu lahan = satu komoditas. Kalau lahan ini masih punya tanaman aktif
+        # (prediksi belum diarsip / belum dipanen) dengan komoditas berbeda, tolak
+        # — petani harus lapor panen dulu (yang menutup lahan) atau pakai nama lain.
+        if lahan_id:
+            active_q = db.query(PredictionLog).filter(
+                PredictionLog.lahan_id == lahan_id,
+                or_(
+                    PredictionLog.lahan_archived == False,  # noqa: E712
+                    PredictionLog.lahan_archived.is_(None),
+                ),
+                PredictionLog.crop_type != data.crop_type,
+            )
+            if petani_id:
+                active_q = active_q.filter(PredictionLog.petani_id == petani_id)
+            conflict = active_q.first()
+            if conflict is not None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Lahan '{lahan_id}' sedang menanam {conflict.crop_type}. "
+                        f"Satu lahan hanya untuk satu komoditas — laporkan panennya "
+                        f"dulu, atau pakai nama lahan lain untuk {data.crop_type}."
+                    ),
+                )
+
         result = ml_predict(data)
 
         log = save_prediction_log(
@@ -214,6 +241,10 @@ async def predict_harvest(
         result_dict["ndvi_source"]       = ndvi_source
         return result_dict
 
+    except HTTPException:
+        # Error tervalidasi (mis. 409 konflik komoditas) diteruskan apa adanya,
+        # jangan dibungkus jadi 500.
+        raise
     except Exception as e:
         logger.error(f"Predict error: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")

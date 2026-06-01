@@ -199,6 +199,22 @@ def submit_feedback(
 
         if log is not None:
             log.feedback_given = True
+            # Panen sudah dilaporkan -> siklus lahan ini selesai. Arsipkan lahan
+            # (hilang dari daftar lahan aktif), tapi prediksi + feedback tetap
+            # tersimpan sebagai riwayat & data latih. Satu lahan = satu komoditas,
+            # jadi feedback panen menutup seluruh lahan, bukan satu prediksi saja.
+            if log.lahan_id:
+                arch_q = db.query(PredictionLog).filter(
+                    PredictionLog.lahan_id == log.lahan_id
+                )
+                if log.petani_id is not None:
+                    arch_q = arch_q.filter(PredictionLog.petani_id == log.petani_id)
+                else:
+                    arch_q = arch_q.filter(PredictionLog.petani_id.is_(None))
+                arch_q.update(
+                    {PredictionLog.lahan_archived: True},
+                    synchronize_session=False,
+                )
             db.commit()
 
         counts = get_feedback_count(db)
