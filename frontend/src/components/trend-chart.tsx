@@ -26,11 +26,18 @@ export function TrendChart({ trend }: Props) {
     prediksi: p.kind === "prediksi" ? p.value : null,
   }));
 
-  let last: number | null = null;
-  for (const r of data) {
-    if (r.aktual != null) last = r.aktual;
-    if (r.prediksi != null && r.aktual == null) r.aktual = last;
+  // Sambungkan garis prediksi (putus-putus) dari titik aktual terakhir, supaya
+  // proyeksi tahun depan tampil sebagai segmen — bukan titik melayang sendirian.
+  const hasPrediksi = data.some((r) => r.prediksi != null);
+  if (hasPrediksi) {
+    for (let i = data.length - 1; i >= 0; i--) {
+      if (data[i].aktual != null) {
+        data[i].prediksi = data[i].aktual;
+        break;
+      }
+    }
   }
+  const projYear = data.find((r) => r.aktual == null && r.prediksi != null)?.year;
 
   return (
     <div className="h-72 w-full">
@@ -99,20 +106,31 @@ export function TrendChart({ trend }: Props) {
           />
         </ComposedChart>
       </ResponsiveContainer>
-      <div className="mt-4 flex items-center gap-5 border-t border-border pt-3 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="h-0.5 w-5 rounded-full" style={{ background: PRIMARY }} />
-          Aktual Kementan
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span
-            className="h-0.5 w-5 rounded-full"
-            style={{
-              background: `repeating-linear-gradient(to right, ${AMBER} 0, ${AMBER} 4px, transparent 4px, transparent 7px)`,
-            }}
-          />
-          Prediksi Panen Cerdas
-        </span>
+      <div className="mt-4 border-t border-border pt-3">
+        <div className="flex items-center gap-5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-5 rounded-full" style={{ background: PRIMARY }} />
+            Aktual Kementan
+          </span>
+          {projYear != null && (
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-0.5 w-5 rounded-full"
+                style={{
+                  background: `repeating-linear-gradient(to right, ${AMBER} 0, ${AMBER} 4px, transparent 4px, transparent 7px)`,
+                }}
+              />
+              Prediksi Panen Cerdas
+            </span>
+          )}
+        </div>
+        {projYear != null && (
+          <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+            Garis putus-putus = proyeksi model RandomForest untuk{" "}
+            <span className="font-medium text-foreground">{projYear}</span>. Angka
+            Kementan tahun terakhir masih bisa direvisi (provisional).
+          </p>
+        )}
       </div>
     </div>
   );

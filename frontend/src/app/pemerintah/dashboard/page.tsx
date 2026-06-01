@@ -204,7 +204,7 @@ export default function PemerintahDashboardPage() {
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold tracking-tight">Tren Produksi Historigrafis</h2>
           <span className="text-xs text-muted-foreground">
-            Sumber Kementan — tren aktual 2020-2024, proyeksi model tahun berjalan
+            Sumber Kementan — aktual historis + proyeksi model tahun berikutnya
           </span>
         </div>
         {loading || !trend ? (

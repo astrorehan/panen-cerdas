@@ -21,7 +21,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+import logging
+
 import kementan_data
+import provinces_data
+import backtest_climate
+from model import is_model_loaded, predict_yield_only
 from database import (
     get_db,
     PredictionLog,
@@ -32,9 +37,12 @@ from database import (
 from schemas import (
     DashboardSummary,
     KpiTile,
+    PredictInput,
     YieldPoint,
     YieldTrend,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
@@ -153,17 +161,71 @@ def summary(
     )
 
 
+def _project_next_year(
+    province: str, commodity: str, rows: list[dict]
+) -> tuple[int, float] | None:
+    """Proyeksi produksi tahun depan dari model RandomForest.
+
+    Cepat & tanpa network: iklim diambil dari snapshot CSV (backtest_climate),
+    model sudah dimuat di memori. Return (proj_year, produksi_ton) atau None
+    kalau model belum dimuat / data tak cukup.
+
+    Luas panen proyeksi = rata-rata 3 tahun terakhir, supaya tahun terakhir yang
+    masih provisional (laporan parsial) tidak menarik proyeksi terlalu rendah.
+    """
+    if not is_model_loaded() or not rows:
+        return None
+    prov = provinces_data.get(province)
+    if not prov:
+        return None
+
+    last_year = rows[-1]["year"]
+    # Iklim proxy: tahun aktual terakhir yang ada di CSV (mundur kalau perlu).
+    climate = None
+    for y in range(last_year, last_year - 5, -1):
+        climate = backtest_climate.annual_climate(prov.code, y)
+        if climate:
+            break
+    if not climate:
+        return None
+
+    luas_vals = [r["luas_panen_ha"] for r in rows[-3:] if r.get("luas_panen_ha")]
+    if not luas_vals:
+        return None
+    luas = sum(luas_vals) / len(luas_vals)
+
+    ndvi = backtest_climate.annual_ndvi(prov.code, last_year)
+    try:
+        yield_pred = predict_yield_only(PredictInput(
+            crop_type=commodity,
+            land_area_ha=luas,
+            rainfall_mm=climate["rainfall_mm"],
+            temperature_c=climate["temperature_c"],
+            solar_radiation=climate["solar_radiation"],
+            ndvi=ndvi if ndvi is not None else 0.65,
+            pest_pressure=0.0,
+            variety="Lokal",
+        ))
+    except Exception as e:
+        logger.warning(f"proyeksi trend {province}/{commodity} gagal: {e}")
+        return None
+
+    return last_year + 1, yield_pred * luas
+
+
 @router.get("/trend", response_model=YieldTrend)
 def trend(
     province: str = "DI Yogyakarta",
     commodity: str = "padi",
 ) -> YieldTrend:
     """
-    Tren produksi+yield 2020-2025 dari Kementan.
+    Tren produksi Kementan (semua tahun = aktual) + 1 titik proyeksi model.
 
-    Tahun terakhir di data dianggap "prediksi" (data Kementan sering revised
-    selama 6 bulan setelah rilis, jadi angka tahun berjalan masih
-    sementara). Tahun-tahun sebelumnya = "aktual".
+    Semua tahun yang dirilis Kementan ditampilkan apa adanya sebagai "aktual"
+    (angka tahun terakhir bisa direvisi/provisional, tapi tetap data nyata —
+    bukan dilabeli prediksi). Titik "prediksi" satu-satunya adalah proyeksi
+    RandomForest untuk tahun BERIKUTNYA, jadi legenda "Prediksi Panen Cerdas"
+    benar-benar prediksi model.
 
     Unit dipilih otomatis: kalau ada angka >= 1 jt ton -> "juta ton",
     kalau cuma puluhan/ratusan ribu -> "ribu ton".
@@ -179,7 +241,12 @@ def trend(
             ),
         )
 
-    max_prod = max(r["produksi_ton"] for r in rows)
+    proj = _project_next_year(province, commodity, rows)
+
+    prod_vals = [r["produksi_ton"] for r in rows]
+    if proj:
+        prod_vals.append(proj[1])
+    max_prod = max(prod_vals)
     if max_prod >= 1_000_000:
         unit = "juta ton"
         divisor = 1_000_000
@@ -187,15 +254,20 @@ def trend(
         unit = "ribu ton"
         divisor = 1_000
 
-    last_year = rows[-1]["year"]
     points = [
         YieldPoint(
             year=r["year"],
             value=round(r["produksi_ton"] / divisor, 2),
-            kind="prediksi" if r["year"] == last_year else "aktual",
+            kind="aktual",
         )
         for r in rows
     ]
+    if proj:
+        points.append(YieldPoint(
+            year=proj[0],
+            value=round(proj[1] / divisor, 2),
+            kind="prediksi",
+        ))
 
     return YieldTrend(
         province=province,
