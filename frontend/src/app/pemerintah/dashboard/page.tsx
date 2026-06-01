@@ -202,7 +202,7 @@ export default function PemerintahDashboardPage() {
       {/* Trend */}
       <section>
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">Tren Produksi Historigrafis</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Tren Produksi Historis</h2>
           <span className="text-xs text-muted-foreground">
             Sumber Kementan — aktual historis + proyeksi model tahun berikutnya
           </span>

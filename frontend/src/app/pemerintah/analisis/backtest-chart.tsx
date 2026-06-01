@@ -75,7 +75,8 @@ export function BacktestChart({
     span(prediksiVals) < 0.35 * span(aktualVals);
 
   return (
-    <div className="h-64 w-full">
+    <div className="w-full">
+      <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: -10 }}>
           <CartesianGrid stroke={BORDER} strokeDasharray="2 4" vertical={false} />
@@ -127,6 +128,7 @@ export function BacktestChart({
           />
         </LineChart>
       </ResponsiveContainer>
+      </div>
       <div className="mt-4 border-t border-border pt-3">
         <div className="flex items-center gap-5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">

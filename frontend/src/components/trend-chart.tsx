@@ -40,7 +40,8 @@ export function TrendChart({ trend }: Props) {
   const projYear = data.find((r) => r.aktual == null && r.prediksi != null)?.year;
 
   return (
-    <div className="h-72 w-full">
+    <div className="w-full">
+      <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 12, right: 12, bottom: 0, left: -10 }}>
           <defs>
@@ -106,6 +107,7 @@ export function TrendChart({ trend }: Props) {
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
       <div className="mt-4 border-t border-border pt-3">
         <div className="flex items-center gap-5 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">

@@ -86,6 +86,11 @@ export default function AlertPage() {
 
   const isNational = provinceKey === "ALL";
 
+  // Label komoditas yang rapi (mis. "bawang_merah" -> "Bawang Merah") untuk teks.
+  const commodityLabel =
+    COMMODITIES.find((c) => c.id === (list?.commodity ?? commodity))?.label ??
+    (list?.commodity ?? commodity);
+
   if (!loading && !list) {
     return (
       <div className="container py-12">
@@ -116,7 +121,7 @@ export default function AlertPage() {
           Wilayah rawan untuk diintervensi
         </h1>
         <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Lembar ini menyaring prediksi komoditas <span className="font-semibold text-foreground">{list?.commodity || commodity}</span> di{" "}
+          Lembar ini menyaring prediksi komoditas <span className="font-semibold text-foreground">{commodityLabel}</span> di{" "}
           <span className="font-semibold text-foreground">{list?.province || provinceKey}</span> dan mengangkat daerah berstatus waspada dan
           defisit — sesuai ambang surplus 10%. Diurutkan dari yang paling
           defisit.
