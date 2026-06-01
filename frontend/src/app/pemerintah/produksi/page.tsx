@@ -240,9 +240,20 @@ export default function PetaPage() {
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
                 <p>Surplus &gt; +10% - Defisit &lt; -10%</p>
+                <p className="text-foreground/80">
+                  Warna = <strong>prediksi model</strong>, dibandingkan rata-rata
+                  panen 3 tahun terakhir wilayah itu <strong>sendiri</strong>.
+                  Karena model sudah dikalibrasi per-provinsi, prediksi normal
+                  jatuh dekat rata-rata historisnya → mayoritas{" "}
+                  <span style={{ color: STATUS_COLOR.cukup }} className="font-medium">
+                    Cukup
+                  </span>
+                  . Waspada/Defisit muncul saat iklim menekan prediksi &gt;10% di
+                  bawah normal; Surplus saat &gt;10% di atas.
+                </p>
                 <p>
                   {isNational
-                    ? "Mode nasional mewarnai 34 provinsi dengan polygon batas wilayah real; 3 provinsi Papua baru (belum ada batas) tampil sebagai bubble di centroid. Surplus dihitung vs rata-rata yield Kementan 3 tahun terakhir per provinsi."
+                    ? "Mode nasional mewarnai 34 provinsi dengan polygon batas wilayah real; 3 provinsi Papua baru (belum ada batas) tampil sebagai bubble di centroid."
                     : "Mode DI Yogyakarta menampilkan 7 kecamatan pilot dengan polygon kecamatan. Provinsi lain memakai polygon batas provinsi; pilih 'Indonesia' untuk view nasional."}
                 </p>
               </CardContent>
