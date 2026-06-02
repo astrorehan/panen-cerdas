@@ -128,8 +128,9 @@ async def main():
     if not args.diy_only:
         import provinces_data
         for p in provinces_data.all_provinces():
-            if p.code == "34":   # DIY sudah di-cover via KECAMATAN_DATA
-                continue
+            # Jangan skip DIY ("34") karena untuk peta nasional (province=ALL),
+            # DIY di-query dengan centroid tingkat provinsi, sedangkan KECAMATAN_DATA
+            # hanya mencakup 7 koordinat tingkat kecamatan di DIY yang berbeda.
             targets.append((
                 f"PROV-{p.name}",
                 p.lat, p.lon, "padi",

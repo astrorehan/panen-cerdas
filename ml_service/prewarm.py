@@ -84,8 +84,9 @@ def _collect_targets(diy_only: bool):
     if not diy_only:
         import provinces_data
         for p in provinces_data.all_provinces():
-            if p.code == "34":   # DIY sudah di-cover via KECAMATAN_DATA
-                continue
+            # Jangan skip DIY ("34") karena untuk peta nasional (province=ALL),
+            # DIY di-query dengan centroid tingkat provinsi, sedangkan KECAMATAN_DATA
+            # hanya mencakup 7 koordinat tingkat kecamatan di DIY yang berbeda.
             targets.append((
                 f"PROV-{p.name}",
                 p.lat, p.lon, "padi",
@@ -192,7 +193,7 @@ async def run_prewarm(
 
 
 # ── CLIMATE PREWARM (NASA POWER) ───────────────────────
-async def _warm_climate(db, targets, period_days: int) -> tuple[int, int]:
+async def _warm_climate(db, targets, period_days: int, force: bool = False) -> tuple[int, int]:
     """Warm iklim per koordinat, SEQUENTIAL pada satu session.
 
     Sengaja tidak paralel: SQLAlchemy session tidak async-safe untuk dipakai
@@ -204,7 +205,7 @@ async def _warm_climate(db, targets, period_days: int) -> tuple[int, int]:
     for name, lat, lon, _crop in targets:
         try:
             await get_or_fetch_climate(
-                lat=lat, lon=lon, db=db, period_days=period_days, force_refresh=True,
+                lat=lat, lon=lon, db=db, period_days=period_days, force_refresh=force,
             )
             warmed += 1
         except Exception as e:
@@ -213,12 +214,13 @@ async def _warm_climate(db, targets, period_days: int) -> tuple[int, int]:
     return warmed, err
 
 
-def prewarm_climate(period_days: int = 30) -> dict:
+def prewarm_climate(period_days: int = 30, force: bool = False) -> dict:
     """Hangatkan cache iklim NASA POWER untuk 37 centroid provinsi + 7 kecamatan DIY.
 
     Tujuan: peta nasional (/api/predictions?province=ALL) selalu cepat karena
-    iklim tiap region sudah ada di cache. `force_refresh=True` mereset TTL 6 jam
-    tiap run, jadi kalau dijadwalkan < 6 jam sekali cache tak pernah basi.
+    iklim tiap region sudah ada di cache. Default `force=False` pada boot/scheduler
+    agar tidak perlu melakukan real network fetch ke NASA POWER jika cache
+    database masih valid (sangat mempercepat deployment restart).
 
     Sync — aman dipanggil dari thread APScheduler (bikin event loop sendiri).
     Tidak butuh kredensial (NASA POWER terbuka), beda dari prewarm NDVI.
@@ -231,8 +233,8 @@ def prewarm_climate(period_days: int = 30) -> dict:
         summary["n_targets"] = len(targets)
         if not targets:
             return summary
-        logger.info(f"Prewarm climate start: {len(targets)} koordinat (NASA POWER)")
-        warmed, err = asyncio.run(_warm_climate(db, targets, period_days))
+        logger.info(f"Prewarm climate start: {len(targets)} koordinat (NASA POWER), force={force}")
+        warmed, err = asyncio.run(_warm_climate(db, targets, period_days, force))
         summary["warmed"], summary["error"] = warmed, err
         logger.info(f"Prewarm climate selesai: {summary}")
         return summary

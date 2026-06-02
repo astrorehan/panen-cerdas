@@ -65,6 +65,33 @@ async def lifespan(app: FastAPI):
     loaded = load_models()
     if not loaded:
         print("Model belum ada - jalankan: python train.py (fallback rules aktif)")
+    else:
+        # Warm sklearn/pandas: panggilan .predict() pertama kena overhead JIT/
+        # validasi (~beberapa detik). Bayar sekali saat boot supaya request peta
+        # nasional pertama tidak lambat.
+        try:
+            from model import predict_yield_batch
+            from schemas import PredictInput
+            from database import SessionLocal
+            from data_cache import get_cached_climate_batch
+
+            predict_yield_batch([(
+                PredictInput(
+                    crop_type="padi", land_area_ha=1000.0, rainfall_mm=120.0,
+                    temperature_c=27.0, solar_radiation=185.0, ndvi=0.65,
+                    pest_pressure=0.0, variety="Lokal",
+                ), None,
+            )])
+            # Query ORM pertama di proses kena overhead kompilasi SQLAlchemy
+            # (~4s). Pancing di sini supaya request peta nasional pertama cepat.
+            _wdb = SessionLocal()
+            try:
+                get_cached_climate_batch(_wdb, [(-2.5, 117.5)], period_days=30)
+            finally:
+                _wdb.close()
+            print("Model + cache warmup selesai")
+        except Exception as e:
+            print(f"Warmup dilewati: {e}")
     start_scheduler()
     prewarm_task = start_background_prewarm()
     print("ML Service ready at http://localhost:8000\n")

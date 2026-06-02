@@ -28,8 +28,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db, PredictionLog, TrainingFeedback
-from data_cache import get_or_fetch_climate
-from model import is_model_loaded, predict as ml_predict, predict_yield_only, BASE_YIELD
+from data_cache import get_or_fetch_climate, get_cached_climate_batch, _bg_refresh_climate
+from data_fetcher import INDONESIA_DEFAULTS
+from model import (
+    is_model_loaded,
+    predict as ml_predict,
+    predict_yield_only,
+    predict_yield_batch,
+    BASE_YIELD,
+)
 import backtest_climate
 import kementan_data
 import provinces_data
@@ -295,6 +302,7 @@ async def _predict_one(
     use_model: bool,
     baseline_yield: float | None = None,
     actual: dict | None = None,
+    allow_stale: bool = False,
 ) -> KecamatanPrediction:
     """
     Prediksi 1 region (kecamatan ATAU provinsi). Region row schema:
@@ -315,6 +323,7 @@ async def _predict_one(
         try:
             climate = await get_or_fetch_climate(
                 lat=row["lat"], lon=row["lon"], db=db, period_days=30,
+                allow_stale=allow_stale,
             )
             data = PredictInput(
                 crop_type=commodity,
@@ -345,6 +354,44 @@ async def _predict_one(
         f"(src={src}, base={base:.2f}, surplus={surplus_pct}%)"
     )
 
+    return KecamatanPrediction(
+        id=row["id"],
+        kabupaten=row["kabupaten"],
+        kecamatan=row["kecamatan"],
+        yield_pred_ton_per_ha=yield_pred,
+        luas_panen_ha=row["luas"],
+        produksi_pred_ton=produksi,
+        surplus_pct=surplus_pct,
+        status=_status_from_surplus(surplus_pct),
+        yield_actual_ton_per_ha=actual["yield_actual"] if actual else None,
+        feedback_count=actual["count"] if actual else 0,
+    )
+
+
+def _input_from_climate(row: dict, commodity: CropType, climate: dict) -> PredictInput:
+    """Bangun PredictInput dari row region + iklim (sudah di-fetch). Tanpa I/O."""
+    return PredictInput(
+        crop_type=commodity,
+        land_area_ha=row["luas"],
+        rainfall_mm=climate["rainfall_mm"],
+        temperature_c=climate["temperature_c"],
+        solar_radiation=climate["solar_radiation"],
+        ndvi=0.65,  # baseline tropis; konsisten dgn _predict_one
+        pest_pressure=0.0,
+        variety="Lokal",
+    )
+
+
+def _assemble_prediction(
+    row: dict,
+    commodity: CropType,
+    base: float,
+    yield_pred: float,
+    actual: dict | None = None,
+) -> KecamatanPrediction:
+    """Rakit KecamatanPrediction dari yield yang sudah dihitung (tanpa I/O)."""
+    surplus_pct = round((yield_pred - base) / base * 100.0, 1)
+    produksi = round(yield_pred * row["luas"])
     return KecamatanPrediction(
         id=row["id"],
         kabupaten=row["kabupaten"],
@@ -413,18 +460,55 @@ async def list_predictions(
 
     # ── MODE 1: National view (semua provinsi sekaligus) ──
     if prov_key in ("ALL", "INDONESIA", "NASIONAL"):
-        # Sequential await per-provinsi. Concurrent gather sempat dicoba tapi
-        # menyebabkan kontensi pada `db` session (SQLAlchemy session bukan
-        # async-safe untuk dipakai paralel). Karena tiap call fetch NDVI/climate
-        # cache, total ~20-25s pada cache cold. Frontend lewat Express harus
-        # punya timeout >= 30s (lihat backend-express/.env ML_TIMEOUT_MS).
-        items = []
+        # Dulu: 37 provinsi di-await sekuensial, tiap iterasi bisa fetch NASA POWER
+        # live (~0.5-2s) + predict() penuh (~400ms, termasuk loop confidence 200
+        # pohon) → blocking ~20-25s. Sekarang dibuat pure-CPU + 1 query DB:
+        #   1) kumpulkan row + baseline (pandas, murah),
+        #   2) batch-read SEMUA iklim dari cache dalam 1 query (termasuk stale),
+        #   3) SATU panggilan predict_yield_batch utk semua provinsi (overhead
+        #      sklearn .predict() per-baris ~45ms → bayar sekali, bukan 37x),
+        #   4) koordinat yang miss → pakai default + refresh di background.
+        # Tak ada network di jalur request → selalu cepat, walau cache dingin.
+        rows_meta: list[tuple[dict, float | None, float]] = []  # (row, baseline, base)
         for prov in provinces_data.all_provinces():
             row = _province_row(prov.name, commodity)
             if not row:
                 continue
             baseline = _kementan_baseline_yield(prov.kementan_name, commodity)
-            items.append(await _predict_one(row, commodity, db, use_model, baseline))
+            base = baseline if baseline is not None else BASE_YIELD.get(commodity, 5.0)
+            rows_meta.append((row, baseline, base))
+
+        coords = [(r["lat"], r["lon"]) for r, _, _ in rows_meta]
+        climate_map = get_cached_climate_batch(db, coords, period_days=30)
+
+        missing: list[tuple[float, float]] = []
+        batch_inputs: list[tuple[PredictInput, float | None]] = []
+        for row, baseline, _base in rows_meta:
+            key = (round(row["lat"], 2), round(row["lon"], 2))
+            climate = climate_map.get(key)
+            if climate is None:
+                missing.append((row["lat"], row["lon"]))
+                climate = {**INDONESIA_DEFAULTS, "data_source": "default_fallback"}
+            batch_inputs.append((_input_from_climate(row, commodity, climate), baseline))
+
+        if use_model:
+            yields = predict_yield_batch(batch_inputs)
+        else:
+            yields = [_fallback_yield(commodity, row["id"]) for row, _, _ in rows_meta]
+
+        items = [
+            _assemble_prediction(row, commodity, base, yld)
+            for (row, _baseline, base), yld in zip(rows_meta, yields)
+        ]
+
+        # Refresh koordinat yang belum ada di cache, non-blocking (isi untuk
+        # request berikutnya). Hanya kalau ada event loop yang berjalan.
+        for lat, lon in missing:
+            try:
+                asyncio.create_task(_bg_refresh_climate(lat, lon, 30))
+            except RuntimeError:
+                pass
+
         return PredictionsResponse(
             province="Indonesia",
             commodity=commodity,

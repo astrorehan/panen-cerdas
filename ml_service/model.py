@@ -791,6 +791,94 @@ def predict_yield_only(data: PredictInput, baseline: float | None = None) -> flo
         return round(predict_fallback(data).yield_ton_per_ha, 2)
 
 
+# ── YIELD-ONLY BATCH PREDICT (vektorisasi) ────────────────────────────────────
+def predict_yield_batch(
+    items: list[tuple[PredictInput, float | None]],
+) -> list[float]:
+    """
+    Versi vektorisasi predict_yield_only: prediksi yield untuk BANYAK baris dalam
+    SATU panggilan model.predict().
+
+    Overhead per-panggilan sklearn .predict() besar (~45 ms/baris karena validasi
+    input), jadi 37 panggilan 1-baris ~1.6 dtk sedangkan 1 panggilan 37-baris
+    ~60 ms. Dipakai peta nasional (province=ALL) supaya tidak bayar overhead itu
+    37x. Logika & angka identik dengan predict_yield_only.
+
+    Args:
+        items: list of (PredictInput, baseline_lokal). baseline None → nasional.
+
+    Returns:
+        list[float] yield ton/ha, urutan sama dengan `items`.
+    """
+    if not items:
+        return []
+    if not is_model_loaded():
+        return [round(predict_fallback(d).yield_ton_per_ha, 2) for d, _ in items]
+    try:
+        enc          = _models["encoder"]
+        feat_meta    = _models["feature_meta"]
+        yield_norm   = feat_meta.get("yield_normalized", False)
+        use_pest_now = feat_meta.get("use_pest", False)
+        use_var_now  = feat_meta.get("use_variety", False)
+        yield_feats  = feat_meta.get("yield_features",
+                                     feat_meta.get("features", FEATURES_BASE))
+        trained_crops = feat_meta.get("crop_types", CROP_TYPES)
+
+        results: list[float | None] = [None] * len(items)
+        batch_idx: list[int] = []          # indeks item yang masuk batch model
+        records:   list[dict] = []
+        for i, (data, _b) in enumerate(items):
+            if data.crop_type not in trained_crops:
+                results[i] = round(predict_fallback(data).yield_ton_per_ha, 2)
+                continue
+            batch_idx.append(i)
+            records.append({
+                "ndvi":            data.ndvi,
+                "rainfall_mm":     data.rainfall_mm,
+                "temperature_c":   data.temperature_c,
+                "solar_radiation": data.solar_radiation,
+                "land_area_ha":    data.land_area_ha,
+                "crop_type":       data.crop_type,
+            })
+
+        if records:
+            df = pd.DataFrame(records)
+            df["crop_encoded"]       = enc.transform(df["crop_type"])
+            df["crop_group"]         = df["crop_type"].map(lambda c: CROP_GROUP.get(c, "pangan"))
+            df["crop_group_encoded"] = CROP_GROUP_ENCODER.transform(df["crop_group"])
+            if use_pest_now:
+                df["pest_pressure"] = [
+                    float(np.clip(
+                        float(getattr(items[i][0], "pest_pressure", DEFAULT_PEST_PRESSURE)
+                              or DEFAULT_PEST_PRESSURE),
+                        0.0, 1.0,
+                    ))
+                    for i in batch_idx
+                ]
+            if use_var_now:
+                df["variety_encoded"] = [
+                    encode_variety(getattr(items[i][0], "variety", None), items[i][0].crop_type)
+                    for i in batch_idx
+                ]
+            if yield_norm and "yield_ratio" in yield_feats:
+                df["yield_ratio"] = 1.0
+
+            X_y = df[[f for f in yield_feats if f in df.columns]]
+            raw = _models["yield"].predict(X_y)
+
+            for k, i in enumerate(batch_idx):
+                if yield_norm:
+                    base = items[i][1] if items[i][1] else BASE_YIELD.get(items[i][0].crop_type, 5.0)
+                    results[i] = round(float(raw[k]) * base, 2)
+                else:
+                    results[i] = round(float(raw[k]), 2)
+
+        return [r if r is not None else 0.0 for r in results]
+    except Exception as e:
+        logger.warning(f"predict_yield_batch gagal: {e} — fallback per-baris")
+        return [round(predict_fallback(d).yield_ton_per_ha, 2) for d, _ in items]
+
+
 # ── PREDICT ───────────────────────────────────────────────────────────────────
 def predict(data: PredictInput, baseline: float | None = None) -> PredictOutput:
     """`baseline` = acuan yield lokal untuk de-normalisasi (lihat
