@@ -38,7 +38,7 @@ const CUACA_META: Record<WeatherCuaca, { label: string; icon: LucideIcon; tint: 
 // dengan koordinat (mode GPS) tersimpan.
 const FALLBACK_LAT = -7.855;
 const FALLBACK_LON = 110.42;
-const FALLBACK_LABEL = "DI Yogyakarta (default)";
+const FALLBACK_LABEL = "";
 
 type LahanWithCoords = LahanItem & { last_lat: number; last_lon: number };
 
