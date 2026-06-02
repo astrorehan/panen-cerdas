@@ -71,12 +71,12 @@ export default function TentangPage() {
         <ol className="space-y-3">
           {[
             {
-              title: "NDVI per kecamatan",
+              title: "NDVI per kabupaten",
               body: "Ekstraksi indeks vegetasi Sentinel-2 L2A bulanan via Google Earth Engine, dengan masking awan SCL.",
             },
             {
               title: "Cuaca terintegrasi",
-              body: "Curah hujan, suhu, kelembapan dari ERA5-Land - diagregasi ke level kecamatan.",
+              body: "Curah hujan, suhu, kelembapan dari ERA5-Land - diagregasi ke level kabupaten.",
             },
             {
               title: "Lag features",

@@ -35,7 +35,7 @@ const ROLES: Array<{
   {
     role: "pemerintah",
     title: "Pemerintah",
-    description: "Peta produksi pangan, deteksi defisit, dan analitik antar-kecamatan.",
+    description: "Peta produksi pangan, deteksi defisit, dan analitik antar-kabupaten.",
     icon: Building2,
     highlights: ["Choropleth real-time", "Alert defisit", "Analitik wilayah"],
   },

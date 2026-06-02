@@ -20,7 +20,10 @@ export function KecamatanSelect({ options, currentId, mode = "kecamatan", commod
   const selectOptions = useMemo(() => {
     const mapped = options.map((o) => ({
       value: o.id,
-      label: isProvince ? o.kabupaten : `${o.kecamatan} - Kab. ${o.kabupaten}`,
+      label:
+        !isProvince && o.kecamatan && o.kecamatan !== o.kabupaten
+          ? `${o.kecamatan} - Kab. ${o.kabupaten}`
+          : o.kabupaten,
     }));
     return [{ value: "", label: "-" }, ...mapped];
   }, [options, isProvince]);
@@ -28,7 +31,7 @@ export function KecamatanSelect({ options, currentId, mode = "kecamatan", commod
   return (
     <CustomSelect
       id="kec-select"
-      label={isProvince ? "Pilih Provinsi" : "Pilih Kecamatan"}
+      label={isProvince ? "Pilih Provinsi" : "Pilih Kabupaten/Kota"}
       value={currentId ?? ""}
       onChange={(val) => router.push(`/pemerintah/analisis?id=${val}${commodity ? `&commodity=${commodity}` : ""}`)}
       wrapperClassName="min-w-[200px]"

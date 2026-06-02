@@ -82,8 +82,8 @@ export function DashboardPreview() {
                 <div className="grid gap-3 sm:grid-cols-3">
                   {[
                     { label: "Produksi MT 2024", value: "1.42", unit: "jt ton", trend: "+8%", tone: "primary" },
-                    { label: "Surplus daerah", value: "23", unit: "kecamatan", trend: "+3", tone: "primary" },
-                    { label: "Defisit waspada", value: "5", unit: "kecamatan", trend: "-2", tone: "clay" },
+                    { label: "Surplus daerah", value: "23", unit: "kab/kota", trend: "+3", tone: "primary" },
+                    { label: "Defisit waspada", value: "5", unit: "kab/kota", trend: "-2", tone: "clay" },
                   ].map((k) => (
                     <div key={k.label} className="rounded-2xl border border-border bg-surface p-5">
                       <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -134,7 +134,7 @@ export function DashboardPreview() {
                         Peta produksi pangan
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        27 kecamatan terpantau - update tiap MT
+                        27 kabupaten/kota terpantau - update tiap MT
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px]">

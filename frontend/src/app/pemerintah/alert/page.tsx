@@ -185,7 +185,7 @@ export default function AlertPage() {
               Daftar Intervensi Prioritas
             </h2>
             <span className="text-xs text-muted-foreground">
-              {flagged.length} {isNational ? "provinsi" : "kecamatan"}
+              {flagged.length} {isNational ? "provinsi" : "kabupaten/kota"}
             </span>
           </div>
           <div className="grid gap-3">
@@ -208,7 +208,10 @@ export default function AlertPage() {
                 </div>
                 <div>
                   <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {item.kecamatan ? `Kec. ${item.kecamatan} - ` : ""}Kab. {item.kabupaten}
+                    {item.kecamatan && item.kecamatan !== item.kabupaten && item.kecamatan !== "(Provinsi)"
+                      ? `Kec. ${item.kecamatan} - `
+                      : ""}
+                    {item.kabupaten}
                   </div>
                   <h3 className="mt-1 text-lg font-semibold tracking-tight">
                     <span style={{ color: STATUS_COLOR[item.status] }}>
@@ -281,7 +284,7 @@ function Stat({
         </div>
         <div className="mt-0.5 flex items-baseline gap-1.5">
           <span className="text-3xl font-semibold tracking-tight">{value}</span>
-          <span className="text-xs text-muted-foreground">{isNational ? "provinsi" : "kecamatan"}</span>
+          <span className="text-xs text-muted-foreground">{isNational ? "provinsi" : "kabupaten/kota"}</span>
         </div>
       </div>
     </Card>

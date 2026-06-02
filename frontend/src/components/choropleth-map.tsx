@@ -103,12 +103,19 @@ export default function ChoroplethMap({
       level?: string;
     };
     const pred = props.id ? byId.get(props.id) : undefined;
-    const isProvince = props.level === "province" || !!props.name;
+    const isProvince = props.level === "province";
+    const isKabupaten = props.level === "kabupaten";
 
-    const title = isProvince ? props.name : props.kecamatan;
+    const title = isProvince
+      ? props.name
+      : isKabupaten
+        ? props.kabupaten
+        : props.kecamatan;
     const subtitle = isProvince
       ? "Provinsi"
-      : `Kab. ${props.kabupaten ?? "-"}`;
+      : isKabupaten
+        ? "Kabupaten / Kota"
+        : `Kab. ${props.kabupaten ?? "-"}`;
 
     const html = `
       <div style="font-family:var(--font-sans, system-ui);font-size:12px;line-height:1.5;min-width:220px;color:#0F1F18">

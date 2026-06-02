@@ -268,10 +268,10 @@ function DetailPageInner() {
           ) : (
             <>
               <div className="mt-1 text-2xl font-semibold tracking-tight">
-                {detail?.kecamatan ?? "-"}
+                {detail?.kabupaten ?? detail?.kecamatan ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
-                Kab. {detail?.kabupaten ?? "-"} - {provinceLabel}
+                Kabupaten / Kota · {provinceLabel}
               </div>
             </>
           )}
@@ -374,7 +374,7 @@ function DetailPageInner() {
                   <span className="font-medium text-foreground">
                     {detail.feedback_count} laporan
                   </span>{" "}
-                  petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di kecamatan ini — diperbarui otomatis setiap ada laporan baru.
+                  petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di wilayah ini — diperbarui otomatis setiap ada laporan baru.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -402,7 +402,7 @@ function DetailPageInner() {
             </Card>
           ) : (
             <Card className="border-dashed p-5 text-sm text-muted-foreground">
-              Belum ada laporan panen petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di kecamatan ini. Angka di atas
+              Belum ada laporan panen petani untuk komoditas <span className="font-semibold text-foreground">{COMMODITY_MAP[commodityParam] || "Padi"}</span> di wilayah ini. Angka di atas
               murni prediksi model — akan otomatis diperbarui saat petani mengirim
               hasil panen lewat fitur feedback.
             </Card>

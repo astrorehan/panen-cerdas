@@ -17,7 +17,7 @@ const FEATURES: Feature[] = [
     icon: CloudRain,
     title: "Prediksi Cuaca",
     description:
-      "Curah hujan, suhu, dan radiasi 7 hari ke depan langsung dari NASA POWER untuk setiap kecamatan.",
+      "Curah hujan, suhu, dan radiasi 7 hari ke depan langsung dari NASA POWER untuk setiap kabupaten.",
   },
   {
     icon: BarChart3,
