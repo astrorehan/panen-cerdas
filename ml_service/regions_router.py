@@ -4,15 +4,11 @@ regions_router.py
 Endpoints GeoJSON region untuk peta dashboard pemerintah.
 
 Mode:
-  - province = "DI Yogyakarta" (default) -> 7 kecamatan DIY (polygon real
-    dari data/yogyakarta_kecamatan.geojson)
-  - province = "ALL" / "Indonesia"       -> 37 provinsi (Point centroid
-    dari provinces_data.py) - cocok untuk peta nasional bubble
-  - province = nama provinsi lain        -> 1 Point centroid provinsi itu
+  - province = "ALL" / "Indonesia" -> polygon/centroid per provinsi (peta nasional)
+  - province = nama provinsi        -> polygon kabupaten/kota provinsi itu
+    (dari data/kabupaten_indonesia.geojson, GADM L2, id `KAB_<kode>`)
 
-Karena belum punya polygon real per-kecamatan untuk 37 provinsi lain,
-mode non-DIY sengaja pakai Point dengan metadata lengkap. Frontend bisa
-render bubble proporsional produksi (mirip carto bubble map).
+Provinsi tanpa polygon kabupaten di master -> fallback Point centroid provinsi.
 """
 
 import json
@@ -28,20 +24,40 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/regions", tags=["regions"])
 
-GEOJSON_PATH = Path(__file__).parent / "data" / "yogyakarta_kecamatan.geojson"
 PROVINCE_GEOJSON_PATH = Path(__file__).parent / "data" / "indonesia_provinces.geojson"
+KAB_GEOJSON_PATH = Path(__file__).parent / "data" / "kabupaten_indonesia.geojson"
 
 
 @lru_cache(maxsize=1)
-def _load_diy_geojson() -> dict:
-    if not GEOJSON_PATH.exists():
-        logger.error(f"GeoJSON DIY tidak ditemukan: {GEOJSON_PATH}")
-        return {"type": "FeatureCollection", "features": []}
-    with open(GEOJSON_PATH, encoding="utf-8") as f:
+def _kab_features_by_prov() -> dict[str, list[dict]]:
+    """
+    Map provinsi_kode (2-digit) -> list Feature polygon kabupaten/kota, dari
+    data/kabupaten_indonesia.geojson (GADM L2). Properties dinormalisasi supaya
+    `id` = ``KAB_<kode>`` nyambung dengan predictions_router untuk pewarnaan.
+    """
+    if not KAB_GEOJSON_PATH.exists():
+        logger.warning(f"GeoJSON kabupaten tidak ditemukan: {KAB_GEOJSON_PATH}")
+        return {}
+    with open(KAB_GEOJSON_PATH, encoding="utf-8") as f:
         data = json.load(f)
-    n = len(data.get("features", []))
-    logger.info(f"GeoJSON DIY loaded: {n} kecamatan")
-    return data
+    out: dict[str, list[dict]] = {}
+    for feat in data.get("features", []):
+        props = feat.get("properties", {})
+        kode = str(props.get("kode") or "")
+        if len(kode) < 4:
+            continue
+        nama = props.get("nama")
+        feat["properties"] = {
+            "id":        f"KAB_{kode}",
+            "kode":      kode,
+            "kabupaten": nama,
+            "kecamatan": nama,   # label region di frontend
+            "name":      nama,
+            "level":     "kabupaten",
+        }
+        out.setdefault(kode[:2], []).append(feat)
+    logger.info(f"GeoJSON kabupaten loaded: {sum(len(v) for v in out.values())} kab/kota")
+    return out
 
 
 @lru_cache(maxsize=1)
@@ -123,29 +139,24 @@ def geojson(province: str = "DI Yogyakarta") -> dict:
             "features": _province_features(provinces_data.all_provinces()),
         }
 
-    # Mode DIY: polygon kecamatan
-    if provinces_data.is_diy(province):
-        data = _load_diy_geojson()
-        if not data["features"]:
-            raise HTTPException(
-                status_code=503,
-                detail="GeoJSON DIY tidak tersedia di server",
-            )
-        out = dict(data)
-        out["level"] = "kecamatan"
-        return out
-
-    # Mode provinsi single (selain DIY)
+    # Mode provinsi: drill-down → polygon kabupaten/kota provinsi itu
     prov = provinces_data.get(province)
     if not prov:
         raise HTTPException(
             status_code=404,
             detail=(
                 f"Provinsi '{province}' tidak dikenal. "
-                f"Gunakan 'DI Yogyakarta' (kecamatan), 'ALL' (37 provinsi), "
-                f"atau nama provinsi resmi."
+                f"Gunakan 'ALL' (peta nasional) atau nama provinsi resmi."
             ),
         )
+    feats = _kab_features_by_prov().get(prov.code, [])
+    if feats:
+        return {
+            "type":     "FeatureCollection",
+            "level":    "kabupaten",
+            "features": feats,
+        }
+    # Provinsi tanpa polygon kabupaten di master → fallback titik centroid provinsi
     return {
         "type":     "FeatureCollection",
         "level":    "province",
@@ -176,21 +187,20 @@ def list_regions(province: str = "DI Yogyakarta") -> dict:
             ],
         }
 
-    if provinces_data.is_diy(province):
-        data = _load_diy_geojson()
-        return {
-            "province": province,
-            "level":    "kecamatan",
-            "count":    len(data["features"]),
-            "items":    [f["properties"] for f in data["features"]],
-        }
-
     prov = provinces_data.get(province)
     if not prov:
         raise HTTPException(
             status_code=404,
             detail=f"Provinsi '{province}' tidak dikenal",
         )
+    feats = _kab_features_by_prov().get(prov.code, [])
+    if feats:
+        return {
+            "province": prov.name,
+            "level":    "kabupaten",
+            "count":    len(feats),
+            "items":    [f["properties"] for f in feats],
+        }
     return {
         "province": prov.name,
         "level":    "province",
