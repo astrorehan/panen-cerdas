@@ -1,20 +1,22 @@
 """
 predictions_router.py
 ---------------------
-Endpoints prediksi pangan per kecamatan untuk dashboard pemerintah.
+Endpoints prediksi pangan per KABUPATEN/KOTA untuk dashboard pemerintah.
 
-Mekanisme (v2.5 — real model):
-  - Tiap kecamatan punya centroid lat/lon + luas baku.
-  - Saat request, untuk setiap kecamatan:
+Mekanisme (real model):
+  - Master wilayah (kabupaten/kota) dibaca dari Supabase (tabel `kabupaten`);
+    baseline & luas panen dari `kabupaten_produksi` (data BPS, mis. SIMDASI).
+  - Saat request, untuk tiap kabupaten:
       1) fetch iklim dari NASA POWER (lewat data_cache; di-cache 6 jam),
-      2) panggil model.predict() yang sudah di-train (saved_models/*.joblib),
-      3) hitung surplus_pct = (yield_pred - base_yield) / base_yield * 100.
-  - Jika model belum loaded atau fetch iklim gagal → fallback ke nilai
-    baseline per komoditas + jitter kecil per kecamatan (supaya peta tidak
-    seragam dan tetap demo-able offline).
+      2) panggil model (predict / predict_yield_batch) yang sudah di-train,
+      3) surplus_pct = (yield_pred - baseline) / baseline * 100 (baseline = rata-
+         rata yield <=3 tahun terakhir kabupaten itu; fallback baseline provinsi).
+  - Jika model belum loaded / fetch iklim gagal → fallback baseline + jitter
+    deterministik (peta tetap demo-able offline).
 
-NDVI series + backtest di endpoint detail masih synthetic (sine wave) —
-ganti dengan ndvi_fetcher real terpisah saat GEE auth sudah siap.
+Mode: 'ALL' → peta nasional per provinsi; nama provinsi → drill-down ke
+kabupaten/kota provinsi itu. NDVI series detail = cache APPEEARS (real MODIS)
+atau estimator musiman; backtest = aktual BPS vs model dijalankan ulang.
 """
 
 import asyncio
@@ -25,11 +27,12 @@ from datetime import date, timedelta
 from functools import lru_cache
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text, bindparam
 from sqlalchemy.orm import Session
 
-from database import get_db, PredictionLog, TrainingFeedback
+from database import get_db, PredictionLog
 from data_cache import get_or_fetch_climate, get_cached_climate_batch, _bg_refresh_climate
-from data_fetcher import INDONESIA_DEFAULTS
+from data_fetcher import INDONESIA_DEFAULTS, estimate_ndvi_from_season
 from model import (
     is_model_loaded,
     predict as ml_predict,
@@ -55,91 +58,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/predictions", tags=["predictions"])
 
 
-# DIY (Daerah Istimewa Yogyakarta) — pilot deployment region.
-# Centroid + luas per kecamatan. lat/lon dipakai untuk fetch iklim NASA POWER.
-# Luas baku ~ estimasi sawah/lahan sentra Kementan DIY; bukan angka resmi.
-KECAMATAN_DATA: list[dict] = [
-    # Sleman — sentra padi sawah DIY
-    {"id": "3404130", "kabupaten": "Sleman",      "kecamatan": "Prambanan",
-     "lat": -7.7700, "lon": 110.4920, "luas": 1800},
-    {"id": "3404020", "kabupaten": "Sleman",      "kecamatan": "Berbah",
-     "lat": -7.8140, "lon": 110.4500, "luas": 1100},
-    # Bantul — sawah + hortikultura
-    {"id": "3402100", "kabupaten": "Bantul",      "kecamatan": "Pajangan",
-     "lat": -7.9200, "lon": 110.3030, "luas": 1200},
-    {"id": "3402080", "kabupaten": "Bantul",      "kecamatan": "Imogiri",
-     "lat": -7.9290, "lon": 110.3920, "luas": 1400},
-    # Kulon Progo — sentra padi pesisir selatan
-    {"id": "3401040", "kabupaten": "Kulon Progo", "kecamatan": "Wates",
-     "lat": -7.8590, "lon": 110.1620, "luas": 1500},
-    # Gunungkidul — palawija (jagung, ubi kayu) karena topografi karst
-    {"id": "3403080", "kabupaten": "Gunungkidul", "kecamatan": "Playen",
-     "lat": -7.9460, "lon": 110.5870, "luas": 2200},
-    {"id": "3403140", "kabupaten": "Gunungkidul", "kecamatan": "Wonosari",
-     "lat": -7.9720, "lon": 110.5980, "luas": 1900},
-]
-
-
-# ── FEEDBACK → KECAMATAN (ground truth petani) ─────────
-# Laporan panen petani (TrainingFeedback) tidak menyimpan kecamatan, tapi
-# prediction_log yang direferensikan punya lat/lon (kalau petani pakai GPS).
-# Kita petakan tiap feedback ke centroid kecamatan DIY terdekat.
-_MAX_MATCH_KM = 25.0  # di luar radius ini, feedback dianggap bukan dari DIY
-
-
-def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    r = 6371.0
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlmb = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
-    return 2 * r * math.asin(math.sqrt(a))
-
-
-def _nearest_kecamatan_id(lat: float, lon: float) -> str | None:
-    """ID kecamatan DIY dengan centroid terdekat, atau None kalau > _MAX_MATCH_KM."""
-    best_id, best_d = None, float("inf")
-    for r in KECAMATAN_DATA:
-        d = _haversine_km(lat, lon, r["lat"], r["lon"])
-        if d < best_d:
-            best_id, best_d = r["id"], d
-    return best_id if best_d <= _MAX_MATCH_KM else None
-
-
-def _feedback_by_kecamatan(db: Session, commodity: str) -> dict[str, dict]:
-    """
-    Agregat yield aktual dari laporan panen petani, dikelompokkan per kecamatan
-    DIY (via centroid terdekat dari koordinat prediction_log yang direferensikan).
-
-    Return: {kecamatan_id: {"yield_actual": float, "count": int}}.
-    Kecamatan tanpa laporan tidak muncul di dict.
-    """
-    rows = (
-        db.query(
-            TrainingFeedback.actual_yield_ton_per_ha,
-            PredictionLog.lat,
-            PredictionLog.lon,
-        )
-        .join(PredictionLog, TrainingFeedback.prediction_log_id == PredictionLog.id)
-        .filter(TrainingFeedback.crop_type == commodity)
-        .filter(PredictionLog.lat.isnot(None))
-        .filter(PredictionLog.lon.isnot(None))
-        .all()
-    )
-
-    agg: dict[str, dict] = {}
-    for actual_yield, lat, lon in rows:
-        kid = _nearest_kecamatan_id(lat, lon)
-        if kid is None:
-            continue
-        bucket = agg.setdefault(kid, {"sum": 0.0, "count": 0})
-        bucket["sum"] += actual_yield
-        bucket["count"] += 1
-
-    return {
-        kid: {"yield_actual": round(v["sum"] / v["count"], 2), "count": v["count"]}
-        for kid, v in agg.items()
-    }
+# Catatan: level analisis = KABUPATEN/KOTA. Master wilayah dibaca dari Supabase
+# (tabel `kabupaten`), data produksi/baseline dari `kabupaten_produksi` (BPS).
 
 
 # ── NDVI ESTIMATOR ─────────────────────────────────────
@@ -223,7 +143,7 @@ def _estimate_ndvi_series_synthetic(
         Jan-Feb), trough Sep-Okt (puncak kemarau). Vegetasi lag ~1 bulan
         di belakang curah hujan.
       - Variasi inter-annual ~3 tahun (proxy siklus ENSO)
-      - Jitter per-koordinat (hash deterministik) supaya tiap kecamatan
+      - Jitter per-koordinat (hash deterministik) supaya tiap wilayah
         punya pola unik tapi reproducible.
 
     Bukan data satelit real - APPEEARS/Sentinel-2 punya pipeline terpisah
@@ -233,7 +153,7 @@ def _estimate_ndvi_series_synthetic(
     """
     base = _BASE_NDVI.get(crop_type, 0.55)
 
-    # Deterministic per-location seed (kecamatan-stabil).
+    # Deterministic per-location seed (stabil per koordinat).
     loc_seed = int(
         hashlib.md5(f"{lat:.3f},{lon:.3f}".encode()).hexdigest()[:8], 16
     )
@@ -305,7 +225,7 @@ async def _predict_one(
     allow_stale: bool = False,
 ) -> KecamatanPrediction:
     """
-    Prediksi 1 region (kecamatan ATAU provinsi). Region row schema:
+    Prediksi 1 region (kabupaten/kota ATAU provinsi). Region row schema:
         {id, kabupaten, kecamatan, lat, lon, luas}
 
     `baseline_yield` overrides national baseline untuk hitung surplus_pct.
@@ -331,7 +251,11 @@ async def _predict_one(
                 rainfall_mm=climate["rainfall_mm"],
                 temperature_c=climate["temperature_c"],
                 solar_radiation=climate["solar_radiation"],
-                ndvi=0.65,  # baseline tropis; NDVI real per-pixel butuh GEE
+                # NDVI estimasi musiman per komoditas+lokasi (sadar wet/dry +
+                # boost Jawa/Bali). Konsisten dgn NDVI saat training model;
+                # lebih informatif dibanding nilai fixed. NDVI real per-pixel
+                # butuh GEE/MODIS (pipeline terpisah di ndvi_fetcher).
+                ndvi=estimate_ndvi_from_season(row["lat"], row["lon"], commodity),
                 pest_pressure=0.0,
                 variety="Lokal",
             )
@@ -372,11 +296,16 @@ def _input_from_climate(row: dict, commodity: CropType, climate: dict) -> Predic
     """Bangun PredictInput dari row region + iklim (sudah di-fetch). Tanpa I/O."""
     return PredictInput(
         crop_type=commodity,
-        land_area_ha=row["luas"],
+        # luas=0 (kabupaten tanpa data produksi) → pakai netral 1000 ha untuk input
+        # model (yield/ha hampir tak terpengaruh); produksi tetap dihitung dari
+        # row["luas"] asli di _assemble_prediction (0 = jujur belum ada data).
+        land_area_ha=row["luas"] or 1000.0,
         rainfall_mm=climate["rainfall_mm"],
         temperature_c=climate["temperature_c"],
         solar_radiation=climate["solar_radiation"],
-        ndvi=0.65,  # baseline tropis; konsisten dgn _predict_one
+        # NDVI musiman per komoditas+lokasi (lihat _predict_one) — tidak lagi
+        # fixed 0.65, jadi tiap provinsi/komoditas variatif & sesuai musim.
+        ndvi=estimate_ndvi_from_season(row["lat"], row["lon"], commodity),
         pest_pressure=0.0,
         variety="Lokal",
     )
@@ -434,6 +363,68 @@ def _province_row(province: str, commodity: str) -> dict | None:
     }
 
 
+def _kabupaten_rows(db: Session, provinsi_kode: str) -> list[dict]:
+    """
+    Baca kabupaten/kota satu provinsi dari Supabase (tabel `kabupaten`).
+
+    Mengembalikan row dengan shape sama seperti _province_row supaya kompatibel
+    dengan _input_from_climate / _assemble_prediction. `luas` = luas panen kab
+    untuk komoditas (Phase 2: dari kabupaten_produksi); sementara 0.0 → produksi
+    tampil 0 sampai data BPS per-kabupaten masuk (yield/ha tetap real).
+    """
+    rows = db.execute(
+        text(
+            "SELECT kode, nama, lat, lon FROM public.kabupaten "
+            "WHERE provinsi_kode = :pk ORDER BY nama"
+        ),
+        {"pk": provinsi_kode},
+    ).fetchall()
+    return [
+        {
+            "id":        f"KAB_{r.kode}",
+            "kode":      r.kode,
+            "kabupaten": r.nama,
+            "kecamatan": r.nama,   # dipakai sbg label region oleh frontend
+            "lat":       float(r.lat),
+            "lon":       float(r.lon),
+            "luas":      0.0,
+        }
+        for r in rows
+    ]
+
+
+def _kab_produksi_map(db: Session, kodes: list[str], commodity: str) -> dict[str, dict]:
+    """
+    Per kabupaten: luas panen tahun terbaru + baseline yield (rata-rata <=3 tahun
+    terakhir) dari `kabupaten_produksi` (data BPS). Dipakai untuk produksi total
+    & surplus_pct level kabupaten. {kode: {"luas": float|None, "baseline": float|None}}.
+    """
+    if not kodes:
+        return {}
+    stmt = text(
+        "SELECT kode_kabupaten, tahun, luas_panen_ha, yield_ton_per_ha "
+        "FROM public.kabupaten_produksi "
+        "WHERE crop_type = :c AND kode_kabupaten IN :kk "
+        "ORDER BY kode_kabupaten, tahun"
+    ).bindparams(bindparam("kk", expanding=True))
+    rows = db.execute(stmt, {"c": commodity, "kk": list(kodes)}).fetchall()
+
+    agg: dict[str, list] = {}
+    for r in rows:
+        agg.setdefault(r.kode_kabupaten, []).append(
+            (r.tahun, r.luas_panen_ha, r.yield_ton_per_ha)
+        )
+    out: dict[str, dict] = {}
+    for kode, ys in agg.items():
+        ys.sort()
+        last3 = [y for _, _, y in ys[-3:] if y is not None]
+        out[kode] = {
+            "luas":     ys[-1][1],
+            "baseline": (sum(last3) / len(last3)) if last3 else None,
+        }
+    return out
+
+
 @router.get("", response_model=PredictionsResponse)
 async def list_predictions(
     province: str = "DI Yogyakarta",
@@ -445,12 +436,11 @@ async def list_predictions(
     Prediksi pangan per region.
 
     Mode:
-      - DI Yogyakarta (pilot)  -> 7 kecamatan paralel
-      - Provinsi lain          -> 1 row provincial-level (centroid + Kementan luas)
-      - 'ALL' / 'INDONESIA'    -> 37 provinsi (skip DIY kecamatan, pakai DIY-prov)
+      - 'ALL' / 'INDONESIA'  -> peta nasional, 1 titik per provinsi
+      - nama provinsi        -> drill-down: semua kabupaten/kota provinsi itu
 
-    Surplus_pct dihitung vs rata-rata Kementan 3 tahun terakhir untuk provinsi
-    itu (baseline lebih akurat dibanding angka nasional generik).
+    Surplus_pct dihitung vs baseline yield kabupaten (rata-rata <=3 tahun
+    terakhir dari kabupaten_produksi; fallback ke baseline provinsi).
     """
     use_model = is_model_loaded()
     if not use_model:
@@ -516,40 +506,75 @@ async def list_predictions(
             items=items,
         )
 
-    # ── MODE 2: DIY pilot (7 kecamatan) ───────────────────
-    if provinces_data.is_diy(province):
-        baseline = _kementan_baseline_yield("DAERAH ISTIMEWA YOGYAKARTA", commodity)
-        fb_map = _feedback_by_kecamatan(db, commodity)
-        tasks = [
-            _predict_one(row, commodity, db, use_model, baseline, fb_map.get(row["id"]))
-            for row in KECAMATAN_DATA
-        ]
-        items = await asyncio.gather(*tasks)
-        return PredictionsResponse(
-            province=province,
-            commodity=commodity,
-            season=season,
-            items=list(items),
-        )
-
-    # ── MODE 3: Provincial single row (selain DIY) ────────
-    row = _province_row(province, commodity)
-    if not row:
+    # ── MODE 2: Drill-down provinsi → semua kabupaten/kota ─
+    # Level utama produk = kabupaten. Pilih provinsi → prediksi per kab/kota-nya
+    # (yield/ha real dari model; baseline & backtest pakai data provinsi sampai
+    # kabupaten_produksi terisi). Pola batch sama dgn mode nasional → cepat.
+    prov = provinces_data.get(province)
+    if not prov:
         raise HTTPException(
             status_code=404,
             detail=(
                 f"Provinsi '{province}' tidak dikenal. "
-                f"Gunakan nama lengkap (e.g. 'Jawa Barat'), kode Kementan (e.g. '32'), "
-                f"atau 'ALL' untuk semua provinsi."
+                f"Gunakan nama lengkap (e.g. 'Jawa Barat'), kode (e.g. '32'), "
+                f"atau 'ALL' untuk peta nasional."
             ),
         )
-    baseline = _kementan_baseline_yield(province, commodity)
-    pred = await _predict_one(row, commodity, db, use_model, baseline)
+
+    prov_baseline = _kementan_baseline_yield(prov.kementan_name, commodity)
+    kab_rows = _kabupaten_rows(db, prov.code)
+
+    # Provinsi tanpa kabupaten di master (mis. pemekaran Papua) → fallback 1 row provinsi.
+    if not kab_rows:
+        row = _province_row(province, commodity)
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Tidak ada data wilayah untuk '{province}'")
+        pred = await _predict_one(row, commodity, db, use_model, prov_baseline)
+        return PredictionsResponse(
+            province=prov.name, commodity=commodity, season=season, items=[pred],
+        )
+
+    # Baseline & luas panen per kabupaten dari data BPS (kabupaten_produksi);
+    # fallback ke baseline provinsi kalau kabupaten itu belum ada datanya.
+    prod_map = _kab_produksi_map(db, [r["kode"] for r in kab_rows], commodity)
+    bases: list[float] = []
+    for r in kab_rows:
+        info = prod_map.get(r["kode"], {})
+        if info.get("luas"):
+            r["luas"] = info["luas"]          # produksi = yield x luas panen real
+        bases.append(info.get("baseline") or prov_baseline or BASE_YIELD.get(commodity, 5.0))
+
+    coords = [(r["lat"], r["lon"]) for r in kab_rows]
+    climate_map = get_cached_climate_batch(db, coords, period_days=30)
+
+    missing: list[tuple[float, float]] = []
+    batch_inputs: list[tuple[PredictInput, float | None]] = []
+    for r, b in zip(kab_rows, bases):
+        key = (round(r["lat"], 2), round(r["lon"], 2))
+        climate = climate_map.get(key)
+        if climate is None:
+            missing.append((r["lat"], r["lon"]))
+            climate = {**INDONESIA_DEFAULTS, "data_source": "default_fallback"}
+        batch_inputs.append((_input_from_climate(r, commodity, climate), b))
+
+    if use_model:
+        yields = predict_yield_batch(batch_inputs)
+    else:
+        yields = [_fallback_yield(commodity, r["id"]) for r in kab_rows]
+
+    items = [
+        _assemble_prediction(r, commodity, b, y)
+        for r, b, y in zip(kab_rows, bases, yields)
+    ]
+
+    for lat, lon in missing:
+        try:
+            asyncio.create_task(_bg_refresh_climate(lat, lon, 30))
+        except RuntimeError:
+            pass
+
     return PredictionsResponse(
-        province=province,
-        commodity=commodity,
-        season=season,
-        items=[pred],
+        province=prov.name, commodity=commodity, season=season, items=items,
     )
 
 
@@ -609,6 +634,63 @@ def predictions_history(
     }
 
 
+def _backtest_from_actuals(
+    actuals: tuple[tuple[int, float, float | None], ...],
+    commodity: str,
+    province_code: str | None,
+) -> tuple[tuple[tuple[int, float, str], ...], float | None, int | None]:
+    """
+    Backtest model vs aktual (generik). `actuals` = ((tahun, yield, luas_panen), ...)
+    urut tahun naik. Untuk tiap tahun, jalankan ulang model dengan iklim NASA POWER
+    tahunan (proxy via province_code) lalu bandingkan ke yield aktual. Baseline
+    per tahun = leave-one-out (kausal). Return (rows, mape, next_year).
+    """
+    if not actuals:
+        return (), None, None
+
+    last5 = actuals[-5:]
+    use_model = is_model_loaded()
+    rows: list[tuple[int, float, str]] = []
+    errors: list[float] = []
+    yearly = [(y, yld) for (y, yld, _) in actuals if yld]
+
+    def _loo_baseline(year: int) -> float | None:
+        others = [v for (yr, v) in yearly if yr != year]
+        return sum(others) / len(others) if others else None
+
+    for (year, yld, luas) in last5:
+        actual = round(yld, 2)
+        rows.append((year, actual, "aktual"))
+
+        climate = (
+            backtest_climate.annual_climate(province_code, year)
+            if province_code else None
+        )
+        if not (use_model and climate):
+            continue
+        try:
+            ndvi = backtest_climate.annual_ndvi(province_code, year)
+            data = PredictInput(
+                crop_type=commodity,
+                land_area_ha=luas or 1000.0,
+                rainfall_mm=climate["rainfall_mm"],
+                temperature_c=climate["temperature_c"],
+                solar_radiation=climate["solar_radiation"],
+                ndvi=ndvi if ndvi is not None else 0.65,
+                pest_pressure=0.0,
+                variety="Lokal",
+            )
+            pred = predict_yield_only(data, baseline=_loo_baseline(year))
+            rows.append((year, pred, "prediksi"))
+            if actual > 0:
+                errors.append(abs(actual - pred) / actual)
+        except Exception as e:
+            logger.warning(f"backtest predict {province_code} {year} gagal: {e}")
+
+    mape = round(sum(errors) / len(errors) * 100.0, 1) if errors else None
+    return tuple(rows), mape, last5[-1][0] + 1
+
+
 @lru_cache(maxsize=512)
 def _historical_backtest(
     kementan_province_name: str,
@@ -625,56 +707,11 @@ def _historical_backtest(
     rows kosong + next_year None kalau Kementan tak punya data komoditas itu.
     """
     trend = kementan_data.trend(kementan_province_name, commodity)
-    if not trend:
-        return (), None, None
-
-    last5 = trend[-5:]
-    use_model = is_model_loaded()
-    rows: list[tuple[int, float, str]] = []
-    errors: list[float] = []
-
-    # Baseline lokal per tahun = rata-rata yield tahun LAIN provinsi ini
-    # (leave-one-out, kausal — tidak memakai yield tahun yang diprediksi).
-    # Dipakai untuk de-normalisasi prediksi ke level wilayahnya.
-    yearly = [(t["year"], t["yield_ton_per_ha"]) for t in trend if t.get("yield_ton_per_ha")]
-
-    def _loo_baseline(year: int) -> float | None:
-        others = [y for (yr, y) in yearly if yr != year]
-        return sum(others) / len(others) if others else None
-
-    for r in last5:
-        year   = r["year"]
-        actual = round(r["yield_ton_per_ha"], 2)
-        rows.append((year, actual, "aktual"))
-
-        climate = (
-            backtest_climate.annual_climate(province_code, year)
-            if province_code else None
-        )
-        if not (use_model and climate):
-            continue
-        try:
-            ndvi = backtest_climate.annual_ndvi(province_code, year)
-            data = PredictInput(
-                crop_type=commodity,
-                land_area_ha=r["luas_panen_ha"] or 1000.0,
-                rainfall_mm=climate["rainfall_mm"],
-                temperature_c=climate["temperature_c"],
-                solar_radiation=climate["solar_radiation"],
-                ndvi=ndvi if ndvi is not None else 0.65,  # NDVI MODIS real per tahun; baseline kalau tak ada
-                pest_pressure=0.0,
-                variety="Lokal",
-            )
-            # baseline lokal → prediksi nempel ke level provinsi, bukan nasional
-            pred = predict_yield_only(data, baseline=_loo_baseline(year))
-            rows.append((year, pred, "prediksi"))
-            if actual > 0:
-                errors.append(abs(actual - pred) / actual)
-        except Exception as e:
-            logger.warning(f"backtest predict {kementan_province_name} {year} gagal: {e}")
-
-    mape = round(sum(errors) / len(errors) * 100.0, 1) if errors else None
-    return tuple(rows), mape, last5[-1]["year"] + 1
+    actuals = tuple(
+        (t["year"], t["yield_ton_per_ha"], t.get("luas_panen_ha"))
+        for t in trend if t.get("yield_ton_per_ha")
+    )
+    return _backtest_from_actuals(actuals, commodity, province_code)
 
 
 def _build_backtest(
@@ -704,6 +741,41 @@ def _build_backtest(
     return points, mape
 
 
+def _build_backtest_kab(
+    db: Session,
+    kode_kabupaten: str,
+    commodity: str,
+    province_code: str | None,
+    predicted_yield: float,
+) -> tuple[list[YieldPoint], float | None]:
+    """
+    Backtest level kabupaten: aktual yield per tahun dari `kabupaten_produksi`
+    (data BPS) vs model dijalankan ulang dengan iklim tahunan provinsi induk
+    (proxy). + 1 titik proyeksi tahun depan dari prediksi live.
+    """
+    rows_db = db.execute(
+        text(
+            "SELECT tahun, yield_ton_per_ha, luas_panen_ha "
+            "FROM public.kabupaten_produksi "
+            "WHERE crop_type = :c AND kode_kabupaten = :k ORDER BY tahun"
+        ),
+        {"c": commodity, "k": kode_kabupaten},
+    ).fetchall()
+    actuals = tuple(
+        (r.tahun, r.yield_ton_per_ha, r.luas_panen_ha)
+        for r in rows_db if r.yield_ton_per_ha
+    )
+    rows, mape, next_year = _backtest_from_actuals(actuals, commodity, province_code)
+    if not rows and next_year is None:
+        return [], None
+
+    points = [YieldPoint(year=y, value=v, kind=k) for (y, v, k) in rows]  # type: ignore[arg-type]
+    points.append(
+        YieldPoint(year=next_year, value=round(predicted_yield, 2), kind="prediksi")
+    )
+    return points, mape
+
+
 @router.get("/{region_id}", response_model=KecamatanDetail)
 async def get_detail(
     region_id: str,
@@ -711,18 +783,43 @@ async def get_detail(
     db: Session = Depends(get_db),
 ) -> KecamatanDetail:
     """
-    Detail per region (kecamatan DIY ATAU provinsi).
+    Detail per region.
 
     region_id format:
-      - "34041xx"     -> kecamatan DIY (lookup KECAMATAN_DATA)
-      - "PROV_<code>" -> provinsi (lookup provinces_data by Kementan code)
+      - "KAB_<kode>"  -> kabupaten/kota (lookup tabel kabupaten, 4-digit Kemendagri)
+      - "PROV_<code>" -> provinsi (lookup provinces_data by kode)
     """
     kementan_province_name: str
     province_code: str | None = None
     row: dict | None = None
     actual: dict | None = None
+    kab_baseline: float | None = None
 
-    if region_id.startswith("PROV_"):
+    if region_id.startswith("KAB_"):
+        # Mode kabupaten/kota (level utama). Backtest pakai aktual kabupaten
+        # (kabupaten_produksi) + iklim provinsi induk sebagai proxy.
+        kode = region_id.removeprefix("KAB_")
+        r = db.execute(
+            text(
+                "SELECT kode, nama, lat, lon, provinsi_kode, provinsi_nama "
+                "FROM public.kabupaten WHERE kode = :k"
+            ),
+            {"k": kode},
+        ).fetchone()
+        if not r:
+            raise HTTPException(status_code=404, detail=f"Kabupaten kode '{kode}' tidak ditemukan")
+        row = {
+            "id": region_id, "kode": r.kode, "kabupaten": r.nama,
+            "kecamatan": r.nama, "lat": float(r.lat), "lon": float(r.lon), "luas": 0.0,
+        }
+        prov = provinces_data.by_code(r.provinsi_kode)
+        kementan_province_name = prov.kementan_name if prov else (r.provinsi_nama or "")
+        province_code = r.provinsi_kode
+        info = _kab_produksi_map(db, [r.kode], commodity).get(r.kode, {})
+        if info.get("luas"):
+            row["luas"] = info["luas"]
+        kab_baseline = info.get("baseline")
+    elif region_id.startswith("PROV_"):
         # Mode provinsi
         code = region_id.removeprefix("PROV_")
         prov = provinces_data.by_code(code)
@@ -735,26 +832,21 @@ async def get_detail(
         kementan_province_name = prov.kementan_name
         province_code = prov.code
     else:
-        # Mode kecamatan DIY
-        row = next((r for r in KECAMATAN_DATA if r["id"] == region_id), None)
-        if not row:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Region '{region_id}' tidak ditemukan. "
-                    f"Gunakan ID kecamatan DIY atau format 'PROV_<kode>'."
-                ),
-            )
-        # Kecamatan DIY → backtest pakai Kementan + iklim provinsi DIY sebagai proxy
-        kementan_province_name = "DAERAH ISTIMEWA YOGYAKARTA"
-        province_code = "34"
-        # Laporan panen petani untuk kecamatan ini (kalau ada).
-        actual = _feedback_by_kecamatan(db, commodity).get(region_id)
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Region '{region_id}' tidak dikenal. "
+                f"Gunakan format 'KAB_<kode>' atau 'PROV_<kode>'."
+            ),
+        )
 
     if row is None:
         raise HTTPException(status_code=404, detail=f"Tidak bisa load region {region_id}")
 
-    baseline = _kementan_baseline_yield(kementan_province_name, commodity)
+    baseline = (
+        kab_baseline if kab_baseline is not None
+        else _kementan_baseline_yield(kementan_province_name, commodity)
+    )
     pred = await _predict_one(row, commodity, db, is_model_loaded(), baseline, actual)
 
     # NDVI series 7 tahun. Cache APPEEARS HIT -> real MODIS, MISS -> estimator.
@@ -768,12 +860,21 @@ async def get_detail(
         db=db,
     )
 
-    backtest, backtest_mape = _build_backtest(
-        kementan_province_name=kementan_province_name,
-        commodity=commodity,
-        province_code=province_code,
-        predicted_yield=pred.yield_pred_ton_per_ha,
-    )
+    if region_id.startswith("KAB_"):
+        backtest, backtest_mape = _build_backtest_kab(
+            db=db,
+            kode_kabupaten=region_id.removeprefix("KAB_"),
+            commodity=commodity,
+            province_code=province_code,
+            predicted_yield=pred.yield_pred_ton_per_ha,
+        )
+    else:
+        backtest, backtest_mape = _build_backtest(
+            kementan_province_name=kementan_province_name,
+            commodity=commodity,
+            province_code=province_code,
+            predicted_yield=pred.yield_pred_ton_per_ha,
+        )
 
     return KecamatanDetail(
         kecamatan=row["kecamatan"],
