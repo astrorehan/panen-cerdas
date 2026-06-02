@@ -13,13 +13,25 @@ DUA MODE:
 
 2) FETCH -> tarik langsung dari API BPS. JALANKAN DI MESIN ANDA (bukan server
    yang IP-nya diblok WAF BPS). Butuh token WebAPI (env BPS_WEBAPI_TOKEN atau --token).
+
+   a) Satu provinsi:
        python scripts/load_bps_produksi.py --fetch --crop padi \
            --years 2020 2021 2022 2023 2024 2025 \
            --wilayah 3400000 --id-tabel ZjZ6MXlacGJNR0JaaHBPRSs0TzNUdz09
 
+   b) SELURUH provinsi (loop kode provinsi dari provinces_data) — padi nasional:
+       python scripts/load_bps_produksi.py --fetch --crop padi --all-provinces \
+           --years 2020 2021 2022 2023 2024 2025
+
+   c) SELURUH provinsi x SEMUA komoditas yang id_tabel-nya sudah diisi di CROP_TABEL:
+       python scripts/load_bps_produksi.py --fetch --all-crops --all-provinces \
+           --years 2022 2023 2024 2025
+
 Kolom dideteksi dari `nama_variabel` ("Luas Panen" / "Produktivitas" / "Produksi"),
-jadi commodity-agnostic: untuk jagung/kedelai/dll cukup ganti --crop + --id-tabel
-(id_tabel beda per komoditas; cari di portal SIMDASI BPS).
+jadi commodity-agnostic: untuk komoditas lain cukup isi id_tabel-nya di CROP_TABEL
+(atau --crop X --id-tabel ...). id_tabel beda per komoditas; ambil dari URL tabel
+di portal SIMDASI BPS (sama cara kamu dapat id_tabel padi). Per-request yang gagal
+(provinsi tanpa data / timeout) dilewati & dilaporkan, tidak menggagalkan run.
 
 yield_ton_per_ha dihitung = produksi_ton / luas_panen_ha (fallback produktivitas/10).
 Baris total provinsi (kode_wilayah pola 34_00000) otomatis dilewati.
@@ -42,11 +54,21 @@ from database import engine  # noqa: E402
 
 BASE_URL = "https://webapi.bps.go.id/v1/api/interoperabilitas/datasource/simdasi"
 
-# id_tabel SIMDASI per komoditas (isi saat ketemu di portal BPS).
+# id_tabel SIMDASI per komoditas (datasource id=25). Isi saat ketemu di portal
+# SIMDASI BPS: buka tabel komoditasnya, id_tabel muncul di URL/permintaan jaringan
+# (sama cara id_tabel padi didapat). Biarkan None untuk yang belum punya — komoditas
+# ber-id None otomatis dilewati oleh --all-crops, dan padi/palawija/hortikultura
+# punya ketersediaan data per-kabupaten yang berbeda (lihat MIGRATION_KABUPATEN.md).
 CROP_TABEL = {
-    "padi": "ZjZ6MXlacGJNR0JaaHBPRSs0TzNUdz09",
-    # "jagung": "...",
-    # "kedelai": "...",
+    "padi":         "ZjZ6MXlacGJNR0JaaHBPRSs0TzNUdz09",
+    "jagung":       None,
+    "kedelai":      None,
+    "ubi_jalar":    None,
+    "ubi_kayu":     None,
+    "cabe_besar":   None,
+    "cabe_rawit":   None,
+    "bawang_merah": None,
+    "bawang_putih": None,
 }
 
 
@@ -135,19 +157,38 @@ def _rows_from_response(obj: dict, crop: str):
     return out
 
 
-def _fetch(token, crop, years, wilayah, id_tabel, ds_id):
+def _province_wilayah() -> list[str]:
+    """Kode wilayah SIMDASI per provinsi = `{kode2}00000`, dari provinces_data."""
+    import provinces_data
+    return [f"{p.code}00000" for p in provinces_data.all_provinces()]
+
+
+def _fetch(token, crop, years, wilayahs, id_tabel, ds_id):
+    """Tarik (crop, tahun, wilayah) dari SIMDASI. Resilient: request gagal dilewati.
+
+    Return (objs, failures) — objs list respons JSON, failures list keterangan gagal.
+    """
     import httpx
     id_tabel = id_tabel or CROP_TABEL.get(crop)
     if not id_tabel:
-        sys.exit(f"id_tabel untuk '{crop}' tidak diketahui. Beri --id-tabel.")
-    objs = []
-    for y in years:
-        url = f"{BASE_URL}/id/{ds_id}/tahun/{y}/id_tabel/{id_tabel}/wilayah/{wilayah}/key/{token}"
-        print(f"  GET tahun {y} wilayah {wilayah} ...")
-        r = httpx.get(url, timeout=60)
-        r.raise_for_status()
-        objs.append(r.json())
-    return objs
+        sys.exit(f"id_tabel untuk '{crop}' tidak diketahui. Isi CROP_TABEL atau beri --id-tabel.")
+    objs, failures = [], []
+    total = len(years) * len(wilayahs)
+    i = 0
+    for w in wilayahs:
+        for y in years:
+            i += 1
+            url = f"{BASE_URL}/id/{ds_id}/tahun/{y}/id_tabel/{id_tabel}/wilayah/{w}/key/{token}"
+            print(f"  [{i:3d}/{total}] {crop} tahun {y} wilayah {w} ...")
+            try:
+                r = httpx.get(url, timeout=60)
+                r.raise_for_status()
+                objs.append(r.json())
+            except Exception as e:
+                msg = f"{crop} {y} wil={w}: {e}"
+                print(f"      [lewati] {msg}")
+                failures.append(msg)
+    return objs, failures
 
 
 def main():
@@ -156,40 +197,74 @@ def main():
     ap.add_argument("--files", nargs="*", help="file JSON hasil unduh (mode file)")
     ap.add_argument("--fetch", action="store_true", help="tarik langsung dari API BPS")
     ap.add_argument("--years", nargs="*", type=int, help="tahun (mode fetch)")
-    ap.add_argument("--wilayah", default="3400000", help="kode wilayah (prov+0000), mode fetch")
+    ap.add_argument("--wilayah", default="3400000", help="kode wilayah (prov+00000), mode fetch")
+    ap.add_argument("--all-provinces", action="store_true",
+                    help="loop SEMUA provinsi (kode dari provinces_data), mode fetch")
+    ap.add_argument("--all-crops", action="store_true",
+                    help="loop semua komoditas yang id_tabel-nya terisi di CROP_TABEL")
     ap.add_argument("--id-tabel", dest="id_tabel", help="id_tabel SIMDASI (per komoditas)")
     ap.add_argument("--ds-id", default="25", help="datasource id SIMDASI (default 25)")
     ap.add_argument("--token", default=os.getenv("BPS_WEBAPI_TOKEN"), help="token WebAPI BPS")
     ap.add_argument("--dry-run", action="store_true", help="parse saja, tidak menulis DB")
     args = ap.parse_args()
 
-    objs = []
+    rows = []
+    failures = []
     if args.fetch:
         if not args.token:
             sys.exit("Mode fetch butuh --token atau env BPS_WEBAPI_TOKEN.")
         if not args.years:
             sys.exit("Mode fetch butuh --years (mis. --years 2022 2023).")
-        objs = _fetch(args.token, args.crop, args.years, args.wilayah, args.id_tabel, args.ds_id)
+
+        wilayahs = _province_wilayah() if args.all_provinces else [args.wilayah]
+
+        if args.all_crops:
+            if args.id_tabel:
+                sys.exit("--all-crops tidak bisa dipakai bareng --id-tabel (ambigu). "
+                         "Isi id_tabel tiap komoditas di CROP_TABEL.")
+            crops = [c for c, t in CROP_TABEL.items() if t]
+            if not crops:
+                sys.exit("Tidak ada komoditas dengan id_tabel terisi di CROP_TABEL.")
+            skipped = [c for c, t in CROP_TABEL.items() if not t]
+            print(f"--all-crops: proses {crops}")
+            if skipped:
+                print(f"  (lewati, id_tabel kosong: {skipped})")
+        else:
+            crops = [args.crop]
+
+        print(f"Wilayah: {len(wilayahs)} | Komoditas: {len(crops)} | Tahun: {args.years}")
+        for crop in crops:
+            id_tabel = None if args.all_crops else args.id_tabel
+            objs, fails = _fetch(args.token, crop, args.years, wilayahs, id_tabel, args.ds_id)
+            failures.extend(fails)
+            for obj in objs:
+                rows.extend(_rows_from_response(obj, crop))
     elif args.files:
         for fp in args.files:
             raw = Path(fp).read_text(encoding="utf-8")
-            objs.extend(_iter_json_objects(raw))
+            for obj in _iter_json_objects(raw):
+                rows.extend(_rows_from_response(obj, args.crop))
     else:
         sys.exit("Pilih salah satu: --files <json...> ATAU --fetch.")
 
-    rows = []
-    for obj in objs:
-        rows.extend(_rows_from_response(obj, args.crop))
-
     if not rows:
+        if failures:
+            print(f"\n{len(failures)} request gagal:")
+            for f in failures:
+                print(f"  - {f}")
         sys.exit("Tidak ada baris kabupaten yang ter-parse.")
 
-    print(f"\nTer-parse {len(rows)} baris ({args.crop}):")
-    for r in sorted(rows, key=lambda x: (x["tahun"], x["kode"])):
-        print(f"  {r['tahun']} {r['kode']}  luas={r['luas']}  produksi={r['produksi']}  yield={r['yield']}")
+    # Ringkasan per (komoditas, tahun) — jangan dump ribuan baris saat nasional.
+    from collections import Counter
+    by_ct = Counter((r["crop"], r["tahun"]) for r in rows)
+    print(f"\nTer-parse {len(rows)} baris kab/kota:")
+    for (crop, tahun), n in sorted(by_ct.items()):
+        print(f"  {crop:13s} {tahun}: {n} kab/kota")
 
     if args.dry_run:
         print("\n[dry-run] tidak menulis DB.")
+        if failures:
+            print(f"{len(failures)} request gagal (dilewati).")
         return
 
     sql = text(
@@ -209,6 +284,12 @@ def main():
             except Exception as e:
                 print(f"  [gagal] {r['tahun']} {r['kode']}: {e}")
     print(f"\nOK: {written}/{len(rows)} baris di-upsert ke kabupaten_produksi.")
+    if failures:
+        print(f"\n{len(failures)} request gagal (dilewati):")
+        for f in failures[:30]:
+            print(f"  - {f}")
+        if len(failures) > 30:
+            print(f"  ... (+{len(failures) - 30} lagi)")
 
 
 if __name__ == "__main__":
