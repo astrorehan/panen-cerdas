@@ -275,15 +275,33 @@ def main():
         "luas_panen_ha=EXCLUDED.luas_panen_ha, produksi_ton=EXCLUDED.produksi_ton, "
         "yield_ton_per_ha=EXCLUDED.yield_ton_per_ha, source=EXCLUDED.source"
     )
-    written = 0
-    with engine.begin() as c:
-        for r in rows:
+    # Buang kode kab/kota yang tidak ada di master `kabupaten` (mis. pemekaran
+    # Papua yang belum ada di GADM). Kalau dibiarkan, FK violation membatalkan
+    # SELURUH transaksi (current transaction is aborted) -> nyaris semua baris gagal.
+    with engine.connect() as conn:
+        valid_kodes = {row[0] for row in conn.execute(text("SELECT kode FROM public.kabupaten"))}
+    known   = [r for r in rows if r["kode"] in valid_kodes]
+    unknown = sorted({r["kode"] for r in rows if r["kode"] not in valid_kodes})
+    if unknown:
+        print(f"\n{len(unknown)} kode kab/kota tak ada di master `kabupaten` (dilewati): {unknown}")
+
+    # Savepoint per baris: 1 baris error tidak meracuni batch.
+    written, row_errs = 0, []
+    with engine.connect() as conn:
+        for r in known:
             try:
-                c.execute(sql, r)
+                with conn.begin_nested():
+                    conn.execute(sql, r)
                 written += 1
             except Exception as e:
-                print(f"  [gagal] {r['tahun']} {r['kode']}: {e}")
-    print(f"\nOK: {written}/{len(rows)} baris di-upsert ke kabupaten_produksi.")
+                row_errs.append(f"{r['tahun']} {r['kode']}: {e}")
+        conn.commit()
+    print(f"\nOK: {written}/{len(rows)} baris di-upsert ke kabupaten_produksi "
+          f"({len(known)} kode valid, {len(unknown)} kode dilewati).")
+    if row_errs:
+        print(f"{len(row_errs)} baris gagal tulis:")
+        for e in row_errs[:20]:
+            print(f"  - {e}")
     if failures:
         print(f"\n{len(failures)} request gagal (dilewati):")
         for f in failures[:30]:
