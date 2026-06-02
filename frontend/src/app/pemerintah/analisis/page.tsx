@@ -47,19 +47,21 @@ const COMMODITY_MAP: Record<string, string> = {
   bawang_putih: "Bawang Putih",
 };
 
-// Tier kelengkapan data per komoditas — ditampilkan sebagai badge biar jujur
-// soal sumber & granularitas (lihat MIGRATION_KABUPATEN.md).
-const DATA_TIER: Record<string, { label: string; dot: string }> = {
-  padi:         { label: "Data per kabupaten (BPS KSA) + backtest", dot: "bg-primary" },
-  jagung:       { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
-  kedelai:      { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
-  ubi_jalar:    { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
-  ubi_kayu:     { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
-  cabe_besar:   { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
-  cabe_rawit:   { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
-  bawang_merah: { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
-  bawang_putih: { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
-};
+// Badge kelengkapan data — sadar komoditas DAN wilayah, biar jujur soal sumber &
+// granularitas (lihat MIGRATION_KABUPATEN.md):
+//  - padi          : data per kabupaten (BPS KSA) nasional + backtest.
+//  - pangan/umbi    : pilot kabupaten DIY (backtest); provinsi lain baseline provinsi.
+//  - hortikultura   : baseline provinsi (estimasi) di mana pun.
+const PANGAN_UMBI = ["jagung", "kedelai", "ubi_jalar", "ubi_kayu"];
+function dataTier(commodity: string, isDIY: boolean): { label: string; dot: string } {
+  if (commodity === "padi")
+    return { label: "Data per kabupaten (BPS KSA) + backtest", dot: "bg-primary" };
+  if (PANGAN_UMBI.includes(commodity))
+    return isDIY
+      ? { label: "Pilot DIY · backtest per kabupaten", dot: "bg-amber" }
+      : { label: "Baseline provinsi", dot: "bg-muted-foreground" };
+  return { label: "Baseline provinsi (estimasi)", dot: "bg-muted-foreground" };
+}
 
 const PROV_CODE_MAP: Record<string, string> = {
   "Aceh": "PROV_11",
@@ -103,6 +105,17 @@ const PROV_CODE_MAP: Record<string, string> = {
   "Papua Barat Daya": "PROV_96",
   "ALL": "PROV_34",
 };
+
+// kode provinsi 2-digit -> nama (invers PROV_CODE_MAP, first-wins, tanpa "ALL").
+const CODE_TO_PROV: Record<string, string> = Object.entries(PROV_CODE_MAP).reduce(
+  (acc, [name, pid]) => {
+    if (name === "ALL") return acc;
+    const code = pid.replace("PROV_", "");
+    if (!(code in acc)) acc[code] = name;
+    return acc;
+  },
+  {} as Record<string, string>,
+);
 
 export default function DetailPage() {
   return (
@@ -149,8 +162,19 @@ function DetailPageInner() {
   const tempId = queryId ?? defaultId;
   const isProvinceLevel = (tempId ?? "").startsWith("PROV_");
 
-  // Mode kecamatan (DIY): muat 7 kecamatan (paralel, cepat) untuk dropdown.
-  const listProvinceName = defaultProv === "ALL" ? "DI Yogyakarta" : defaultProv;
+  // Kode provinsi dari region terpilih: KAB_3404 -> "34", PROV_17 -> "17".
+  // Dipakai supaya dropdown kab/kota mengikuti PROVINSI region terpilih (bukan
+  // selalu provinsi home user) — kalau tidak, detail (mis. Rejang Lebong/Bengkulu)
+  // bisa tak cocok dengan opsi dropdown.
+  const regionProvCode = isProvinceLevel
+    ? (tempId ?? "").replace("PROV_", "")
+    : (tempId?.startsWith("KAB_") ? tempId.slice(4, 6) : null);
+  const isDIY = (regionProvCode ?? "34") === "34";
+
+  const homeProvinceName = defaultProv === "ALL" ? "DI Yogyakarta" : defaultProv;
+  // Daftar kab/kota untuk dropdown: ikut provinsi region terpilih bila lintas-provinsi.
+  const listProvinceName =
+    (regionProvCode && CODE_TO_PROV[regionProvCode]) || homeProvinceName;
   const { data: kecList, loading: loadingKec } = useApi(
     isProvinceLevel ? null : apiPath.predictionsList(listProvinceName, commodityParam),
     () => api.predictions.list(listProvinceName, commodityParam),
@@ -293,8 +317,8 @@ function DetailPageInner() {
             className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
             title="Tingkat kelengkapan data untuk komoditas ini"
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${(DATA_TIER[commodityParam] ?? DATA_TIER.padi).dot}`} />
-            {(DATA_TIER[commodityParam] ?? DATA_TIER.padi).label}
+            <span className={`h-1.5 w-1.5 rounded-full ${dataTier(commodityParam, isDIY).dot}`} />
+            {dataTier(commodityParam, isDIY).label}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
