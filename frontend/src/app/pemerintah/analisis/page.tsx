@@ -47,6 +47,20 @@ const COMMODITY_MAP: Record<string, string> = {
   bawang_putih: "Bawang Putih",
 };
 
+// Tier kelengkapan data per komoditas — ditampilkan sebagai badge biar jujur
+// soal sumber & granularitas (lihat MIGRATION_KABUPATEN.md).
+const DATA_TIER: Record<string, { label: string; dot: string }> = {
+  padi:         { label: "Data per kabupaten (BPS KSA) + backtest", dot: "bg-primary" },
+  jagung:       { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
+  kedelai:      { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
+  ubi_jalar:    { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
+  ubi_kayu:     { label: "Baseline provinsi · pilot kabupaten DIY",  dot: "bg-amber" },
+  cabe_besar:   { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
+  cabe_rawit:   { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
+  bawang_merah: { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
+  bawang_putih: { label: "Baseline provinsi (estimasi)",             dot: "bg-muted-foreground" },
+};
+
 const PROV_CODE_MAP: Record<string, string> = {
   "Aceh": "PROV_11",
   "Sumatera Utara": "PROV_12",
@@ -275,6 +289,13 @@ function DetailPageInner() {
               </div>
             </>
           )}
+          <div
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+            title="Tingkat kelengkapan data untuk komoditas ini"
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${(DATA_TIER[commodityParam] ?? DATA_TIER.padi).dot}`} />
+            {(DATA_TIER[commodityParam] ?? DATA_TIER.padi).label}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <KecamatanSelect
