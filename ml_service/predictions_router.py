@@ -30,7 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text, bindparam
 from sqlalchemy.orm import Session
 
-from database import get_db, PredictionLog
+from database import get_db, PredictionLog, TrainingFeedback  # noqa: F401
 from data_cache import get_or_fetch_climate, get_cached_climate_batch, _bg_refresh_climate
 from data_fetcher import INDONESIA_DEFAULTS, estimate_ndvi_from_season
 from model import (
@@ -393,6 +393,57 @@ def _kabupaten_rows(db: Session, provinsi_kode: str) -> list[dict]:
     ]
 
 
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Jarak great-circle (km) untuk cari kabupaten terdekat dari titik GPS."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dlmb / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
+
+def _kab_centroids(db: Session) -> list[tuple[str, float, float]]:
+    """(kode, lat, lon) tiap kabupaten/kota untuk mapping GPS → kabupaten."""
+    rows = db.execute(text("SELECT kode, lat, lon FROM public.kabupaten")).fetchall()
+    return [(r.kode, float(r.lat), float(r.lon)) for r in rows if r.lat is not None and r.lon is not None]
+
+
+def _feedback_by_kabupaten(db: Session, commodity: str) -> dict[str, dict]:
+    """
+    Agregasi laporan panen petani (yield aktual) per kabupaten untuk komoditas.
+
+    Feedback (`training_feedback`) tidak menyimpan kode wilayah, tapi koordinat
+    GPS-nya ada di `prediction_log` (via prediction_log_id). Tiap feedback
+    dipetakan ke kabupaten lewat centroid terdekat. Dipakai untuk menampilkan
+    yield aktual berdampingan dengan prediksi (ground truth), TANPA mengubah
+    angka prediksi model. Return {kode: {"yield_actual": rata2, "count": n}}.
+    """
+    rows = db.execute(
+        text(
+            "SELECT tf.actual_yield_ton_per_ha AS y, pl.lat AS lat, pl.lon AS lon "
+            "FROM training_feedback tf "
+            "JOIN prediction_log pl ON tf.prediction_log_id = pl.id "
+            "WHERE tf.crop_type = :c AND tf.actual_yield_ton_per_ha > 0 "
+            "AND pl.lat IS NOT NULL AND pl.lon IS NOT NULL"
+        ),
+        {"c": commodity},
+    ).fetchall()
+    if not rows:
+        return {}
+    cents = _kab_centroids(db)
+    if not cents:
+        return {}
+    agg: dict[str, list[float]] = {}
+    for fb in rows:
+        nearest = min(cents, key=lambda c: _haversine_km(fb.lat, fb.lon, c[1], c[2]))
+        agg.setdefault(nearest[0], []).append(float(fb.y))
+    return {
+        kode: {"yield_actual": round(sum(v) / len(v), 2), "count": len(v)}
+        for kode, v in agg.items()
+    }
+
+
 def _kab_produksi_map(db: Session, kodes: list[str], commodity: str) -> dict[str, dict]:
     """
     Per kabupaten: luas panen tahun terbaru + baseline yield (rata-rata <=3 tahun
@@ -537,6 +588,7 @@ async def list_predictions(
     # Baseline & luas panen per kabupaten dari data BPS (kabupaten_produksi);
     # fallback ke baseline provinsi kalau kabupaten itu belum ada datanya.
     prod_map = _kab_produksi_map(db, [r["kode"] for r in kab_rows], commodity)
+    fb_map = _feedback_by_kabupaten(db, commodity)  # yield aktual petani per kab
     bases: list[float] = []
     for r in kab_rows:
         info = prod_map.get(r["kode"], {})
@@ -563,7 +615,7 @@ async def list_predictions(
         yields = [_fallback_yield(commodity, r["id"]) for r in kab_rows]
 
     items = [
-        _assemble_prediction(r, commodity, b, y)
+        _assemble_prediction(r, commodity, b, y, fb_map.get(r["kode"]))
         for r, b, y in zip(kab_rows, bases, yields)
     ]
 
@@ -819,6 +871,7 @@ async def get_detail(
         if info.get("luas"):
             row["luas"] = info["luas"]
         kab_baseline = info.get("baseline")
+        actual = _feedback_by_kabupaten(db, commodity).get(r.kode)  # yield aktual petani
     elif region_id.startswith("PROV_"):
         # Mode provinsi
         code = region_id.removeprefix("PROV_")
