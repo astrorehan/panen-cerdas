@@ -71,28 +71,17 @@ async def _prewarm_series(sem, db, name, lat, lon, force):
 
 
 def _collect_targets(diy_only: bool):
-    """Return list of (name, lat, lon, crop_type)."""
-    targets: list[tuple[str, float, float, str]] = []
+    """Return list of (name, lat, lon, crop_type) untuk prewarm.
 
-    from predictions_router import KECAMATAN_DATA
-    for k in KECAMATAN_DATA:
-        targets.append((
-            f"DIY-{k['kecamatan']}",
-            k["lat"], k["lon"], "padi",
-        ))
-
-    if not diy_only:
-        import provinces_data
-        for p in provinces_data.all_provinces():
-            # Jangan skip DIY ("34") karena untuk peta nasional (province=ALL),
-            # DIY di-query dengan centroid tingkat provinsi, sedangkan KECAMATAN_DATA
-            # hanya mencakup 7 koordinat tingkat kecamatan di DIY yang berbeda.
-            targets.append((
-                f"PROV-{p.name}",
-                p.lat, p.lon, "padi",
-            ))
-
-    return targets
+    Level PROVINSI (centroid) — bikin peta nasional (province=ALL) cepat.
+    Kabupaten TIDAK di-prewarm: drill-down provinsi memakai batch cache-read +
+    refresh background, jadi cukup cepat tanpa menghangatkan 500+ titik/siklus.
+    """
+    import provinces_data
+    provs = provinces_data.all_provinces()
+    if diy_only:
+        provs = [p for p in provs if p.code == "34"]
+    return [(f"PROV-{p.name}", p.lat, p.lon, "padi") for p in provs]
 
 
 async def run_prewarm(

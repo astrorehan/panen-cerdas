@@ -114,27 +114,15 @@ async def main():
     init_db()
     db = SessionLocal()
 
-    # ── Kumpulkan target ──────────────────────────────────
+    # ── Kumpulkan target (level provinsi; kabupaten di-warm on-demand) ────
     targets: list[tuple[str, float, float, str]] = []  # (name, lat, lon, crop_type)
 
-    if not args.provinces_only:
-        from predictions_router import KECAMATAN_DATA
-        for k in KECAMATAN_DATA:
-            targets.append((
-                f"DIY-{k['kecamatan']}",
-                k["lat"], k["lon"], "padi",
-            ))
-
-    if not args.diy_only:
-        import provinces_data
-        for p in provinces_data.all_provinces():
-            # Jangan skip DIY ("34") karena untuk peta nasional (province=ALL),
-            # DIY di-query dengan centroid tingkat provinsi, sedangkan KECAMATAN_DATA
-            # hanya mencakup 7 koordinat tingkat kecamatan di DIY yang berbeda.
-            targets.append((
-                f"PROV-{p.name}",
-                p.lat, p.lon, "padi",
-            ))
+    import provinces_data
+    provs = provinces_data.all_provinces()
+    if args.diy_only:
+        provs = [p for p in provs if p.code == "34"]
+    for p in provs:
+        targets.append((f"PROV-{p.name}", p.lat, p.lon, "padi"))
 
     if not targets:
         logger.error("Tidak ada target — keluar.")
