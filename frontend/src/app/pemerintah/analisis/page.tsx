@@ -313,13 +313,6 @@ function DetailPageInner() {
               </div>
             </>
           )}
-          <div
-            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-            title="Tingkat kelengkapan data untuk komoditas ini"
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${dataTier(commodityParam, isDIY).dot}`} />
-            {dataTier(commodityParam, isDIY).label}
-          </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <KecamatanSelect
@@ -487,6 +480,9 @@ function DetailPageInner() {
             </CardHeader>
             <CardContent>
               <BacktestChart points={detail.backtest} mape={detail.backtest_mape} />
+              <p className="mt-2 text-[10px] leading-tight text-muted-foreground/30">
+                {dataTier(commodityParam, isDIY).label}
+              </p>
             </CardContent>
           </Card>
         </>
