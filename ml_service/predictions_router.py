@@ -215,6 +215,12 @@ def _kementan_baseline_yield(province: str, commodity: str) -> float | None:
     return sum(r["yield_ton_per_ha"] for r in last3) / len(last3)
 
 
+def _province_latest_luas(province: str, commodity: str) -> float | None:
+    """Luas panen Kementan tahun terbaru utk provinsi+komoditas. None kalau kosong."""
+    rows = kementan_data.trend(province, commodity)
+    return rows[-1]["luas_panen_ha"] if rows else None
+
+
 async def _predict_one(
     row: dict,
     commodity: CropType,
@@ -444,11 +450,47 @@ def _feedback_by_kabupaten(db: Session, commodity: str) -> dict[str, dict]:
     }
 
 
+def _kab_area_weights(db: Session, provinsi_kode: str) -> dict[str, float]:
+    """
+    Bobot alokasi per kabupaten = share luas panen PADI (data BPS) dalam provinsi.
+
+    Padi punya data per-kabupaten paling lengkap (453 kab) → dipakai sebagai
+    proxy "ukuran lahan pertanian" untuk membagi total provinsi komoditas yang
+    belum punya angka per-kabupaten. Bobot dijumlahkan = 1. Kalau provinsi tak
+    punya data padi kab sama sekali → bobot rata (1/n) atas semua kab di master.
+    """
+    rows = db.execute(
+        text(
+            "SELECT kode_kabupaten, SUM(luas_panen_ha) AS luas "
+            "FROM public.kabupaten_produksi "
+            "WHERE crop_type = 'padi' AND LEFT(kode_kabupaten, 2) = :pk "
+            "GROUP BY kode_kabupaten"
+        ),
+        {"pk": provinsi_kode},
+    ).fetchall()
+    total = sum(float(r.luas) for r in rows if r.luas)
+    if total > 0:
+        return {r.kode_kabupaten: float(r.luas) / total for r in rows if r.luas}
+    # Fallback: provinsi tanpa data padi kab → bagi rata ke semua kab di master.
+    allk = db.execute(
+        text("SELECT kode FROM public.kabupaten WHERE provinsi_kode = :pk"),
+        {"pk": provinsi_kode},
+    ).fetchall()
+    n = len(allk)
+    return {r.kode: 1.0 / n for r in allk} if n else {}
+
+
 def _kab_produksi_map(db: Session, kodes: list[str], commodity: str) -> dict[str, dict]:
     """
     Per kabupaten: luas panen tahun terbaru + baseline yield (rata-rata <=3 tahun
     terakhir) dari `kabupaten_produksi` (data BPS). Dipakai untuk produksi total
     & surplus_pct level kabupaten. {kode: {"luas": float|None, "baseline": float|None}}.
+
+    Komoditas yang BELUM punya angka per-kabupaten (mis. cabe/bawang) dialokasikan
+    dari total provinsi Kementan: luas = luas_provinsi x bobot lahan kab (share
+    padi), baseline = yield provinsi. Ini meniru pola data kab yang sudah ada
+    (yield seragam provinsi, luas dibagi per-kab → jumlah kab = total provinsi),
+    jadi peta/analisis konsisten dengan backtest dan tidak menampilkan 0 palsu.
     """
     if not kodes:
         return {}
@@ -473,6 +515,19 @@ def _kab_produksi_map(db: Session, kodes: list[str], commodity: str) -> dict[str
             "luas":     ys[-1][1],
             "baseline": (sum(last3) / len(last3)) if last3 else None,
         }
+
+    # Kab tanpa data riil untuk komoditas ini → alokasikan dari total provinsi.
+    missing = [k for k in kodes if k not in out]
+    if missing:
+        prov = provinces_data.by_code(missing[0][:2])
+        prov_luas = _province_latest_luas(prov.kementan_name, commodity) if prov else None
+        prov_base = _kementan_baseline_yield(prov.kementan_name, commodity) if prov else None
+        if prov and prov_luas and prov_base:
+            weights = _kab_area_weights(db, prov.code)
+            for kode in missing:
+                w = weights.get(kode)
+                if w:  # kab tanpa lahan padi (bobot 0) tetap jujur tanpa data
+                    out[kode] = {"luas": prov_luas * w, "baseline": prov_base}
     return out
 
 
@@ -817,6 +872,16 @@ def _build_backtest_kab(
         (r.tahun, r.yield_ton_per_ha, r.luas_panen_ha)
         for r in rows_db if r.yield_ton_per_ha
     )
+    # Komoditas belum ada di kabupaten_produksi (mis. cabe/bawang) → pakai backtest
+    # provinsi sebagai proxy. Konsisten dgn alokasi: yield bersifat intensif (per ha),
+    # alokasi luas tak mengubah kurva yield, jadi backtest kab = backtest provinsi.
+    if not actuals:
+        prov = provinces_data.by_code(province_code) if province_code else None
+        if prov:
+            return _build_backtest(
+                prov.kementan_name, commodity, province_code, predicted_yield
+            )
+        return [], None
     rows, mape, next_year = _backtest_from_actuals(actuals, commodity, province_code)
     if not rows and next_year is None:
         return [], None
