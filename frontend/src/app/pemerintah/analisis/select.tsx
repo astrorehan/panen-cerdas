@@ -18,14 +18,13 @@ export function KecamatanSelect({ options, currentId, mode = "kecamatan", commod
   const isProvince = mode === "province";
 
   const selectOptions = useMemo(() => {
-    const mapped = options.map((o) => ({
+    return options.map((o) => ({
       value: o.id,
       label:
         !isProvince && o.kecamatan && o.kecamatan !== o.kabupaten
           ? `${o.kecamatan} - Kab. ${o.kabupaten}`
           : o.kabupaten,
     }));
-    return [{ value: "", label: "-" }, ...mapped];
   }, [options, isProvince]);
 
   return (
