@@ -47,17 +47,24 @@ export default function PemerintahDashboardPage() {
     [provincesRes],
   );
 
-  const { data: summary, loading: loadingSummary } = useApi(
+  const { data: summary, loading: loadingSummary, error: summaryError } = useApi(
     apiPath.dashboardSummary(provinceKey, commodity),
     () => api.dashboard.summary(provinceKey, commodity),
   );
 
-  const { data: trend, loading: loadingTrend } = useApi(
+  const { data: trend, loading: loadingTrend, error: trendError } = useApi(
     apiPath.dashboardTrend(provinceKey, commodity),
     () => api.dashboard.trend(provinceKey, commodity),
   );
 
   const loading = loadingSummary || loadingTrend;
+
+  // Bedakan "server benar-benar tak bisa dihubungi" (fetch gagal) dari "server
+  // jalan tapi data kombinasi ini kosong" (HTTP 404). Pesan generik lama selalu
+  // bilang "backend mati" walau backend sehat — menyesatkan saat demo.
+  const fetchError = summaryError || trendError;
+  const backendDown =
+    !!fetchError && /failed to fetch|networkerror|load failed/i.test(fetchError);
 
   const activeCommodityLabel = useMemo(() => {
     return COMMODITIES.find((c) => c.id === commodity)?.label ?? "Padi";
@@ -84,15 +91,29 @@ export default function PemerintahDashboardPage() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
             <AlertCircle className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-xl font-semibold tracking-tight">
-            Backend tidak terhubung
-          </h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Jalankan{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
-              uvicorn ml_service.main:app --reload --port 8000
-            </code>
-          </p>
+          {backendDown ? (
+            <>
+              <h2 className="mt-4 text-xl font-semibold tracking-tight">
+                Backend tidak terhubung
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Jalankan{" "}
+                <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                  uvicorn ml_service.main:app --reload --port 8000
+                </code>
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 className="mt-4 text-xl font-semibold tracking-tight">
+                Data belum tersedia
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Belum ada data Kementan untuk kombinasi wilayah & komoditas ini.
+                Coba pilih provinsi atau komoditas lain.
+              </p>
+            </>
+          )}
         </div>
       </div>
     );

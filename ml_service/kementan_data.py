@@ -32,6 +32,8 @@ from typing import Optional
 
 import pandas as pd
 
+import provinces_data
+
 
 DATA_DIR = Path(__file__).parent / "data"
 KEMENTAN_CSV  = DATA_DIR / "kementan_produksi.csv"
@@ -79,17 +81,17 @@ def latest_year_for(province: str, crop_type: str) -> Optional[int]:
 
 
 def _normalize_province(p: str) -> str:
-    """Toleransi input frontend yang sering pakai casing/alias berbeda."""
-    p = (p or "").strip().upper()
-    aliases = {
-        "DIY":                       "DAERAH ISTIMEWA YOGYAKARTA",
-        "DI YOGYAKARTA":             "DAERAH ISTIMEWA YOGYAKARTA",
-        "YOGYAKARTA":                "DAERAH ISTIMEWA YOGYAKARTA",
-        "DKI":                       "DKI JAKARTA",
-        "DKI JAKARTA":               "DKI JAKARTA",
-        "JAKARTA":                   "DKI JAKARTA",
-    }
-    return aliases.get(p, p)
+    """Toleransi input frontend (casing/alias) -> nama persis di kolom CSV.
+
+    Sumber kebenaran tunggal: provinces_data, yang menyimpan `kementan_name`
+    (string persis di CSV) untuk tiap provinsi + alias umum. Ini mencegah
+    mismatch seperti "DKI Jakarta" (display) vs "DAERAH KHUSUS IBUKOTA JAKARTA"
+    (CSV) yang dulu bikin data provinsi tidak ketemu.
+    """
+    prov = provinces_data.get(p)
+    if prov:
+        return prov.kementan_name
+    return (p or "").strip().upper()
 
 
 def summary(province: str, year: Optional[int] = None) -> dict:
