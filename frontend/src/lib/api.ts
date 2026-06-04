@@ -16,7 +16,15 @@ import type {
   YieldTrend,
 } from "@/types";
 
+// Express gateway — dipakai untuk mutasi (predict, feedback, edit/hapus lahan)
+// yang punya logika DB di Express.
 const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4200";
+
+// FastAPI langsung — semua GET (dashboard, produksi, analisis, lahan, riwayat,
+// dst) ditembak ke sini, melewati Express. Ini memangkas 1 network hop + 1
+// service Render yang bisa cold-start. Fallback ke Express kalau env tak diset
+// (mis. dev satu-pintu), jadi tetap backward-compatible.
+const READ_BASE = process.env.NEXT_PUBLIC_ML_URL || BASE;
 const TTL_MS = 5 * 60 * 1000;
 
 type CacheEntry = { data: unknown; expiresAt: number; inflight?: Promise<unknown> };
@@ -74,7 +82,7 @@ async function get<T>(path: string, init?: RequestInit): Promise<T> {
   if (hit?.inflight) return hit.inflight as Promise<T>;
 
   const inflight = (async () => {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetch(`${READ_BASE}${path}`, {
       ...init,
       headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
       cache: "no-store",

@@ -317,7 +317,8 @@ Status saat ini: **dev/demo-ready, belum 100% deploy-ready**. Lihat checklist di
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://mhjxabdsfeaafawnoeyn.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<dari Supabase Dashboard>
-NEXT_PUBLIC_API_URL=https://<express-prod-url>
+NEXT_PUBLIC_API_URL=https://<express-prod-url>      # mutasi (predict/feedback/lahan)
+NEXT_PUBLIC_ML_URL=https://<ml-service-prod-url>    # semua GET, langsung ke FastAPI (buang 1 hop)
 ```
 
 **Express:**
@@ -344,7 +345,7 @@ RETRAIN_FEEDBACK_THRESHOLD=10
 - [x] **`backend-express/index.js`** — sudah `Number(process.env.PORT) || 4000`, kompatibel PaaS.
 - [ ] **`ml_service/.env`** — `DATABASE_URL` harus diisi password asli (saat ini masih `[YOUR-PASSWORD]`). Untuk deploy: set di env var hosting, jangan commit.
 - [ ] **`ml_service/main.py` line 377** — `uvicorn.run(..., port=8000, reload=True)`. Untuk prod, jangan dipakai (start lewat CLI: `uvicorn main:app --port $PORT`). Hapus `reload=True` di prod.
-- [ ] **CORS** — `ml_service/main.py:85` masih `allow_origins=["*"]`. Ganti ke `[FRONTEND_URL, EXPRESS_URL]` sebelum publish.
+- [ ] **CORS (WAJIB)** — frontend kini menembak FastAPI langsung untuk semua GET, jadi set env `ALLOWED_ORIGINS` di ml_service ke origin frontend (+ Express kalau perlu), mis. `https://<frontend>.vercel.app,https://panen-cerdas-express.onrender.com`. Default `*` jalan tapi jangan dipakai di prod.
 - [ ] **Runtime pin** — tambah `runtime.txt` (`python-3.12.8`) di `ml_service/` supaya Render/Railway pakai Python 3.12.
 - [ ] **`backend-express/.env`** vs prod env — `PORT=4400` di `.env` akan override `process.env.PORT`. Hapus baris `PORT=` di production env vars.
 - [ ] **Supabase URL `frontend/.env.local`** masih anon key legacy. Boleh tetap (still works) atau pindah ke `sb_publishable_*` key baru.

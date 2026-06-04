@@ -2,7 +2,10 @@ name: Keep Render Awake
 
 on:
   schedule:
-    # Jalan tiap 5 menit
+    # Jalan tiap 5 menit. Catatan: scheduled workflow GitHub sering telat
+    # 10-30 menit saat jam sibuk, sedangkan Render free tidur setelah 15 menit
+    # idle. Kalau cold start masih sering kejadian, pakai pinger eksternal
+    # (cron-job.org / UptimeRobot) yang jauh lebih tepat waktu.
     - cron: "*/5 * * * *"
 
   # Bisa dijalankan manual dari GitHub Actions tab
@@ -13,6 +16,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ping Render App
-        run: |
-          curl -I https://panen-cerdas-ml.onrender.com
+      # Ping KEDUA service. Rantai request browser melewati Express dulu baru
+      # FastAPI, jadi dua-duanya harus melek. Hit endpoint health (bukan -I /)
+      # supaya benar-benar membangunkan app, bukan cuma cek TCP.
+      - name: Ping ML service (FastAPI)
+        run: curl -fsS --max-time 60 https://panen-cerdas-ml.onrender.com/api/health || true
+
+      - name: Ping Express gateway
+        run: curl -fsS --max-time 60 https://panen-cerdas-express.onrender.com/api/health || true
