@@ -9,8 +9,7 @@ prewarm dijadwalkan sebagai `asyncio.create_task` — non-blocking, ml_service
 tetap menerima request sambil cache di-fill di background.
 
 Target koordinat = sama dengan CLI:
-  - 7 kecamatan DIY (pilot)
-  - 36 provinsi centroid (skip code 34 karena sudah di-cover DIY kecamatan)
+  - 37 provinsi centroid (level utama, kabupaten di-drill saat request)
 
 Mode default = single-point NDVI (period_days=-1, TTL 24 jam). Time-series
 (period_days=-2, TTL 7 hari) bisa diaktifkan via env `PREWARM_NDVI_SERIES=true`
@@ -21,8 +20,8 @@ Env:
   PREWARM_NDVI_SERIES      default "false". Set "true" untuk juga prewarm
                            time-series 2018-2025 (jauh lebih lama).
   PREWARM_NDVI_CONCURRENCY default "3". Jumlah task APPEEARS paralel.
-  PREWARM_NDVI_DIY_ONLY    default "false". Set "true" untuk hanya 7 kecamatan
-                           DIY (mempercepat demo lokal).
+  PREWARM_NDVI_DIY_ONLY    default "false". Set "true" untuk hanya provinsi DIY
+                           (mempercepat demo lokal).
 """
 
 import asyncio
@@ -204,7 +203,7 @@ async def _warm_climate(db, targets, period_days: int, force: bool = False) -> t
 
 
 def prewarm_climate(period_days: int = 30, force: bool = False) -> dict:
-    """Hangatkan cache iklim NASA POWER untuk 37 centroid provinsi + 7 kecamatan DIY.
+    """Hangatkan cache iklim NASA POWER untuk 37 centroid provinsi.
 
     Tujuan: peta nasional (/api/predictions?province=ALL) selalu cepat karena
     iklim tiap region sudah ada di cache. Default `force=False` pada boot/scheduler

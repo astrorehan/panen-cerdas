@@ -51,7 +51,6 @@ def _kab_features_by_prov() -> dict[str, list[dict]]:
             "id":        f"KAB_{kode}",
             "kode":      kode,
             "kabupaten": nama,
-            "kecamatan": nama,   # label region di frontend
             "name":      nama,
             "level":     "kabupaten",
         }

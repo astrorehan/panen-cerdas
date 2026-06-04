@@ -5,7 +5,7 @@ FastAPI service untuk prediksi panen berbasis Machine Learning dengan:
 - NDVI real dari **NASA APPEEARS/MODIS** (MOD13Q1 16-hari 250m)
 - 9 komoditas: **padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih**
 - Fitur **hama** + **varietas** sudah masuk schema & training
-- Multi-provinsi: **DIY pilot per-kecamatan** + **37 provinsi nasional** (centroid level)
+- Cakupan: **514 kabupaten/kota** (drill-down dari **37 provinsi nasional**, centroid level)
 - Online learning dari feedback petani — retrain otomatis tiap 10 feedback
 - Tiga model RandomForest scikit-learn: `harvest_days`, `yield`, `risk`
 
@@ -51,7 +51,7 @@ ml_service/
 │   ├── kementan_template.csv          ← ⚠️ Template lama (dummy 3 baris)
 │   ├── pest_data.csv             ← 🔶 Referensi dummy untuk synthetic
 │   ├── variety_data.csv          ← 🔶 Referensi dummy untuk synthetic
-│   └── yogyakarta_kecamatan.geojson ← 7 kecamatan DIY (Sleman, Bantul, KP, GK)
+│   └── kabupaten_indonesia.geojson ← polygon 514 kabupaten/kota (GADM L2, kode 4-digit)
 │
 ├── Data_Raw/                     ← CSV mentah Kementan per komoditas (sebelum convert)
 │   ├── produksi_*.csv
@@ -238,12 +238,11 @@ Semua endpoint pakai prefix `/api/`. Diakses lewat Express gateway (`:4200/api/*
 | DELETE | `/api/cache/expired` | Hapus cache expired |
 
 ### Mode `/api/predictions?province=`:
-- `province=DI Yogyakarta` → **7 kecamatan DIY** (kecamatan-level)
+- `province=DI Yogyakarta` (atau nama provinsi lain) → **semua kabupaten/kota** provinsi itu (drill-down, kabupaten-level)
 - `province=ALL` (alias: `Indonesia`, `Nasional`) → **37 provinsi** sekaligus (provincial-level)
-- `province=Jawa Barat` (atau nama provinsi lain) → **1 row provincial** (centroid + Kementan luas)
 
 ### Mode `/api/predictions/{region_id}`:
-- `region_id="3404130"` → kecamatan DIY (lookup `KECAMATAN_DATA`)
+- `region_id="KAB_3471"` → kabupaten/kota (lookup tabel Supabase `kabupaten`, kode 4-digit Kemendagri)
 - `region_id="PROV_32"` → provinsi (lookup Kementan code)
 
 ---
@@ -411,16 +410,16 @@ api.ml.predict(body, { petani_id: "petani_abc", lahan_id: "Petak Utara" });
 api.lahan.list("petani_abc");
 
 // Predictions dengan mode
-api.predictions.list("DI Yogyakarta", "padi");   // 7 kecamatan
+api.predictions.list("DI Yogyakarta", "padi");   // kabupaten/kota DIY (drill-down)
 api.predictions.list("ALL", "padi");              // 37 provinsi
-api.predictions.list("Jawa Barat", "jagung");    // 1 row provincial
+api.predictions.list("Jawa Barat", "jagung");    // kabupaten/kota Jawa Barat
 
 // Detail
-api.predictions.detail("3404130");      // kecamatan DIY
+api.predictions.detail("KAB_3471");     // kabupaten/kota (Kota Yogyakarta)
 api.predictions.detail("PROV_32");      // Jawa Barat provincial
 
 // Regions (geojson)
-api.regions.geojson("DI Yogyakarta");   // polygon kecamatan
+api.regions.geojson("DI Yogyakarta");   // polygon kabupaten/kota
 api.regions.geojson("ALL");             // 37 Point centroid
 api.regions.provinces();                // daftar 37 provinsi
 ```
@@ -512,13 +511,13 @@ Saat submit `/api/predict`, kirim `petani_id` (dari `getPetaniId()`) + `lahan_id
 
 3 kemungkinan: (1) APPEEARS credentials di `.env` belum diisi → `python scripts/test_appeears_login.py` untuk verify. (2) Cache koordinat belum diisi — pertama kali request ke koordinat baru, Express timeout 5 detik sebelum APPEEARS selesai (5-15 menit). Solusinya pre-warm: `python scripts/prewarm_ndvi_cache.py`. (3) APPEEARS sedang sibuk → task antri >20 menit → fallback. Coba lagi nanti.
 
-**Q: Multi-provinsi non-DIY return cuma 1 row, kenapa?**
+**Q: Bagaimana drill-down per kabupaten/kota bekerja?**
 
-Pilot kecamatan-level cuma untuk DIY (7 kecamatan punya centroid lat/lon + GeoJSON polygon real). Provinsi lain pakai centroid provinsi sebagai 1 row provincial-level. Tidak ada data kecamatan untuk 36 provinsi lain — itu butuh GeoJSON GADM level 3 + lookup luas pertanian per kecamatan yang belum tersedia.
+Setiap provinsi (termasuk non-DIY) di-drill-down ke semua kabupaten/kota-nya: row dibaca dari tabel Supabase `kabupaten` (kode 4-digit Kemendagri, centroid lat/lon dari GADM L2). Yield diprediksi per kabupaten dengan baseline Kementan provinsi induk; luas/produksi memakai data BPS per-kabupaten bila tersedia (`kabupaten_produksi`), selain itu 0 (jujur) sampai data masuk.
 
 **Q: Backtest 5 tahun di `/api/predictions/{id}` aktualnya dari mana?**
 
-Real dari `kementan_produksi.csv` (yield = produksi/luas_panen per provinsi per tahun). Untuk kecamatan DIY, backtest pakai data provinsi DIY sebagai proxy karena Kementan tidak rilis yield kecamatan-level.
+Real dari `kementan_produksi.csv` (yield = produksi/luas_panen per provinsi per tahun). Untuk kabupaten/kota, backtest pakai aktual `kabupaten_produksi` (BPS) bila ada; bila belum, dipakai data provinsi induk sebagai proxy.
 
 **Q: Apakah bisa pakai model tanpa hama/varietas?**
 

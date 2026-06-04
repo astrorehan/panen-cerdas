@@ -85,7 +85,7 @@ Endpoint yang sudah ada (lewat Express `:4200`):
 | POST | `/api/feedback` | ML service (`data/feedback.jsonl`) |
 | GET | `/api/dashboard/summary` | ML service dummy (untuk Pemerintah dashboard) |
 | GET | `/api/dashboard/trend` | ML service dummy |
-| GET | `/api/predictions` | ML service dummy (list kecamatan) |
+| GET | `/api/predictions` | ML service dummy (list kabupaten) |
 | GET | `/api/predictions/{id}` | ML service dummy (drill-down) |
 | GET | `/api/regions/geojson` | ML service dummy (peta) |
 

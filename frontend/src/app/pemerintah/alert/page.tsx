@@ -208,9 +208,6 @@ export default function AlertPage() {
                 </div>
                 <div>
                   <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    {item.kecamatan && item.kecamatan !== item.kabupaten && item.kecamatan !== "(Provinsi)"
-                      ? `Kec. ${item.kecamatan} - `
-                      : ""}
                     {item.kabupaten}
                   </div>
                   <h3 className="mt-1 text-lg font-semibold tracking-tight">

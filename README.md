@@ -1,10 +1,10 @@
 # PanenCerdas
 
-Platform prediksi panen dua-peran (petani + pemerintah) berbasis NDVI satelit MODIS, data cuaca NASA POWER, data historis Kementan produksi, dan tiga model RandomForest (scikit-learn). Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kecamatan/provinsi dan lembar peringatan defisit.
+Platform prediksi panen dua-peran (petani + pemerintah) berbasis NDVI satelit MODIS, data cuaca NASA POWER, data historis Kementan produksi, dan tiga model RandomForest (scikit-learn). Petani mengisi formulir prediksi per-lahan dan menerima rekomendasi tindakan; pemerintah memantau status pangan kabupaten/provinsi dan lembar peringatan defisit.
 
 **UNITY Competition #14 UNY 2026 — Software Development**
 
-**Status:** MVP feature-complete. NDVI real dari NASA APPEEARS (MODIS MOD13Q1), cuaca live NASA POWER, 9 komoditas terlatih (padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih), pilot DIY per-kecamatan + 37 provinsi nasional, online retraining tiap 10 feedback. Autentikasi + database via Supabase (email + password + role, Postgres `prediction_log` / `training_feedback` / `model_version` / `climate_cache`).
+**Status:** MVP feature-complete. NDVI real dari NASA APPEEARS (MODIS MOD13Q1), cuaca live NASA POWER, 9 komoditas terlatih (padi, jagung, kedelai, ubi_jalar, ubi_kayu, cabe_besar, cabe_rawit, bawang_merah, bawang_putih), 514 kabupaten/kota (drill-down dari 37 provinsi nasional), online retraining tiap 10 feedback. Autentikasi + database via Supabase (email + password + role, Postgres `prediction_log` / `training_feedback` / `model_version` / `climate_cache`).
 
 ## Arsitektur
 
@@ -193,9 +193,9 @@ Buka **http://localhost:3000** — akan diarahkan ke `/login` (atau `/register` 
 | Petani | `/petani/lahan` | Daftar lahan petani (derive dari `prediction_log`) |
 | Petani | `/petani/cuaca` | Prakiraan 7 hari (NASA POWER live) |
 | Pemerintah | `/pemerintah/dashboard` | KPI strip + tren produksi historis (real Kementan + DB) |
-| Pemerintah | `/pemerintah/produksi` | Choropleth status pangan per kecamatan/provinsi |
-| Pemerintah | `/pemerintah/analisis` | Deep-dive per kecamatan (NDVI series + backtest) |
-| Pemerintah | `/pemerintah/alert` | Daftar kecamatan defisit/waspada, terurut |
+| Pemerintah | `/pemerintah/produksi` | Choropleth status pangan per kabupaten/provinsi |
+| Pemerintah | `/pemerintah/analisis` | Deep-dive per kabupaten/kota (NDVI series + backtest) |
+| Pemerintah | `/pemerintah/alert` | Daftar kabupaten defisit/waspada, terurut |
 
 ## API
 
@@ -211,10 +211,10 @@ Express gateway pada `:4200` membungkus semua endpoint:
 | GET | `/api/dashboard/summary` | KPI pemerintah (real Kementan + DB) |
 | GET | `/api/dashboard/trend` | Tren produksi historis |
 | GET | `/api/predictions` | List prediksi (multi-provinsi) |
-| GET | `/api/predictions/:id` | Detail kecamatan (NDVI series + backtest) |
+| GET | `/api/predictions/:id` | Detail kabupaten/kota (NDVI series + backtest) |
 | GET | `/api/predictions/history` | Riwayat prediksi per petani |
 | GET | `/api/lahan` | Daftar lahan petani (derive dari `prediction_log`) |
-| GET | `/api/regions/geojson` | Polygon kecamatan / provinsi untuk peta |
+| GET | `/api/regions/geojson` | Polygon kabupaten / provinsi untuk peta |
 | GET | `/api/regions/provinces` | Lookup 37 provinsi (kode Kementan + centroid + alias) |
 
 Swagger ML service: http://localhost:8000/docs
@@ -264,7 +264,7 @@ panen-cerdas/
 │   ├── lahan_router.py               # /api/lahan
 │   ├── retrain_scheduler.py          # auto-retrain tiap N feedback / Minggu 02.00
 │   ├── scripts/                      # fetch_historical, prewarm_ndvi_cache, test_appeears_login
-│   ├── data/                         # kementan_produksi.csv, nasa_power_cache.csv, yogyakarta_kecamatan.geojson
+│   ├── data/                         # kementan_produksi.csv, nasa_power_cache.csv, kabupaten_indonesia.geojson
 │   ├── Data_Raw/                     # CSV mentah Kementan per komoditas
 │   ├── saved_models/                 # *.joblib artifacts (committed dari PanenPintar-V2)
 │   ├── .env                          # APPEEARS creds + Supabase DATABASE_URL (gitignored)

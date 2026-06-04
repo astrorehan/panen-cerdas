@@ -105,7 +105,7 @@ export default function PetaPage() {
 
   const isNational = provinceKey === "ALL";
 
-  // Pan map ke provinsi yang dipilih. DIY pakai centroid kecamatan, nasional
+  // Pan map ke provinsi yang dipilih. DIY pakai centroid kabupaten, nasional
   // pakai centroid Indonesia, provinsi lain pakai lat/lon dari Kementan.
   const mapView = useMemo<{ center: [number, number]; zoom: number }>(() => {
     if (isNational) return { center: [-2.5, 117.5], zoom: 5 };

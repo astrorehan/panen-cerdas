@@ -2,8 +2,7 @@
 prewarm_ndvi_cache.py
 ----------------------
 Pre-warm NDVI cache untuk semua koordinat penting:
-  - 7 kecamatan DIY (pilot region)
-  - 37 provinsi centroid (mode nasional)
+  - 37 provinsi centroid (level utama; kabupaten di-warm on-demand saat request)
 
 Dua mode cache yang bisa di-prewarm:
   1) Single-point NDVI (period_days=-1, TTL 24 jam)
@@ -18,13 +17,12 @@ Run:
     cd ml_service
     python scripts/prewarm_ndvi_cache.py                 # single-point saja
     python scripts/prewarm_ndvi_cache.py --with-series   # + time series
-    python scripts/prewarm_ndvi_cache.py --diy-only --with-series   # paling cepat untuk demo DIY
+    python scripts/prewarm_ndvi_cache.py --diy-only --with-series   # hanya provinsi DIY, paling cepat untuk demo
 
 Cache TTL: single-point 24 jam, series 7 hari.
 
 Optional flag:
-    --diy-only       hanya 7 kecamatan DIY (skip provinsi)
-    --provinces-only hanya 37 provinsi (skip kecamatan)
+    --diy-only       hanya provinsi DIY (kode 34)
     --with-series    juga prewarm time-series 2018-2025 (jauh lebih lama)
     --series-only    skip single-point, fetch hanya time-series
     --force          abaikan cache, refetch semua
@@ -100,7 +98,6 @@ async def prewarm_one_series(sem, db, name: str, lat: float, lon: float,
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--diy-only",       action="store_true")
-    parser.add_argument("--provinces-only", action="store_true")
     parser.add_argument("--with-series",    action="store_true",
                         help="Juga prewarm time-series 2018-2025 (lebih lambat)")
     parser.add_argument("--series-only",    action="store_true",

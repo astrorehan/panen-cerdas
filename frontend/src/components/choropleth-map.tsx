@@ -4,13 +4,13 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Feature, GeoJsonObject } from "geojson";
-import type { KecamatanPrediction, GeoJsonFC } from "@/types";
+import type { KabupatenPrediction, GeoJsonFC } from "@/types";
 import { STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import L from "leaflet";
 
 type Props = {
   geojson: GeoJsonFC;
-  predictions: KecamatanPrediction[];
+  predictions: KabupatenPrediction[];
   national?: boolean;
   center?: [number, number];
   zoom?: number;
@@ -32,7 +32,7 @@ export default function ChoroplethMap({
   onSelect,
 }: Props) {
   const byId = useMemo(() => {
-    const m = new Map<string, KecamatanPrediction>();
+    const m = new Map<string, KabupatenPrediction>();
     for (const p of predictions) m.set(p.id, p);
     return m;
   }, [predictions]);
@@ -97,25 +97,15 @@ export default function ChoroplethMap({
   const onEachFeature = (feature: Feature, layer: L.Layer) => {
     const props = feature.properties as {
       id?: string;
-      kecamatan?: string;
       kabupaten?: string;
       name?: string;
       level?: string;
     };
     const pred = props.id ? byId.get(props.id) : undefined;
     const isProvince = props.level === "province";
-    const isKabupaten = props.level === "kabupaten";
 
-    const title = isProvince
-      ? props.name
-      : isKabupaten
-        ? props.kabupaten
-        : props.kecamatan;
-    const subtitle = isProvince
-      ? "Provinsi"
-      : isKabupaten
-        ? "Kabupaten / Kota"
-        : `Kab. ${props.kabupaten ?? "-"}`;
+    const title = isProvince ? props.name : props.kabupaten;
+    const subtitle = isProvince ? "Provinsi" : "Kabupaten / Kota";
 
     const html = `
       <div style="font-family:var(--font-sans, system-ui);font-size:12px;line-height:1.5;min-width:220px;color:#0F1F18">

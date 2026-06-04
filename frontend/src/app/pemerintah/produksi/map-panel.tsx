@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import type { GeoJsonFC, KecamatanPrediction } from "@/types";
+import type { GeoJsonFC, KabupatenPrediction } from "@/types";
 
 const ChoroplethMap = dynamic(() => import("@/components/choropleth-map"), {
   ssr: false,
@@ -15,7 +15,7 @@ const ChoroplethMap = dynamic(() => import("@/components/choropleth-map"), {
 
 type Props = {
   geojson: GeoJsonFC;
-  predictions: KecamatanPrediction[];
+  predictions: KabupatenPrediction[];
   national?: boolean;
   center?: [number, number];
   zoom?: number;

@@ -8,7 +8,7 @@ Catatan integrasi (feat/integrate-mlservices-v2):
     OPSIONAL. Jika kosong dan lat/lon juga kosong → main.py akan isi default
     Indonesia (lihat data_fetcher.INDONESIA_DEFAULTS).
   - Tambah pest_pressure & variety (sudah didukung model.py internal).
-  - Tambah schema pemerintah (dashboard, predictions kecamatan, regions)
+  - Tambah schema pemerintah (dashboard, predictions kabupaten, regions)
     supaya FastAPI bisa melayani frontend /pemerintah/* lewat router terpisah.
 """
 
@@ -169,18 +169,17 @@ class YieldTrend(BaseModel):
     points: list[YieldPoint]
 
 
-# ── PEMERINTAH: PREDIKSI KECAMATAN ─────────────────────
-class KecamatanPrediction(BaseModel):
+# ── PEMERINTAH: PREDIKSI KABUPATEN/KOTA ─────────────────────
+class KabupatenPrediction(BaseModel):
     id: str
     kabupaten: str
-    kecamatan: str
     yield_pred_ton_per_ha: float
     luas_panen_ha: float
     produksi_pred_ton: float
     surplus_pct: float
     status: Literal["surplus", "cukup", "waspada", "defisit"]
     # Ground truth dari laporan panen petani (TrainingFeedback) yang lokasinya
-    # jatuh di kecamatan ini. None kalau belum ada laporan masuk.
+    # jatuh di kabupaten ini. None kalau belum ada laporan masuk.
     yield_actual_ton_per_ha: Optional[float] = None
     feedback_count: int = 0
 
@@ -189,7 +188,7 @@ class PredictionsResponse(BaseModel):
     province: str
     commodity: str
     season: str
-    items: list[KecamatanPrediction]
+    items: list[KabupatenPrediction]
 
 
 class NdviPoint(BaseModel):
@@ -197,8 +196,7 @@ class NdviPoint(BaseModel):
     ndvi: float
 
 
-class KecamatanDetail(BaseModel):
-    kecamatan: str
+class KabupatenDetail(BaseModel):
     kabupaten: str
     yield_pred_ton_per_ha: float
     luas_panen_ha: float
@@ -212,9 +210,9 @@ class KecamatanDetail(BaseModel):
     # None kalau tidak ada tahun yang bisa diprediksi (mis. tak ada data iklim).
     backtest_mape: Optional[float] = None
     # Surplus/defisit + status pangan region ini (sama perhitungan dengan
-    # KecamatanPrediction) — supaya halaman detail tidak perlu memuat list.
+    # KabupatenPrediction) — supaya halaman detail tidak perlu memuat list.
     surplus_pct: float = 0.0
     status: Literal["surplus", "cukup", "waspada", "defisit"] = "cukup"
-    # Agregat laporan panen petani untuk kecamatan ini (None = belum ada).
+    # Agregat laporan panen petani untuk kabupaten ini (None = belum ada).
     yield_actual_ton_per_ha: Optional[float] = None
     feedback_count: int = 0

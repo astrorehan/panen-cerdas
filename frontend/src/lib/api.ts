@@ -4,7 +4,7 @@ import type {
   FeedbackRequest,
   FeedbackResponse,
   GeoJsonFC,
-  KecamatanDetail,
+  KabupatenDetail,
   LahanResponse,
   PredictionHistoryResponse,
   PredictionsResponse,
@@ -128,7 +128,7 @@ export const api = {
     list: (province = "DI Yogyakarta", commodity = "padi", season = "MT 2024-1") =>
       get<PredictionsResponse>(apiPath.predictionsList(province, commodity, season)),
     detail: (id: string, commodity = "padi") =>
-      get<KecamatanDetail>(apiPath.predictionsDetail(id, commodity)),
+      get<KabupatenDetail>(apiPath.predictionsDetail(id, commodity)),
     history: (petani_id?: string, lahan_id?: string, limit = 50) =>
       get<PredictionHistoryResponse>(apiPath.predictionsHistory(petani_id, lahan_id, limit)),
   },

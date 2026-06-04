@@ -9,7 +9,7 @@ import { api, apiPath } from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { formatNumber, STATUS_COLOR, STATUS_LABEL } from "@/lib/utils";
 import dynamic from "next/dynamic";
-import { KecamatanSelect } from "./select";
+import { KabupatenSelect } from "./select";
 // Recharts is heavy; load these charts on demand to keep the page bundle lean.
 const NdviChart = dynamic(
   () => import("./ndvi-chart").then((m) => m.NdviChart),
@@ -175,7 +175,7 @@ function DetailPageInner() {
   // Daftar kab/kota untuk dropdown: ikut provinsi region terpilih bila lintas-provinsi.
   const listProvinceName =
     (regionProvCode && CODE_TO_PROV[regionProvCode]) || homeProvinceName;
-  const { data: kecList, loading: loadingKec } = useApi(
+  const { data: kabList, loading: loadingKab } = useApi(
     isProvinceLevel ? null : apiPath.predictionsList(listProvinceName, commodityParam),
     () => api.predictions.list(listProvinceName, commodityParam),
   );
@@ -189,7 +189,7 @@ function DetailPageInner() {
     () => api.regions.provinces(),
   );
 
-  const selectedId = tempId ?? kecList?.items[0]?.id;
+  const selectedId = tempId ?? kabList?.items[0]?.id;
 
   const { data: detail, loading: loadingDetail } = useApi(
     selectedId ? apiPath.predictionsDetail(selectedId, commodityParam) : null,
@@ -198,15 +198,15 @@ function DetailPageInner() {
 
   const options = isProvinceLevel
     ? (provDir?.items ?? []).map((p) => ({ id: p.id, kabupaten: p.name }))
-    : (kecList?.items ?? []);
+    : (kabList?.items ?? []);
 
   const provinceLabel = isProvinceLevel
     ? "Indonesia"
-    : kecList?.province ?? "DI Yogyakarta";
+    : kabList?.province ?? "DI Yogyakarta";
 
   const initialLoading = isProvinceLevel
     ? !detail && loadingDetail
-    : loadingKec && !kecList;
+    : loadingKab && !kabList;
 
   if (initialLoading) {
     return (
@@ -254,10 +254,10 @@ function DetailPageInner() {
     );
   }
 
-  // Backend mati: mode kecamatan tak dapat daftar, mode provinsi tak dapat detail.
+  // Backend mati: mode kabupaten tak dapat daftar, mode provinsi tak dapat detail.
   const backendDown = isProvinceLevel
     ? !loadingDetail && !detail
-    : !loadingKec && !kecList;
+    : !loadingKab && !kabList;
   if (backendDown) {
     return (
       <div className="container py-12">
@@ -306,7 +306,7 @@ function DetailPageInner() {
           ) : (
             <>
               <div className="mt-1 text-2xl font-semibold tracking-tight">
-                {detail?.kabupaten ?? detail?.kecamatan ?? "-"}
+                {detail?.kabupaten ?? "-"}
               </div>
               <div className="mt-0.5 text-sm text-muted-foreground">
                 Kabupaten / Kota · {provinceLabel}
@@ -315,10 +315,10 @@ function DetailPageInner() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <KecamatanSelect
+          <KabupatenSelect
             options={options}
             currentId={selectedId}
-            mode={isProvinceLevel ? "province" : "kecamatan"}
+            mode={isProvinceLevel ? "province" : "kabupaten"}
             commodity={commodityParam}
           />
           <CustomSelect

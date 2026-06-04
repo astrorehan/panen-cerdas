@@ -26,16 +26,15 @@ export type YieldTrend = {
   points: YieldPoint[];
 };
 
-export type KecamatanPrediction = {
+export type KabupatenPrediction = {
   id: string;
   kabupaten: string;
-  kecamatan: string;
   yield_pred_ton_per_ha: number;
   luas_panen_ha: number;
   produksi_pred_ton: number;
   surplus_pct: number;
   status: StatusPangan;
-  // Yield aktual dari laporan panen petani di kecamatan ini (null = belum ada).
+  // Yield aktual dari laporan panen petani di kabupaten ini (null = belum ada).
   yield_actual_ton_per_ha?: number | null;
   feedback_count?: number;
 };
@@ -44,13 +43,12 @@ export type PredictionsResponse = {
   province: string;
   commodity: string;
   season: string;
-  items: KecamatanPrediction[];
+  items: KabupatenPrediction[];
 };
 
 export type NdviPoint = { date: string; ndvi: number };
 
-export type KecamatanDetail = {
-  kecamatan: string;
+export type KabupatenDetail = {
   kabupaten: string;
   yield_pred_ton_per_ha: number;
   luas_panen_ha: number;
@@ -68,7 +66,7 @@ export type KecamatanDetail = {
 export type GeoFeature =
   | {
       type: "Feature";
-      properties: { id: string; kabupaten: string; kecamatan: string };
+      properties: { id: string; kabupaten: string; name: string; level: "kabupaten" };
       geometry: { type: "Polygon"; coordinates: number[][][] };
     }
   | {
@@ -87,7 +85,7 @@ export type GeoFeature =
 
 export type GeoJsonFC = {
   type: "FeatureCollection";
-  level?: "kecamatan" | "province";
+  level?: "kabupaten" | "province";
   features: GeoFeature[];
 };
 

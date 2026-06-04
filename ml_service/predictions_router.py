@@ -45,8 +45,8 @@ import kementan_data
 import provinces_data
 from schemas import (
     CropType,
-    KecamatanDetail,
-    KecamatanPrediction,
+    KabupatenDetail,
+    KabupatenPrediction,
     NdviPoint,
     PredictInput,
     PredictionsResponse,
@@ -229,10 +229,10 @@ async def _predict_one(
     baseline_yield: float | None = None,
     actual: dict | None = None,
     allow_stale: bool = False,
-) -> KecamatanPrediction:
+) -> KabupatenPrediction:
     """
     Prediksi 1 region (kabupaten/kota ATAU provinsi). Region row schema:
-        {id, kabupaten, kecamatan, lat, lon, luas}
+        {id, kabupaten, lat, lon, luas}
 
     `baseline_yield` overrides national baseline untuk hitung surplus_pct.
     Dipakai mode provinsi dengan baseline yield Kementan 3 tahun terakhir.
@@ -271,7 +271,7 @@ async def _predict_one(
             yield_pred = round(result.yield_ton_per_ha, 2)
             src = result.model_source
         except Exception as e:
-            logger.warning(f"predict {row['kecamatan']} gagal: {e} — pakai fallback")
+            logger.warning(f"predict {row['kabupaten']} gagal: {e} — pakai fallback")
             yield_pred = _fallback_yield(commodity, row["id"])
     else:
         yield_pred = _fallback_yield(commodity, row["id"])
@@ -280,14 +280,13 @@ async def _predict_one(
     produksi = round(yield_pred * row["luas"])
 
     logger.debug(
-        f"{row['kecamatan']}: yield={yield_pred} t/ha "
+        f"{row['kabupaten']}: yield={yield_pred} t/ha "
         f"(src={src}, base={base:.2f}, surplus={surplus_pct}%)"
     )
 
-    return KecamatanPrediction(
+    return KabupatenPrediction(
         id=row["id"],
         kabupaten=row["kabupaten"],
-        kecamatan=row["kecamatan"],
         yield_pred_ton_per_ha=yield_pred,
         luas_panen_ha=row["luas"],
         produksi_pred_ton=produksi,
@@ -323,14 +322,13 @@ def _assemble_prediction(
     base: float,
     yield_pred: float,
     actual: dict | None = None,
-) -> KecamatanPrediction:
-    """Rakit KecamatanPrediction dari yield yang sudah dihitung (tanpa I/O)."""
+) -> KabupatenPrediction:
+    """Rakit KabupatenPrediction dari yield yang sudah dihitung (tanpa I/O)."""
     surplus_pct = round((yield_pred - base) / base * 100.0, 1)
     produksi = round(yield_pred * row["luas"])
-    return KecamatanPrediction(
+    return KabupatenPrediction(
         id=row["id"],
         kabupaten=row["kabupaten"],
-        kecamatan=row["kecamatan"],
         yield_pred_ton_per_ha=yield_pred,
         luas_panen_ha=row["luas"],
         produksi_pred_ton=produksi,
@@ -362,7 +360,6 @@ def _province_row(province: str, commodity: str) -> dict | None:
     return {
         "id":        f"PROV_{prov.code}",
         "kabupaten": prov.name,
-        "kecamatan": "(Provinsi)",
         "lat":       prov.lat,
         "lon":       prov.lon,
         "luas":      luas,
@@ -390,7 +387,6 @@ def _kabupaten_rows(db: Session, provinsi_kode: str) -> list[dict]:
             "id":        f"KAB_{r.kode}",
             "kode":      r.kode,
             "kabupaten": r.nama,
-            "kecamatan": r.nama,   # dipakai sbg label region oleh frontend
             "lat":       float(r.lat),
             "lon":       float(r.lon),
             "luas":      0.0,
@@ -893,12 +889,12 @@ def _build_backtest_kab(
     return points, mape
 
 
-@router.get("/{region_id}", response_model=KecamatanDetail)
+@router.get("/{region_id}", response_model=KabupatenDetail)
 async def get_detail(
     region_id: str,
     commodity: CropType = "padi",
     db: Session = Depends(get_db),
-) -> KecamatanDetail:
+) -> KabupatenDetail:
     """
     Detail per region.
 
@@ -927,7 +923,7 @@ async def get_detail(
             raise HTTPException(status_code=404, detail=f"Kabupaten kode '{kode}' tidak ditemukan")
         row = {
             "id": region_id, "kode": r.kode, "kabupaten": r.nama,
-            "kecamatan": r.nama, "lat": float(r.lat), "lon": float(r.lon), "luas": 0.0,
+            "lat": float(r.lat), "lon": float(r.lon), "luas": 0.0,
         }
         prov = provinces_data.by_code(r.provinsi_kode)
         kementan_province_name = prov.kementan_name if prov else (r.provinsi_nama or "")
@@ -994,8 +990,7 @@ async def get_detail(
             predicted_yield=pred.yield_pred_ton_per_ha,
         )
 
-    return KecamatanDetail(
-        kecamatan=row["kecamatan"],
+    return KabupatenDetail(
         kabupaten=row["kabupaten"],
         yield_pred_ton_per_ha=pred.yield_pred_ton_per_ha,
         luas_panen_ha=row["luas"],

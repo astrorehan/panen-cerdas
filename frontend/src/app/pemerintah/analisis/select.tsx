@@ -4,28 +4,25 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { CustomSelect } from "@/components/ui/select-custom";
 
-type SelectOption = { id: string; kabupaten: string; kecamatan?: string };
+type SelectOption = { id: string; kabupaten: string };
 
 type Props = {
   options: SelectOption[];
   currentId?: string;
-  mode?: "kecamatan" | "province";
+  mode?: "kabupaten" | "province";
   commodity?: string;
 };
 
-export function KecamatanSelect({ options, currentId, mode = "kecamatan", commodity }: Props) {
+export function KabupatenSelect({ options, currentId, mode = "kabupaten", commodity }: Props) {
   const router = useRouter();
   const isProvince = mode === "province";
 
   const selectOptions = useMemo(() => {
     return options.map((o) => ({
       value: o.id,
-      label:
-        !isProvince && o.kecamatan && o.kecamatan !== o.kabupaten
-          ? `${o.kecamatan} - Kab. ${o.kabupaten}`
-          : o.kabupaten,
+      label: o.kabupaten,
     }));
-  }, [options, isProvince]);
+  }, [options]);
 
   return (
     <CustomSelect

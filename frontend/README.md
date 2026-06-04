@@ -32,7 +32,7 @@ frontend/
     app/
       page.tsx            # Dashboard (route: /)
       peta/page.tsx       # Peta Prediksi
-      detail/page.tsx     # Detail Kecamatan
+      detail/page.tsx     # Detail Kabupaten/Kota
       tentang/page.tsx    # Tentang
       layout.tsx
       globals.css
